@@ -20,6 +20,14 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      - name: Configure OpenMP (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get install -y libgomp1
+          echo "CC=gcc" >> $GITHUB_ENV
+          echo "CFLAGS=-fopenmp" >> $GITHUB_ENV
+          echo "LDFLAGS=-fopenmp" >> $GITHUB_ENV
+
       - name: Install OpenMP (macOS only)
         if: runner.os == 'macOS'
         run: |
