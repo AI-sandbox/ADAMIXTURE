@@ -24,10 +24,10 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           brew install libomp
+          LIBOMP_PREFIX=$(brew --prefix libomp)
           echo "CC=/usr/bin/clang" >> $GITHUB_ENV
-          echo "CFLAGS=-Xpreprocessor -fopenmp -I$(brew --prefix libomp)/include" >> $GITHUB_ENV
-          echo "LDFLAGS=-L$(brew --prefix libomp)/lib -lomp" >> $GITHUB_ENV
-          echo "DYLD_LIBRARY_PATH=$(brew --prefix libomp)/lib" >> $GITHUB_ENV
+          echo "CFLAGS=-Xpreprocessor -fopenmp -I${LIBOMP_PREFIX}/include" >> $GITHUB_ENV
+          echo "LDFLAGS=-L${LIBOMP_PREFIX}/lib -lomp -Wl,-rpath,${LIBOMP_PREFIX}/lib" >> $GITHUB_ENV
 
       - name: Install dependencies
         run: |
