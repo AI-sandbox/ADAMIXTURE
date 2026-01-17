@@ -27,6 +27,7 @@ jobs:
           echo "CC=/usr/bin/clang" >> $GITHUB_ENV
           echo "CFLAGS=-Xpreprocessor -fopenmp -I$(brew --prefix libomp)/include" >> $GITHUB_ENV
           echo "LDFLAGS=-L$(brew --prefix libomp)/lib -lomp" >> $GITHUB_ENV
+          echo "DYLD_LIBRARY_PATH=$(brew --prefix libomp)/lib" >> $GITHUB_ENV
 
       - name: Install dependencies
         run: |
