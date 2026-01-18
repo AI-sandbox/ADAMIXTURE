@@ -64,6 +64,3 @@ def main(args: List[str], t0: float):
     except Exception as e:
         log.error(f"Unexpected error: {e}")
         logging.shutdown()
-
-if __name__ == '__main__':
-    main(sys.argv[1:])
