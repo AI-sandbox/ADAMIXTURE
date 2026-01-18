@@ -60,6 +60,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
+      - name: Set up QEMU
+        if: runner.os == 'Linux'
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: all
+
       - name: Install OpenMP (macOS)
         if: runner.os == 'macOS'
         run: brew install libomp
