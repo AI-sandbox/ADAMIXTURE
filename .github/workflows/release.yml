@@ -68,6 +68,12 @@ jobs:
         uses: pypa/cibuildwheel@v2.19.2
         env:
           CIBW_BUILD: cp310-* cp311-* cp312-*
+
+          CIBW_SKIP: "pp* *musllinux* *i686*"
+
+          CIBW_ARCHS_LINUX: "x86_64 aarch64"
+          CIBW_ARCHS_MACOS: "x86_64 arm64"
+
           CIBW_ENVIRONMENT_MACOS: >
             MACOSX_DEPLOYMENT_TARGET=14.0
             CC=/usr/bin/clang
