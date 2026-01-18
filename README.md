@@ -3,8 +3,7 @@
 ![PyPI - License](https://img.shields.io/pypi/l/adamixture)
 ![PyPI - Status](https://img.shields.io/pypi/status/adamixture)
 ![PyPI - Downloads](https://img.shields.io/pypi/dm/adamixture)
-[![DOI](https://zenodo.org/badge/331290967.svg)](https://zenodo.org/badge/latestdoi/331290967)
-
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18289231.svg)](https://doi.org/10.5281/zenodo.18289231)
 # ADAMIXTURE: Adaptive First-Order Optimization for Biobank-Scale Ancestry Inference
 
 ADAMIXTURE is an unsupervised global ancestry inference method that scales the ADMIXTURE model to biobank-sized datasets. It combines the Expectation–Maximization (EM) framework with the ADAM first-order optimizer, enabling parameter updates after a single EM step. This approach accelerates convergence while maintaining comparable or improved accuracy, substantially reducing runtime on large genotype datasets. For more information, we recommend reading [our pre-print]().
