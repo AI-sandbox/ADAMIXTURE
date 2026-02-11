@@ -57,8 +57,7 @@ def optimize_parameters(G: np.ndarray, P: np.ndarray, Q: np.ndarray, lr: float,
                         check: int, K: int, M: int, N: int, lr_decay: float, min_lr: float):
     """
     Description:
-    Optimizes the P and Q matrices using a hybrid approach of Adam-accelerated EM and 
-    Quasi-Newton refinement.
+    Optimizes the P and Q matrices using Adam-accelerated EM .
 
     Args:
         G (np.ndarray): Input genotype matrix.
