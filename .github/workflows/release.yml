@@ -59,6 +59,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
       
       - name: Install OpenMP (macOS)
         if: runner.os == 'macOS'
@@ -95,6 +98,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
       - name: Build sdist
         run: pipx run build --sdist
       - uses: actions/upload-artifact@v4
