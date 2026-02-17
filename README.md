@@ -119,4 +119,5 @@ $ adamixture --k 8 ... | tee run.log
 ## Cite
 
 When using this software, please cite the following pre-print:
-Saurina-i-Ricós, J., Mas Monserrrat, D. and Ioannidis, A.G., 2026. ADAMIXTURE: Adaptive First-Order Optimization for Biobank-Scale Genetic Clustering. bioRxiv, 2026-02.
+
+Saurina-i-Ricós, J., Mas Monserrrat, D. and Ioannidis, A.G., 2026. ADAMIXTURE: Adaptive First-Order Optimization for Biobank-Scale Genetic Clustering. bioRxiv.
