@@ -63,6 +63,12 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
       
+      - name: Export Clean Version
+        run: |
+          CLEAN_VERSION="${GITHUB_REF_NAME#v}"
+          echo "SETUPTOOLS_SCM_PRETEND_VERSION=$CLEAN_VERSION" >> $GITHUB_ENV
+          echo "Versión forzada a: $CLEAN_VERSION"
+
       - name: Install OpenMP (macOS)
         if: runner.os == 'macOS'
         run: brew install libomp
@@ -70,11 +76,11 @@ jobs:
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.19.2
         env:
+          SETUPTOOLS_SCM_PRETEND_VERSION: ${{ env.SETUPTOOLS_SCM_PRETEND_VERSION }}
           CIBW_BUILD: cp310-* cp311-* cp312-*
           CIBW_SKIP: "pp* *musllinux* *i686*"
 
           CIBW_ARCHS_LINUX: "x86_64"
-          
           CIBW_ARCHS_MACOS: "x86_64 arm64"
 
           CIBW_ENVIRONMENT_MACOS: >
@@ -82,10 +88,12 @@ jobs:
             CC=/usr/bin/clang
             CFLAGS="-Xpreprocessor -fopenmp -I$(brew --prefix libomp)/include"
             LDFLAGS="-L$(brew --prefix libomp)/lib -lomp -Wl,-rpath,$(brew --prefix libomp)/lib"
+            SETUPTOOLS_SCM_PRETEND_VERSION=${{ env.SETUPTOOLS_SCM_PRETEND_VERSION }}
           
           CIBW_ENVIRONMENT_LINUX: >
             CFLAGS="-fopenmp"
             LDFLAGS="-fopenmp"
+            SETUPTOOLS_SCM_PRETEND_VERSION=${{ env.SETUPTOOLS_SCM_PRETEND_VERSION }}
 
       - uses: actions/upload-artifact@v4
         with:
@@ -102,8 +110,16 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
+      - name: Export Clean Version
+        run: |
+          CLEAN_VERSION="${GITHUB_REF_NAME#v}"
+          echo "SETUPTOOLS_SCM_PRETEND_VERSION=$CLEAN_VERSION" >> $GITHUB_ENV
+
       - name: Build sdist
         run: pipx run build --sdist
+        env:
+          SETUPTOOLS_SCM_PRETEND_VERSION: ${{ env.SETUPTOOLS_SCM_PRETEND_VERSION }}
+
       - uses: actions/upload-artifact@v4
         with:
           name: manual-sdist
