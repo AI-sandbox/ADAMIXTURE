@@ -7,7 +7,6 @@ import os
 import platform
 
 from ._version import __version__
-from .src import utils
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
 log = logging.getLogger(__name__)
@@ -74,6 +73,17 @@ def main():
     arg_list = tuple(sys.argv)
     args = parse_args(arg_list[1:])
     
+    # CONTROL THREADS:
+    th = str(args.threads)
+    os.environ["MKL_NUM_THREADS"] = th
+    os.environ["MKL_MAX_THREADS"] = th
+    os.environ["OMP_NUM_THREADS"] = th
+    os.environ["OMP_MAX_THREADS"] = th
+    os.environ["NUMEXPR_NUM_THREADS"] = th
+    os.environ["NUMEXPR_MAX_THREADS"] = th
+    os.environ["OPENBLAS_NUM_THREADS"] = th
+    os.environ["OPENBLAS_MAX_THREADS"] = th
+
     # CONTROL TIME:
     t0 = time.time()
     
@@ -95,19 +105,9 @@ def main():
         sys.exit(1)
     
     # CONTROL SEED:
+    from .src import utils
     utils.set_seed(args.seed)
 
-    # CONTROL THREADS:
-    th = str(args.threads)
-    os.environ["MKL_NUM_THREADS"] = th
-    os.environ["MKL_MAX_THREADS"] = th
-    os.environ["OMP_NUM_THREADS"] = th
-    os.environ["OMP_MAX_THREADS"] = th
-    os.environ["NUMEXPR_NUM_THREADS"] = th
-    os.environ["NUMEXPR_MAX_THREADS"] = th
-    os.environ["OPENBLAS_NUM_THREADS"] = th
-    os.environ["OPENBLAS_MAX_THREADS"] = th
-    
     log.info(f"    Using {th} threads...")
     
     from .src import main

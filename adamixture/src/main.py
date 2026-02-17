@@ -3,9 +3,7 @@ import logging
 import sys
 import time
 from pathlib import Path
-from typing import List
 from argparse import ArgumentError, ArgumentTypeError
-from pathlib import Path
 import numpy as np
 
 from . import utils
@@ -34,7 +32,7 @@ def fit_model(args: argparse.Namespace, G: np.ndarray) -> None:
 
     return
 
-def main(args: List[str], t0: float):
+def main(args: argparse.Namespace, t0: float):
     """Training entry point
     """
     try:        
