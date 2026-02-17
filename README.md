@@ -6,7 +6,7 @@
 [![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.18289231-blue)](https://doi.org/10.5281/zenodo.18289231)
 # ADAMIXTURE: Adaptive First-Order Optimization for Biobank-Scale Ancestry Inference
 
-ADAMIXTURE is an unsupervised global ancestry inference method that scales the ADMIXTURE model to biobank-sized datasets. It combines the Expectation–Maximization (EM) framework with the ADAM first-order optimizer, enabling parameter updates after a single EM step. This approach accelerates convergence while maintaining comparable or improved accuracy, substantially reducing runtime on large genotype datasets. For more information, we recommend reading [our pre-print]().
+ADAMIXTURE is an unsupervised global ancestry inference method that scales the ADMIXTURE model to biobank-sized datasets. It combines the Expectation–Maximization (EM) framework with the ADAM first-order optimizer, enabling parameter updates after a single EM step. This approach accelerates convergence while maintaining comparable or improved accuracy, substantially reducing runtime on large genotype datasets. For more information, we recommend reading [our pre-print](https://www.biorxiv.org/content/10.64898/2026.02.13.700171v1.abstract).
 
 The software can be invoked via CLI and has a similar interface to ADMIXTURE (_e.g._ the output format is completely interchangeable).
 
@@ -119,3 +119,4 @@ $ adamixture --k 8 ... | tee run.log
 ## Cite
 
 When using this software, please cite the following pre-print:
+Saurina-i-Ricós, J., Mas Monserrrat, D. and Ioannidis, A.G., 2026. ADAMIXTURE: Adaptive First-Order Optimization for Biobank-Scale Genetic Clustering. bioRxiv, 2026-02.
