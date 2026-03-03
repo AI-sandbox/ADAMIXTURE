@@ -99,11 +99,11 @@ def ALS(G: np.ndarray, U: np.ndarray, S: np.ndarray, V: np.ndarray, f: np.ndarra
             np.copyto(Q0, Q)
     
     total_time = time.time() - t0
-    log.info(f"        Total ALS time={total_time:.4f}s")
+    log.info(f"        Total time for ALS={total_time:.4f}s\n")
     P = P.astype(np.float64)
     Q = Q.astype(np.float64)
     logl = tools.loglikelihood(G, P, Q)
-    log.info(f"    Initial log-likelihood for K={K}: {logl:2f}.") 
+    log.info(f"    Initial log-likelihood for K={K}: {logl:2f}.\n") 
     return P, Q
 
 def train(G: np.ndarray, K: int, seed: int, lr: float, beta1: float, 
@@ -134,25 +134,22 @@ def train(G: np.ndarray, K: int, seed: int, lr: float, beta1: float,
     Returns:
         tuple[np.ndarray, np.ndarray]: Optimized P and Q matrices.
     """
-    log.info("    Running initialization...")
-    log.info("\n")
+    log.info("    Running initialization...\n")
     M, N = G.shape
 
-    log.info("    Frequencies calculated...")
+    log.info("    Frequencies calculated...\n")
     f = np.zeros(M, dtype=np.float32)
     tools.alleleFrequency(G, f, M, N)
     
     # SVD + ALS:
-    log.info("    Running RSVD...")
-    log.info("\n")
+    log.info("    Running RSVD...\n")
     U, S, V = RSVD(G, N, M, f, K, seed, power, tole_svd)
     log.info("    Running ALS...")
     P, Q = ALS(G, U, S, V, f, seed, M, N, K, max_als, tole_als, reg_als)
     del U, S, V, f
     
     # ADAM EM:
-    log.info("    Adam expectation maximization running...")
-    log.info("")
+    log.info("    Adam-EM running...\n")
     P, Q = optimize_parameters(G, P, Q, lr, beta1, beta2, reg_adam, max_iter, 
                             check, K, M, N, lr_decay, min_lr)
     del G

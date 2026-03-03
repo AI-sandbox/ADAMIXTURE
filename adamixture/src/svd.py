@@ -83,13 +83,13 @@ def RSVD(G: np.ndarray, N: int, M: int, f: np.ndarray, k: int, seed: int,
     G_small = np.zeros((M, k_prime), dtype=np.float32)
 
     # Prime iteration:
-    log.info("    1) Prime iteration (Y = A @ Omega) ...")
+    log.info("    1) Prime iteration...")
     t_prime = time.time()
     Omega = rng.standard_normal(size=(M, k_prime), dtype=np.float32)
     rsvd.multiply_AT_omega(G, Omega, f, Y)
     Q, _, _ = eigSVD(Y)
     Y.fill(0.0)
-    log.info(f"        prime iter time={time.time() - t_prime:.4f}s")
+    log.info(f"        time={time.time() - t_prime:.4f}s")
 
     # Power iterations:
     log.info("    2) Power iterations...")
@@ -121,25 +121,25 @@ def RSVD(G: np.ndarray, N: int, M: int, f: np.ndarray, k: int, seed: int,
         G_small.fill(0.0)
         Y.fill(0.0)
             
-    log.info(f"        power iterations time={time.time() - t_power:.4f}s")
+    log.info(f"        time={time.time() - t_power:.4f}s")
 
     # Final SVD:
-    log.info("    3) Build small matrix G_small = A^T @ Q ...")
+    log.info("    3) Build small matrix...")
     t_build = time.time()
     rsvd.multiply_A_omega(G, Q, f, G_small)
-    log.info(f"        build time={time.time() - t_build:.4f}s")
+    log.info(f"        time={time.time() - t_build:.4f}s")
 
-    log.info("    4) SVD of small matrix A_small ...")
+    log.info("    4) SVD of small matrix...")
     t_svd = time.time()
     U_small, S_all, V_small = eigSVD(G_small)
-    log.info(f"        svd(A_small) time={time.time() - t_svd:.4f}s")
+    log.info(f"        time={time.time() - t_svd:.4f}s")
 
     S = np.ascontiguousarray(S_all[:k])
     U = np.ascontiguousarray(U_small[:, :k])
     V = np.ascontiguousarray(np.dot(Q, V_small[:, :k]))
 
     total_time = time.time() - t0
-    log.info(f"        Total RSVD time={total_time:.4f}s")
+    log.info(f"    Total time for SVD={total_time:.4f}s")
     log.info("")
 
     return U, S, V

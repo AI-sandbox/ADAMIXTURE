@@ -11,18 +11,15 @@
         ],
         "depends": [],
         "extra_compile_args": [
-            "-fopenmp",
             "-O3",
             "-ffast-math",
-            "-march=native",
             "-fno-wrapv"
         ],
         "extra_link_args": [
-            "-fopenmp",
             "-lm"
         ],
         "include_dirs": [
-            "/tmp/pip-build-env-87i2sq73/overlay/lib64/python3.9/site-packages/numpy/_core/include"
+            "/Users/ricos/.cache/uv/builds-v0/.tmpxJSmyJ/lib/python3.12/site-packages/numpy/_core/include"
         ],
         "name": "adamixture.src.utils_c.tools",
         "sources": [
@@ -2751,6 +2748,9 @@ static CYTHON_INLINE __Pyx_memviewslice __Pyx_PyObject_to_MemoryviewSlice_dc_flo
 /* ObjectToMemviewSlice.proto */
 static CYTHON_INLINE __Pyx_memviewslice __Pyx_PyObject_to_MemoryviewSlice_d_dc_float(PyObject *, int writable_flag);
 
+/* ObjectToMemviewSlice.proto */
+static CYTHON_INLINE __Pyx_memviewslice __Pyx_PyObject_to_MemoryviewSlice_dc_nn_uint32_t(PyObject *, int writable_flag);
+
 /* MemviewSliceCopy.proto */
 static __Pyx_memviewslice
 __pyx_memoryview_copy_new_contig(const __Pyx_memviewslice *from_mvs,
@@ -2918,6 +2918,8 @@ static PyThread_type_lock __pyx_memoryview_thread_locks[8];
 static void __pyx_f_10adamixture_3src_7utils_c_5tools_read_bed(__Pyx_memviewslice, __Pyx_memviewslice, int __pyx_skip_dispatch); /*proto*/
 static CYTHON_INLINE void __pyx_f_10adamixture_3src_7utils_c_5tools__reconstruct(double *, double *, double *, Py_ssize_t, Py_ssize_t); /*proto*/
 static CYTHON_INLINE double __pyx_f_10adamixture_3src_7utils_c_5tools__ind_loglike(uint8_t *, double *, Py_ssize_t); /*proto*/
+static CYTHON_INLINE void __pyx_f_10adamixture_3src_7utils_c_5tools__reconstruct_sub(double *, double *, double *, uint32_t *, Py_ssize_t, Py_ssize_t); /*proto*/
+static CYTHON_INLINE double __pyx_f_10adamixture_3src_7utils_c_5tools__ind_loglike_sub(uint8_t *, double *, uint32_t *, Py_ssize_t); /*proto*/
 static double __pyx_f_10adamixture_3src_7utils_c_5tools_loglikelihood(__Pyx_memviewslice, __Pyx_memviewslice, __Pyx_memviewslice, int __pyx_skip_dispatch); /*proto*/
 static void __pyx_f_10adamixture_3src_7utils_c_5tools_alleleFrequency(__Pyx_memviewslice, __Pyx_memviewslice, int, int, int __pyx_skip_dispatch); /*proto*/
 static float __pyx_f_10adamixture_3src_7utils_c_5tools_rmse(__Pyx_memviewslice, __Pyx_memviewslice, int, int, int __pyx_skip_dispatch); /*proto*/
@@ -2926,6 +2928,9 @@ static void __pyx_f_10adamixture_3src_7utils_c_5tools_mapQ(__Pyx_memviewslice, i
 static void __pyx_f_10adamixture_3src_7utils_c_5tools_mapP(__Pyx_memviewslice, int, int, int __pyx_skip_dispatch); /*proto*/
 static double __pyx_f_10adamixture_3src_7utils_c_5tools_KL(__Pyx_memviewslice, __Pyx_memviewslice, int, int, int __pyx_skip_dispatch); /*proto*/
 static double __pyx_f_10adamixture_3src_7utils_c_5tools_rmse_d(__Pyx_memviewslice, __Pyx_memviewslice, int, int, int __pyx_skip_dispatch); /*proto*/
+static double __pyx_f_10adamixture_3src_7utils_c_5tools_loglike_cross(__Pyx_memviewslice, __Pyx_memviewslice, __Pyx_memviewslice, __Pyx_memviewslice, int, int, int, int __pyx_skip_dispatch); /*proto*/
+static double __pyx_f_10adamixture_3src_7utils_c_5tools_deviance(__Pyx_memviewslice, __Pyx_memviewslice, __Pyx_memviewslice, __Pyx_memviewslice, int, int, int, int __pyx_skip_dispatch); /*proto*/
+static double __pyx_f_10adamixture_3src_7utils_c_5tools_cross_norm(__Pyx_memviewslice, __Pyx_memviewslice, int, int, int __pyx_skip_dispatch); /*proto*/
 static int __pyx_array_allocate_buffer(struct __pyx_array_obj *); /*proto*/
 static struct __pyx_array_obj *__pyx_array_new(PyObject *, Py_ssize_t, char *, char const *, char *); /*proto*/
 static PyObject *__pyx_memoryview_new(PyObject *, int, int, __Pyx_TypeInfo const *); /*proto*/
@@ -2965,6 +2970,7 @@ static const __Pyx_TypeInfo __Pyx_TypeInfo_unsigned_char = { "unsigned char", NU
 static const __Pyx_TypeInfo __Pyx_TypeInfo_nn_uint8_t = { "uint8_t", NULL, sizeof(uint8_t), { 0 }, 0, __PYX_IS_UNSIGNED(uint8_t) ? 'U' : 'I', __PYX_IS_UNSIGNED(uint8_t), 0 };
 static const __Pyx_TypeInfo __Pyx_TypeInfo_double = { "double", NULL, sizeof(double), { 0 }, 0, 'R', 0, 0 };
 static const __Pyx_TypeInfo __Pyx_TypeInfo_float = { "float", NULL, sizeof(float), { 0 }, 0, 'R', 0, 0 };
+static const __Pyx_TypeInfo __Pyx_TypeInfo_nn_uint32_t = { "uint32_t", NULL, sizeof(uint32_t), { 0 }, 0, __PYX_IS_UNSIGNED(uint32_t) ? 'U' : 'I', __PYX_IS_UNSIGNED(uint32_t), 0 };
 /* #### Code section: before_global_var ### */
 #define __Pyx_MODULE_NAME "adamixture.src.utils_c.tools"
 extern int __pyx_module_is_main_adamixture__src__utils_c__tools;
@@ -3030,6 +3036,9 @@ static PyObject *__pyx_pf_10adamixture_3src_7utils_c_5tools_8mapQ(CYTHON_UNUSED 
 static PyObject *__pyx_pf_10adamixture_3src_7utils_c_5tools_10mapP(CYTHON_UNUSED PyObject *__pyx_self, __Pyx_memviewslice __pyx_v_P, int __pyx_v_M, int __pyx_v_K); /* proto */
 static PyObject *__pyx_pf_10adamixture_3src_7utils_c_5tools_12KL(CYTHON_UNUSED PyObject *__pyx_self, __Pyx_memviewslice __pyx_v_Q1, __Pyx_memviewslice __pyx_v_Q2, int __pyx_v_N, int __pyx_v_K); /* proto */
 static PyObject *__pyx_pf_10adamixture_3src_7utils_c_5tools_14rmse_d(CYTHON_UNUSED PyObject *__pyx_self, __Pyx_memviewslice __pyx_v_Q1, __Pyx_memviewslice __pyx_v_Q2, int __pyx_v_N, int __pyx_v_K); /* proto */
+static PyObject *__pyx_pf_10adamixture_3src_7utils_c_5tools_16loglike_cross(CYTHON_UNUSED PyObject *__pyx_self, __Pyx_memviewslice __pyx_v_G, __Pyx_memviewslice __pyx_v_P, __Pyx_memviewslice __pyx_v_Q, __Pyx_memviewslice __pyx_v_s_ind, int __pyx_v_M, int __pyx_v_N_sub, int __pyx_v_K); /* proto */
+static PyObject *__pyx_pf_10adamixture_3src_7utils_c_5tools_18deviance(CYTHON_UNUSED PyObject *__pyx_self, __Pyx_memviewslice __pyx_v_G, __Pyx_memviewslice __pyx_v_P, __Pyx_memviewslice __pyx_v_Q, __Pyx_memviewslice __pyx_v_s_ind, int __pyx_v_M, int __pyx_v_N_sub, int __pyx_v_K); /* proto */
+static PyObject *__pyx_pf_10adamixture_3src_7utils_c_5tools_20cross_norm(CYTHON_UNUSED PyObject *__pyx_self, __Pyx_memviewslice __pyx_v_G, __Pyx_memviewslice __pyx_v_s_ind, int __pyx_v_M, int __pyx_v_N_sub); /* proto */
 static PyObject *__pyx_tp_new_array(PyTypeObject *t, PyObject *a, PyObject *k); /*proto*/
 static PyObject *__pyx_tp_new_Enum(PyTypeObject *t, PyObject *a, PyObject *k); /*proto*/
 static PyObject *__pyx_tp_new_memoryview(PyTypeObject *t, PyObject *a, PyObject *k); /*proto*/
@@ -3067,8 +3076,8 @@ typedef struct {
   __Pyx_CachedCFunction __pyx_umethod_PyDict_Type_values;
   PyObject *__pyx_slice[1];
   PyObject *__pyx_tuple[1];
-  PyObject *__pyx_codeobj_tab[8];
-  PyObject *__pyx_string_tab[140];
+  PyObject *__pyx_codeobj_tab[11];
+  PyObject *__pyx_string_tab[148];
   PyObject *__pyx_number_tab[4];
 /* #### Code section: module_state_contents ### */
 /* CommonTypesMetaclass.module_state_decls */
@@ -3162,94 +3171,102 @@ static __pyx_mstatetype * const __pyx_mstate_global = &__pyx_mstate_global_stati
 #define __pyx_n_u_KL __pyx_string_tab[49]
 #define __pyx_n_u_M __pyx_string_tab[50]
 #define __pyx_n_u_N __pyx_string_tab[51]
-#define __pyx_n_u_P __pyx_string_tab[52]
-#define __pyx_n_u_Pyx_PyDict_NextRef __pyx_string_tab[53]
-#define __pyx_n_u_Q __pyx_string_tab[54]
-#define __pyx_n_u_Q1 __pyx_string_tab[55]
-#define __pyx_n_u_Q2 __pyx_string_tab[56]
-#define __pyx_n_u_Sequence __pyx_string_tab[57]
-#define __pyx_n_u_View_MemoryView __pyx_string_tab[58]
-#define __pyx_n_u_abc __pyx_string_tab[59]
-#define __pyx_n_u_adamixture_src_utils_c_tools __pyx_string_tab[60]
-#define __pyx_n_u_alleleFrequency __pyx_string_tab[61]
-#define __pyx_n_u_allocate_buffer __pyx_string_tab[62]
-#define __pyx_n_u_asyncio_coroutines __pyx_string_tab[63]
-#define __pyx_n_u_base __pyx_string_tab[64]
-#define __pyx_n_u_bed_source __pyx_string_tab[65]
-#define __pyx_n_u_c __pyx_string_tab[66]
-#define __pyx_n_u_class __pyx_string_tab[67]
-#define __pyx_n_u_class_getitem __pyx_string_tab[68]
-#define __pyx_n_u_cline_in_traceback __pyx_string_tab[69]
-#define __pyx_n_u_count __pyx_string_tab[70]
-#define __pyx_n_u_dict __pyx_string_tab[71]
-#define __pyx_n_u_dtype_is_object __pyx_string_tab[72]
-#define __pyx_n_u_encode __pyx_string_tab[73]
-#define __pyx_n_u_enumerate __pyx_string_tab[74]
-#define __pyx_n_u_error __pyx_string_tab[75]
-#define __pyx_n_u_f __pyx_string_tab[76]
-#define __pyx_n_u_flags __pyx_string_tab[77]
-#define __pyx_n_u_format __pyx_string_tab[78]
-#define __pyx_n_u_fortran __pyx_string_tab[79]
-#define __pyx_n_u_func __pyx_string_tab[80]
-#define __pyx_n_u_geno_target __pyx_string_tab[81]
-#define __pyx_n_u_getstate __pyx_string_tab[82]
-#define __pyx_n_u_id __pyx_string_tab[83]
-#define __pyx_n_u_import __pyx_string_tab[84]
-#define __pyx_n_u_index __pyx_string_tab[85]
-#define __pyx_n_u_is_coroutine __pyx_string_tab[86]
-#define __pyx_n_u_items __pyx_string_tab[87]
-#define __pyx_n_u_itemsize __pyx_string_tab[88]
-#define __pyx_n_u_loglikelihood __pyx_string_tab[89]
-#define __pyx_n_u_main __pyx_string_tab[90]
-#define __pyx_n_u_mapP __pyx_string_tab[91]
-#define __pyx_n_u_mapQ __pyx_string_tab[92]
-#define __pyx_n_u_memview __pyx_string_tab[93]
-#define __pyx_n_u_mode __pyx_string_tab[94]
-#define __pyx_n_u_module __pyx_string_tab[95]
-#define __pyx_n_u_name __pyx_string_tab[96]
-#define __pyx_n_u_name_2 __pyx_string_tab[97]
-#define __pyx_n_u_ndim __pyx_string_tab[98]
-#define __pyx_n_u_new __pyx_string_tab[99]
-#define __pyx_n_u_obj __pyx_string_tab[100]
-#define __pyx_n_u_pack __pyx_string_tab[101]
-#define __pyx_n_u_pop __pyx_string_tab[102]
-#define __pyx_n_u_pyx_checksum __pyx_string_tab[103]
-#define __pyx_n_u_pyx_state __pyx_string_tab[104]
-#define __pyx_n_u_pyx_type __pyx_string_tab[105]
-#define __pyx_n_u_pyx_unpickle_Enum __pyx_string_tab[106]
-#define __pyx_n_u_pyx_vtable __pyx_string_tab[107]
-#define __pyx_n_u_qualname __pyx_string_tab[108]
-#define __pyx_n_u_read_bed __pyx_string_tab[109]
-#define __pyx_n_u_reduce __pyx_string_tab[110]
-#define __pyx_n_u_reduce_cython __pyx_string_tab[111]
-#define __pyx_n_u_reduce_ex __pyx_string_tab[112]
-#define __pyx_n_u_register __pyx_string_tab[113]
-#define __pyx_n_u_rmse __pyx_string_tab[114]
-#define __pyx_n_u_rmse_d __pyx_string_tab[115]
-#define __pyx_n_u_set_name __pyx_string_tab[116]
-#define __pyx_n_u_setdefault __pyx_string_tab[117]
-#define __pyx_n_u_setstate __pyx_string_tab[118]
-#define __pyx_n_u_setstate_cython __pyx_string_tab[119]
-#define __pyx_n_u_shape __pyx_string_tab[120]
-#define __pyx_n_u_size __pyx_string_tab[121]
-#define __pyx_n_u_start __pyx_string_tab[122]
-#define __pyx_n_u_step __pyx_string_tab[123]
-#define __pyx_n_u_stop __pyx_string_tab[124]
-#define __pyx_n_u_struct __pyx_string_tab[125]
-#define __pyx_n_u_test __pyx_string_tab[126]
-#define __pyx_n_u_unpack __pyx_string_tab[127]
-#define __pyx_n_u_update __pyx_string_tab[128]
-#define __pyx_n_u_values __pyx_string_tab[129]
-#define __pyx_n_u_x __pyx_string_tab[130]
-#define __pyx_kp_b_iso88591_1A_AQar_E_aq_1A_t2Q_q_Rt2Q_t2Q __pyx_string_tab[131]
-#define __pyx_kp_b_iso88591_1A_AQar_E_aq_q_Cq_G1AQ_b_xr __pyx_string_tab[132]
-#define __pyx_kp_b_iso88591_1A_Qaq_4q __pyx_string_tab[133]
-#define __pyx_kp_b_iso88591_2Rq_d_G1_Q_ARq_1_ARq_1_U_1_r_Rr __pyx_string_tab[134]
-#define __pyx_kp_b_iso88591_2Rq_t2XQ_Q_Qb_A_Qb_A_U_1_r_Rr_u __pyx_string_tab[135]
-#define __pyx_kp_b_iso88591_6_fAQ_JfAQ_Cs_Qa_E_z_1_Yb_b_q_1 __pyx_string_tab[136]
-#define __pyx_kp_b_iso88591_Q_Q_1A_Qb_A_Qb_A_E_aq_1A_1A_Cs __pyx_string_tab[137]
-#define __pyx_kp_b_iso88591_q_aq_q_aq_q_aq_A_ivQc_q_1Bd_1AR __pyx_string_tab[138]
-#define __pyx_n_b_O __pyx_string_tab[139]
+#define __pyx_n_u_N_sub __pyx_string_tab[52]
+#define __pyx_n_u_P __pyx_string_tab[53]
+#define __pyx_n_u_Pyx_PyDict_NextRef __pyx_string_tab[54]
+#define __pyx_n_u_Q __pyx_string_tab[55]
+#define __pyx_n_u_Q1 __pyx_string_tab[56]
+#define __pyx_n_u_Q2 __pyx_string_tab[57]
+#define __pyx_n_u_Sequence __pyx_string_tab[58]
+#define __pyx_n_u_View_MemoryView __pyx_string_tab[59]
+#define __pyx_n_u_abc __pyx_string_tab[60]
+#define __pyx_n_u_adamixture_src_utils_c_tools __pyx_string_tab[61]
+#define __pyx_n_u_alleleFrequency __pyx_string_tab[62]
+#define __pyx_n_u_allocate_buffer __pyx_string_tab[63]
+#define __pyx_n_u_asyncio_coroutines __pyx_string_tab[64]
+#define __pyx_n_u_base __pyx_string_tab[65]
+#define __pyx_n_u_bed_source __pyx_string_tab[66]
+#define __pyx_n_u_c __pyx_string_tab[67]
+#define __pyx_n_u_class __pyx_string_tab[68]
+#define __pyx_n_u_class_getitem __pyx_string_tab[69]
+#define __pyx_n_u_cline_in_traceback __pyx_string_tab[70]
+#define __pyx_n_u_count __pyx_string_tab[71]
+#define __pyx_n_u_cross_norm __pyx_string_tab[72]
+#define __pyx_n_u_deviance __pyx_string_tab[73]
+#define __pyx_n_u_dict __pyx_string_tab[74]
+#define __pyx_n_u_dtype_is_object __pyx_string_tab[75]
+#define __pyx_n_u_encode __pyx_string_tab[76]
+#define __pyx_n_u_enumerate __pyx_string_tab[77]
+#define __pyx_n_u_error __pyx_string_tab[78]
+#define __pyx_n_u_f __pyx_string_tab[79]
+#define __pyx_n_u_flags __pyx_string_tab[80]
+#define __pyx_n_u_format __pyx_string_tab[81]
+#define __pyx_n_u_fortran __pyx_string_tab[82]
+#define __pyx_n_u_func __pyx_string_tab[83]
+#define __pyx_n_u_geno_target __pyx_string_tab[84]
+#define __pyx_n_u_getstate __pyx_string_tab[85]
+#define __pyx_n_u_id __pyx_string_tab[86]
+#define __pyx_n_u_import __pyx_string_tab[87]
+#define __pyx_n_u_index __pyx_string_tab[88]
+#define __pyx_n_u_is_coroutine __pyx_string_tab[89]
+#define __pyx_n_u_items __pyx_string_tab[90]
+#define __pyx_n_u_itemsize __pyx_string_tab[91]
+#define __pyx_n_u_loglike_cross __pyx_string_tab[92]
+#define __pyx_n_u_loglikelihood __pyx_string_tab[93]
+#define __pyx_n_u_main __pyx_string_tab[94]
+#define __pyx_n_u_mapP __pyx_string_tab[95]
+#define __pyx_n_u_mapQ __pyx_string_tab[96]
+#define __pyx_n_u_memview __pyx_string_tab[97]
+#define __pyx_n_u_mode __pyx_string_tab[98]
+#define __pyx_n_u_module __pyx_string_tab[99]
+#define __pyx_n_u_name __pyx_string_tab[100]
+#define __pyx_n_u_name_2 __pyx_string_tab[101]
+#define __pyx_n_u_ndim __pyx_string_tab[102]
+#define __pyx_n_u_new __pyx_string_tab[103]
+#define __pyx_n_u_obj __pyx_string_tab[104]
+#define __pyx_n_u_pack __pyx_string_tab[105]
+#define __pyx_n_u_pop __pyx_string_tab[106]
+#define __pyx_n_u_pyx_checksum __pyx_string_tab[107]
+#define __pyx_n_u_pyx_state __pyx_string_tab[108]
+#define __pyx_n_u_pyx_type __pyx_string_tab[109]
+#define __pyx_n_u_pyx_unpickle_Enum __pyx_string_tab[110]
+#define __pyx_n_u_pyx_vtable __pyx_string_tab[111]
+#define __pyx_n_u_qualname __pyx_string_tab[112]
+#define __pyx_n_u_read_bed __pyx_string_tab[113]
+#define __pyx_n_u_reduce __pyx_string_tab[114]
+#define __pyx_n_u_reduce_cython __pyx_string_tab[115]
+#define __pyx_n_u_reduce_ex __pyx_string_tab[116]
+#define __pyx_n_u_register __pyx_string_tab[117]
+#define __pyx_n_u_rmse __pyx_string_tab[118]
+#define __pyx_n_u_rmse_d __pyx_string_tab[119]
+#define __pyx_n_u_s_ind __pyx_string_tab[120]
+#define __pyx_n_u_set_name __pyx_string_tab[121]
+#define __pyx_n_u_setdefault __pyx_string_tab[122]
+#define __pyx_n_u_setstate __pyx_string_tab[123]
+#define __pyx_n_u_setstate_cython __pyx_string_tab[124]
+#define __pyx_n_u_shape __pyx_string_tab[125]
+#define __pyx_n_u_size __pyx_string_tab[126]
+#define __pyx_n_u_start __pyx_string_tab[127]
+#define __pyx_n_u_step __pyx_string_tab[128]
+#define __pyx_n_u_stop __pyx_string_tab[129]
+#define __pyx_n_u_struct __pyx_string_tab[130]
+#define __pyx_n_u_test __pyx_string_tab[131]
+#define __pyx_n_u_unpack __pyx_string_tab[132]
+#define __pyx_n_u_update __pyx_string_tab[133]
+#define __pyx_n_u_values __pyx_string_tab[134]
+#define __pyx_n_u_x __pyx_string_tab[135]
+#define __pyx_kp_b_iso88591_1A_AQar_E_aq_1A_t2Q_q_Rt2Q_t2Q __pyx_string_tab[136]
+#define __pyx_kp_b_iso88591_1A_AQar_E_aq_q_Cq_G1AQ_b_xr __pyx_string_tab[137]
+#define __pyx_kp_b_iso88591_1A_Qaq_4q __pyx_string_tab[138]
+#define __pyx_kp_b_iso88591_1_1_1A_AQas_AQas_E_aq_Qa_q_Cq_A __pyx_string_tab[139]
+#define __pyx_kp_b_iso88591_2Rq_d_G1_Q_ARq_1_ARq_1_U_1_r_Rr __pyx_string_tab[140]
+#define __pyx_kp_b_iso88591_2Rq_t2XQ_Q_Qb_A_Qb_A_U_1_r_Rr_u __pyx_string_tab[141]
+#define __pyx_kp_b_iso88591_6_fAQ_JfAQ_Cs_Qa_E_z_1_Yb_b_q_1 __pyx_string_tab[142]
+#define __pyx_kp_b_iso88591_A_ivQgQ_q_AQaq_aq_4uAU_4wa_1AQb __pyx_string_tab[143]
+#define __pyx_kp_b_iso88591_Q_Q_1A_Qb_A_Qb_A_E_aq_1A_1A_Cs __pyx_string_tab[144]
+#define __pyx_kp_b_iso88591_q_U_1_AQas_E_aq_Qa_q_Cq_1 __pyx_string_tab[145]
+#define __pyx_kp_b_iso88591_q_aq_q_aq_q_aq_A_ivQc_q_1Bd_1AR __pyx_string_tab[146]
+#define __pyx_n_b_O __pyx_string_tab[147]
 #define __pyx_int_0 __pyx_number_tab[0]
 #define __pyx_int_neg_1 __pyx_number_tab[1]
 #define __pyx_int_1 __pyx_number_tab[2]
@@ -3278,8 +3295,8 @@ static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_type___pyx_memoryviewslice);
   for (int i=0; i<1; ++i) { Py_CLEAR(clear_module_state->__pyx_slice[i]); }
   for (int i=0; i<1; ++i) { Py_CLEAR(clear_module_state->__pyx_tuple[i]); }
-  for (int i=0; i<8; ++i) { Py_CLEAR(clear_module_state->__pyx_codeobj_tab[i]); }
-  for (int i=0; i<140; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<11; ++i) { Py_CLEAR(clear_module_state->__pyx_codeobj_tab[i]); }
+  for (int i=0; i<148; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
   for (int i=0; i<4; ++i) { Py_CLEAR(clear_module_state->__pyx_number_tab[i]); }
 /* #### Code section: module_state_clear_contents ### */
 /* CommonTypesMetaclass.module_state_clear */
@@ -3313,8 +3330,8 @@ static CYTHON_SMALL_CODE int __pyx_m_traverse(PyObject *m, visitproc visit, void
   Py_VISIT(traverse_module_state->__pyx_type___pyx_memoryviewslice);
   for (int i=0; i<1; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_slice[i]); }
   for (int i=0; i<1; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_tuple[i]); }
-  for (int i=0; i<8; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_codeobj_tab[i]); }
-  for (int i=0; i<140; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<11; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_codeobj_tab[i]); }
+  for (int i=0; i<148; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
   for (int i=0; i<4; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_number_tab[i]); }
 /* #### Code section: module_state_traverse_contents ### */
 /* CommonTypesMetaclass.module_state_traverse */
@@ -17186,7 +17203,7 @@ static CYTHON_INLINE double __pyx_f_10adamixture_3src_7utils_c_5tools__ind_logli
  *         rec[i] = 0.0
  *     return ll             # <<<<<<<<<<<<<<
  * 
- * # Log-likelihood:
+ * # Reconstruct from P and Q for a subset of samples:
 */
   __pyx_r = __pyx_v_ll;
   goto __pyx_L0;
@@ -17205,6 +17222,199 @@ static CYTHON_INLINE double __pyx_f_10adamixture_3src_7utils_c_5tools__ind_logli
 }
 
 /* "adamixture/src/utils_c/tools.pyx":58
+ * 
+ * # Reconstruct from P and Q for a subset of samples:
+ * cdef inline void _reconstruct_sub(double* Q, double* p, double* rec,             # <<<<<<<<<<<<<<
+ *                                    uint32_t* s_ind, Py_ssize_t N_sub,
+ *                                    Py_ssize_t K) noexcept nogil:
+*/
+
+static CYTHON_INLINE void __pyx_f_10adamixture_3src_7utils_c_5tools__reconstruct_sub(double *__pyx_v_Q, double *__pyx_v_p, double *__pyx_v_rec, uint32_t *__pyx_v_s_ind, Py_ssize_t __pyx_v_N_sub, Py_ssize_t __pyx_v_K) {
+  size_t __pyx_v_i;
+  size_t __pyx_v_k;
+  uint32_t __pyx_v_l;
+  double *__pyx_v_q;
+  Py_ssize_t __pyx_t_1;
+  Py_ssize_t __pyx_t_2;
+  size_t __pyx_t_3;
+  Py_ssize_t __pyx_t_4;
+  Py_ssize_t __pyx_t_5;
+  size_t __pyx_t_6;
+  size_t __pyx_t_7;
+
+  /* "adamixture/src/utils_c/tools.pyx":65
+ *         uint32_t l
+ *         double* q
+ *     for i in range(N_sub):             # <<<<<<<<<<<<<<
+ *         l = s_ind[i]
+ *         q = &Q[l*K]
+*/
+  __pyx_t_1 = __pyx_v_N_sub;
+  __pyx_t_2 = __pyx_t_1;
+  for (__pyx_t_3 = 0; __pyx_t_3 < __pyx_t_2; __pyx_t_3+=1) {
+    __pyx_v_i = __pyx_t_3;
+
+    /* "adamixture/src/utils_c/tools.pyx":66
+ *         double* q
+ *     for i in range(N_sub):
+ *         l = s_ind[i]             # <<<<<<<<<<<<<<
+ *         q = &Q[l*K]
+ *         for k in range(K):
+*/
+    __pyx_v_l = (__pyx_v_s_ind[__pyx_v_i]);
+
+    /* "adamixture/src/utils_c/tools.pyx":67
+ *     for i in range(N_sub):
+ *         l = s_ind[i]
+ *         q = &Q[l*K]             # <<<<<<<<<<<<<<
+ *         for k in range(K):
+ *             rec[i] += p[k]*q[k]
+*/
+    __pyx_v_q = (&(__pyx_v_Q[(__pyx_v_l * __pyx_v_K)]));
+
+    /* "adamixture/src/utils_c/tools.pyx":68
+ *         l = s_ind[i]
+ *         q = &Q[l*K]
+ *         for k in range(K):             # <<<<<<<<<<<<<<
+ *             rec[i] += p[k]*q[k]
+ * 
+*/
+    __pyx_t_4 = __pyx_v_K;
+    __pyx_t_5 = __pyx_t_4;
+    for (__pyx_t_6 = 0; __pyx_t_6 < __pyx_t_5; __pyx_t_6+=1) {
+      __pyx_v_k = __pyx_t_6;
+
+      /* "adamixture/src/utils_c/tools.pyx":69
+ *         q = &Q[l*K]
+ *         for k in range(K):
+ *             rec[i] += p[k]*q[k]             # <<<<<<<<<<<<<<
+ * 
+ * # Individual contribution for a subset of samples:
+*/
+      __pyx_t_7 = __pyx_v_i;
+      (__pyx_v_rec[__pyx_t_7]) = ((__pyx_v_rec[__pyx_t_7]) + ((__pyx_v_p[__pyx_v_k]) * (__pyx_v_q[__pyx_v_k])));
+    }
+  }
+
+  /* "adamixture/src/utils_c/tools.pyx":58
+ * 
+ * # Reconstruct from P and Q for a subset of samples:
+ * cdef inline void _reconstruct_sub(double* Q, double* p, double* rec,             # <<<<<<<<<<<<<<
+ *                                    uint32_t* s_ind, Py_ssize_t N_sub,
+ *                                    Py_ssize_t K) noexcept nogil:
+*/
+
+  /* function exit code */
+}
+
+/* "adamixture/src/utils_c/tools.pyx":72
+ * 
+ * # Individual contribution for a subset of samples:
+ * cdef inline double _ind_loglike_sub(uint8_t* g, double* rec,             # <<<<<<<<<<<<<<
+ *                                      uint32_t* s_ind,
+ *                                      Py_ssize_t N_sub) noexcept nogil:
+*/
+
+static CYTHON_INLINE double __pyx_f_10adamixture_3src_7utils_c_5tools__ind_loglike_sub(uint8_t *__pyx_v_g, double *__pyx_v_rec, uint32_t *__pyx_v_s_ind, Py_ssize_t __pyx_v_N_sub) {
+  size_t __pyx_v_i;
+  uint32_t __pyx_v_l;
+  double __pyx_v_ll;
+  double __pyx_v_g_d;
+  double __pyx_r;
+  Py_ssize_t __pyx_t_1;
+  Py_ssize_t __pyx_t_2;
+  size_t __pyx_t_3;
+  double __pyx_t_4;
+  int __pyx_t_5;
+
+  /* "adamixture/src/utils_c/tools.pyx":78
+ *         size_t i
+ *         uint32_t l
+ *         double ll = 0.0             # <<<<<<<<<<<<<<
+ *         double g_d
+ *     for i in range(N_sub):
+*/
+  __pyx_v_ll = 0.0;
+
+  /* "adamixture/src/utils_c/tools.pyx":80
+ *         double ll = 0.0
+ *         double g_d
+ *     for i in range(N_sub):             # <<<<<<<<<<<<<<
+ *         l = s_ind[i]
+ *         g_d = <double>g[l]
+*/
+  __pyx_t_1 = __pyx_v_N_sub;
+  __pyx_t_2 = __pyx_t_1;
+  for (__pyx_t_3 = 0; __pyx_t_3 < __pyx_t_2; __pyx_t_3+=1) {
+    __pyx_v_i = __pyx_t_3;
+
+    /* "adamixture/src/utils_c/tools.pyx":81
+ *         double g_d
+ *     for i in range(N_sub):
+ *         l = s_ind[i]             # <<<<<<<<<<<<<<
+ *         g_d = <double>g[l]
+ *         ll += g_d*log(rec[i]) + (2.0-g_d)*log1p(-rec[i]) if g[l] != 3 else 0.0
+*/
+    __pyx_v_l = (__pyx_v_s_ind[__pyx_v_i]);
+
+    /* "adamixture/src/utils_c/tools.pyx":82
+ *     for i in range(N_sub):
+ *         l = s_ind[i]
+ *         g_d = <double>g[l]             # <<<<<<<<<<<<<<
+ *         ll += g_d*log(rec[i]) + (2.0-g_d)*log1p(-rec[i]) if g[l] != 3 else 0.0
+ *         rec[i] = 0.0
+*/
+    __pyx_v_g_d = ((double)(__pyx_v_g[__pyx_v_l]));
+
+    /* "adamixture/src/utils_c/tools.pyx":83
+ *         l = s_ind[i]
+ *         g_d = <double>g[l]
+ *         ll += g_d*log(rec[i]) + (2.0-g_d)*log1p(-rec[i]) if g[l] != 3 else 0.0             # <<<<<<<<<<<<<<
+ *         rec[i] = 0.0
+ *     return ll
+*/
+    __pyx_t_5 = ((__pyx_v_g[__pyx_v_l]) != 3);
+    if (__pyx_t_5) {
+      __pyx_t_4 = ((__pyx_v_g_d * log((__pyx_v_rec[__pyx_v_i]))) + ((2.0 - __pyx_v_g_d) * log1p((-(__pyx_v_rec[__pyx_v_i])))));
+    } else {
+      __pyx_t_4 = 0.0;
+    }
+    __pyx_v_ll = (__pyx_v_ll + __pyx_t_4);
+
+    /* "adamixture/src/utils_c/tools.pyx":84
+ *         g_d = <double>g[l]
+ *         ll += g_d*log(rec[i]) + (2.0-g_d)*log1p(-rec[i]) if g[l] != 3 else 0.0
+ *         rec[i] = 0.0             # <<<<<<<<<<<<<<
+ *     return ll
+ * 
+*/
+    (__pyx_v_rec[__pyx_v_i]) = 0.0;
+  }
+
+  /* "adamixture/src/utils_c/tools.pyx":85
+ *         ll += g_d*log(rec[i]) + (2.0-g_d)*log1p(-rec[i]) if g[l] != 3 else 0.0
+ *         rec[i] = 0.0
+ *     return ll             # <<<<<<<<<<<<<<
+ * 
+ * # Log-likelihood:
+*/
+  __pyx_r = __pyx_v_ll;
+  goto __pyx_L0;
+
+  /* "adamixture/src/utils_c/tools.pyx":72
+ * 
+ * # Individual contribution for a subset of samples:
+ * cdef inline double _ind_loglike_sub(uint8_t* g, double* rec,             # <<<<<<<<<<<<<<
+ *                                      uint32_t* s_ind,
+ *                                      Py_ssize_t N_sub) noexcept nogil:
+*/
+
+  /* function exit code */
+  __pyx_L0:;
+  return __pyx_r;
+}
+
+/* "adamixture/src/utils_c/tools.pyx":88
  * 
  * # Log-likelihood:
  * cpdef double loglikelihood(uint8_t[:,::1] G, double[:,::1] P, double[:,::1] Q) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -17235,7 +17445,7 @@ static double __pyx_f_10adamixture_3src_7utils_c_5tools_loglikelihood(__Pyx_memv
   size_t __pyx_t_6;
   Py_ssize_t __pyx_t_7;
 
-  /* "adamixture/src/utils_c/tools.pyx":60
+  /* "adamixture/src/utils_c/tools.pyx":90
  * cpdef double loglikelihood(uint8_t[:,::1] G, double[:,::1] P, double[:,::1] Q) noexcept nogil:
  *     cdef:
  *         Py_ssize_t M = G.shape[0]             # <<<<<<<<<<<<<<
@@ -17244,7 +17454,7 @@ static double __pyx_f_10adamixture_3src_7utils_c_5tools_loglikelihood(__Pyx_memv
 */
   __pyx_v_M = (__pyx_v_G.shape[0]);
 
-  /* "adamixture/src/utils_c/tools.pyx":61
+  /* "adamixture/src/utils_c/tools.pyx":91
  *     cdef:
  *         Py_ssize_t M = G.shape[0]
  *         Py_ssize_t N = G.shape[1]             # <<<<<<<<<<<<<<
@@ -17253,7 +17463,7 @@ static double __pyx_f_10adamixture_3src_7utils_c_5tools_loglikelihood(__Pyx_memv
 */
   __pyx_v_N = (__pyx_v_G.shape[1]);
 
-  /* "adamixture/src/utils_c/tools.pyx":62
+  /* "adamixture/src/utils_c/tools.pyx":92
  *         Py_ssize_t M = G.shape[0]
  *         Py_ssize_t N = G.shape[1]
  *         Py_ssize_t K = Q.shape[1]             # <<<<<<<<<<<<<<
@@ -17262,7 +17472,7 @@ static double __pyx_f_10adamixture_3src_7utils_c_5tools_loglikelihood(__Pyx_memv
 */
   __pyx_v_K = (__pyx_v_Q.shape[1]);
 
-  /* "adamixture/src/utils_c/tools.pyx":64
+  /* "adamixture/src/utils_c/tools.pyx":94
  *         Py_ssize_t K = Q.shape[1]
  *         size_t i, j
  *         double ll = 0.0             # <<<<<<<<<<<<<<
@@ -17271,7 +17481,7 @@ static double __pyx_f_10adamixture_3src_7utils_c_5tools_loglikelihood(__Pyx_memv
 */
   __pyx_v_ll = 0.0;
 
-  /* "adamixture/src/utils_c/tools.pyx":66
+  /* "adamixture/src/utils_c/tools.pyx":96
  *         double ll = 0.0
  *         double* rec
  *     with nogil, parallel():             # <<<<<<<<<<<<<<
@@ -17295,7 +17505,7 @@ static double __pyx_f_10adamixture_3src_7utils_c_5tools_loglikelihood(__Pyx_memv
             #endif /* _OPENMP */
             {
 
-                /* "adamixture/src/utils_c/tools.pyx":67
+                /* "adamixture/src/utils_c/tools.pyx":97
  *         double* rec
  *     with nogil, parallel():
  *         rec = <double*>calloc(N, sizeof(double))             # <<<<<<<<<<<<<<
@@ -17304,7 +17514,7 @@ static double __pyx_f_10adamixture_3src_7utils_c_5tools_loglikelihood(__Pyx_memv
 */
                 __pyx_v_rec = ((double *)calloc(__pyx_v_N, (sizeof(double))));
 
-                /* "adamixture/src/utils_c/tools.pyx":68
+                /* "adamixture/src/utils_c/tools.pyx":98
  *     with nogil, parallel():
  *         rec = <double*>calloc(N, sizeof(double))
  *         for j in prange(M, schedule='guided'):             # <<<<<<<<<<<<<<
@@ -17323,7 +17533,7 @@ static double __pyx_f_10adamixture_3src_7utils_c_5tools_loglikelihood(__Pyx_memv
                             {
                                 __pyx_v_j = (size_t)(0 + 1 * __pyx_t_2);
 
-                                /* "adamixture/src/utils_c/tools.pyx":69
+                                /* "adamixture/src/utils_c/tools.pyx":99
  *         rec = <double*>calloc(N, sizeof(double))
  *         for j in prange(M, schedule='guided'):
  *             _reconstruct(&Q[0,0], &P[j,0], rec, N, K)             # <<<<<<<<<<<<<<
@@ -17336,7 +17546,7 @@ static double __pyx_f_10adamixture_3src_7utils_c_5tools_loglikelihood(__Pyx_memv
                                 __pyx_t_7 = 0;
                                 __pyx_f_10adamixture_3src_7utils_c_5tools__reconstruct((&(*((double *) ( /* dim=1 */ ((char *) (((double *) ( /* dim=0 */ (__pyx_v_Q.data + __pyx_t_4 * __pyx_v_Q.strides[0]) )) + __pyx_t_5)) )))), (&(*((double *) ( /* dim=1 */ ((char *) (((double *) ( /* dim=0 */ (__pyx_v_P.data + __pyx_t_6 * __pyx_v_P.strides[0]) )) + __pyx_t_7)) )))), __pyx_v_rec, __pyx_v_N, __pyx_v_K);
 
-                                /* "adamixture/src/utils_c/tools.pyx":70
+                                /* "adamixture/src/utils_c/tools.pyx":100
  *         for j in prange(M, schedule='guided'):
  *             _reconstruct(&Q[0,0], &P[j,0], rec, N, K)
  *             ll += _ind_loglike(&G[j,0], rec, N)             # <<<<<<<<<<<<<<
@@ -17351,7 +17561,7 @@ static double __pyx_f_10adamixture_3src_7utils_c_5tools_loglikelihood(__Pyx_memv
                     }
                 }
 
-                /* "adamixture/src/utils_c/tools.pyx":71
+                /* "adamixture/src/utils_c/tools.pyx":101
  *             _reconstruct(&Q[0,0], &P[j,0], rec, N, K)
  *             ll += _ind_loglike(&G[j,0], rec, N)
  *         free(rec)             # <<<<<<<<<<<<<<
@@ -17369,7 +17579,7 @@ static double __pyx_f_10adamixture_3src_7utils_c_5tools_loglikelihood(__Pyx_memv
         #endif
       }
 
-      /* "adamixture/src/utils_c/tools.pyx":66
+      /* "adamixture/src/utils_c/tools.pyx":96
  *         double ll = 0.0
  *         double* rec
  *     with nogil, parallel():             # <<<<<<<<<<<<<<
@@ -17386,7 +17596,7 @@ static double __pyx_f_10adamixture_3src_7utils_c_5tools_loglikelihood(__Pyx_memv
       }
   }
 
-  /* "adamixture/src/utils_c/tools.pyx":72
+  /* "adamixture/src/utils_c/tools.pyx":102
  *             ll += _ind_loglike(&G[j,0], rec, N)
  *         free(rec)
  *     return ll             # <<<<<<<<<<<<<<
@@ -17396,7 +17606,7 @@ static double __pyx_f_10adamixture_3src_7utils_c_5tools_loglikelihood(__Pyx_memv
   __pyx_r = __pyx_v_ll;
   goto __pyx_L0;
 
-  /* "adamixture/src/utils_c/tools.pyx":58
+  /* "adamixture/src/utils_c/tools.pyx":88
  * 
  * # Log-likelihood:
  * cpdef double loglikelihood(uint8_t[:,::1] G, double[:,::1] P, double[:,::1] Q) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -17450,46 +17660,46 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_G,&__pyx_mstate_global->__pyx_n_u_P,&__pyx_mstate_global->__pyx_n_u_Q,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 58, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 88, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 58, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 88, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 58, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 88, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 58, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 88, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "loglikelihood", 0) < (0)) __PYX_ERR(0, 58, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "loglikelihood", 0) < (0)) __PYX_ERR(0, 88, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 3; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("loglikelihood", 1, 3, 3, i); __PYX_ERR(0, 58, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("loglikelihood", 1, 3, 3, i); __PYX_ERR(0, 88, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 3)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 58, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 88, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 58, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 88, __pyx_L3_error)
       values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 58, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 88, __pyx_L3_error)
     }
-    __pyx_v_G = __Pyx_PyObject_to_MemoryviewSlice_d_dc_nn_uint8_t(values[0], PyBUF_WRITABLE); if (unlikely(!__pyx_v_G.memview)) __PYX_ERR(0, 58, __pyx_L3_error)
-    __pyx_v_P = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double(values[1], PyBUF_WRITABLE); if (unlikely(!__pyx_v_P.memview)) __PYX_ERR(0, 58, __pyx_L3_error)
-    __pyx_v_Q = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double(values[2], PyBUF_WRITABLE); if (unlikely(!__pyx_v_Q.memview)) __PYX_ERR(0, 58, __pyx_L3_error)
+    __pyx_v_G = __Pyx_PyObject_to_MemoryviewSlice_d_dc_nn_uint8_t(values[0], PyBUF_WRITABLE); if (unlikely(!__pyx_v_G.memview)) __PYX_ERR(0, 88, __pyx_L3_error)
+    __pyx_v_P = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double(values[1], PyBUF_WRITABLE); if (unlikely(!__pyx_v_P.memview)) __PYX_ERR(0, 88, __pyx_L3_error)
+    __pyx_v_Q = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double(values[2], PyBUF_WRITABLE); if (unlikely(!__pyx_v_Q.memview)) __PYX_ERR(0, 88, __pyx_L3_error)
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("loglikelihood", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 58, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("loglikelihood", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 88, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -17525,7 +17735,7 @@ static PyObject *__pyx_pf_10adamixture_3src_7utils_c_5tools_2loglikelihood(CYTHO
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("loglikelihood", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = PyFloat_FromDouble(__pyx_f_10adamixture_3src_7utils_c_5tools_loglikelihood(__pyx_v_G, __pyx_v_P, __pyx_v_Q, 1)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 58, __pyx_L1_error)
+  __pyx_t_1 = PyFloat_FromDouble(__pyx_f_10adamixture_3src_7utils_c_5tools_loglikelihood(__pyx_v_G, __pyx_v_P, __pyx_v_Q, 1)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 88, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -17542,7 +17752,7 @@ static PyObject *__pyx_pf_10adamixture_3src_7utils_c_5tools_2loglikelihood(CYTHO
   return __pyx_r;
 }
 
-/* "adamixture/src/utils_c/tools.pyx":75
+/* "adamixture/src/utils_c/tools.pyx":105
  * 
  * # Allele frequencies:
  * cpdef void alleleFrequency(uint8_t[:, ::1] G, float[::1] f, int M, int N) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -17572,7 +17782,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_5tools_alleleFrequency(__Pyx_memv
   int __pyx_t_7;
   int __pyx_t_8;
 
-  /* "adamixture/src/utils_c/tools.pyx":80
+  /* "adamixture/src/utils_c/tools.pyx":110
  *         uint8_t* r
  *         float sum_val, denom
  *     for x in prange(M, schedule='guided'):             # <<<<<<<<<<<<<<
@@ -17606,7 +17816,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_5tools_alleleFrequency(__Pyx_memv
                         {
                             __pyx_v_x = (size_t)(0 + 1 * __pyx_t_2);
 
-                            /* "adamixture/src/utils_c/tools.pyx":81
+                            /* "adamixture/src/utils_c/tools.pyx":111
  *         float sum_val, denom
  *     for x in prange(M, schedule='guided'):
  *         sum_val = 0.0             # <<<<<<<<<<<<<<
@@ -17615,7 +17825,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_5tools_alleleFrequency(__Pyx_memv
 */
                             __pyx_v_sum_val = 0.0;
 
-                            /* "adamixture/src/utils_c/tools.pyx":82
+                            /* "adamixture/src/utils_c/tools.pyx":112
  *     for x in prange(M, schedule='guided'):
  *         sum_val = 0.0
  *         denom = 0.0             # <<<<<<<<<<<<<<
@@ -17624,7 +17834,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_5tools_alleleFrequency(__Pyx_memv
 */
                             __pyx_v_denom = 0.0;
 
-                            /* "adamixture/src/utils_c/tools.pyx":83
+                            /* "adamixture/src/utils_c/tools.pyx":113
  *         sum_val = 0.0
  *         denom = 0.0
  *         r = &G[x,0]             # <<<<<<<<<<<<<<
@@ -17635,7 +17845,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_5tools_alleleFrequency(__Pyx_memv
                             __pyx_t_5 = 0;
                             __pyx_v_r = (&(*((uint8_t *) ( /* dim=1 */ ((char *) (((uint8_t *) ( /* dim=0 */ (__pyx_v_G.data + __pyx_t_4 * __pyx_v_G.strides[0]) )) + __pyx_t_5)) ))));
 
-                            /* "adamixture/src/utils_c/tools.pyx":84
+                            /* "adamixture/src/utils_c/tools.pyx":114
  *         denom = 0.0
  *         r = &G[x,0]
  *         for y in range(N):             # <<<<<<<<<<<<<<
@@ -17647,7 +17857,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_5tools_alleleFrequency(__Pyx_memv
                             for (__pyx_t_4 = 0; __pyx_t_4 < __pyx_t_7; __pyx_t_4+=1) {
                               __pyx_v_y = __pyx_t_4;
 
-                              /* "adamixture/src/utils_c/tools.pyx":85
+                              /* "adamixture/src/utils_c/tools.pyx":115
  *         r = &G[x,0]
  *         for y in range(N):
  *             if r[y] != 3:             # <<<<<<<<<<<<<<
@@ -17657,7 +17867,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_5tools_alleleFrequency(__Pyx_memv
                               __pyx_t_8 = ((__pyx_v_r[__pyx_v_y]) != 3);
                               if (__pyx_t_8) {
 
-                                /* "adamixture/src/utils_c/tools.pyx":86
+                                /* "adamixture/src/utils_c/tools.pyx":116
  *         for y in range(N):
  *             if r[y] != 3:
  *                 sum_val = sum_val + <float>r[y]             # <<<<<<<<<<<<<<
@@ -17666,7 +17876,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_5tools_alleleFrequency(__Pyx_memv
 */
                                 __pyx_v_sum_val = (__pyx_v_sum_val + ((float)(__pyx_v_r[__pyx_v_y])));
 
-                                /* "adamixture/src/utils_c/tools.pyx":87
+                                /* "adamixture/src/utils_c/tools.pyx":117
  *             if r[y] != 3:
  *                 sum_val = sum_val + <float>r[y]
  *                 denom = denom + 2.0             # <<<<<<<<<<<<<<
@@ -17675,7 +17885,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_5tools_alleleFrequency(__Pyx_memv
 */
                                 __pyx_v_denom = (__pyx_v_denom + 2.0);
 
-                                /* "adamixture/src/utils_c/tools.pyx":85
+                                /* "adamixture/src/utils_c/tools.pyx":115
  *         r = &G[x,0]
  *         for y in range(N):
  *             if r[y] != 3:             # <<<<<<<<<<<<<<
@@ -17685,7 +17895,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_5tools_alleleFrequency(__Pyx_memv
                               }
                             }
 
-                            /* "adamixture/src/utils_c/tools.pyx":88
+                            /* "adamixture/src/utils_c/tools.pyx":118
  *                 sum_val = sum_val + <float>r[y]
  *                 denom = denom + 2.0
  *         f[x] = sum_val / denom             # <<<<<<<<<<<<<<
@@ -17707,7 +17917,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_5tools_alleleFrequency(__Pyx_memv
         #endif
       }
 
-      /* "adamixture/src/utils_c/tools.pyx":80
+      /* "adamixture/src/utils_c/tools.pyx":110
  *         uint8_t* r
  *         float sum_val, denom
  *     for x in prange(M, schedule='guided'):             # <<<<<<<<<<<<<<
@@ -17724,7 +17934,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_5tools_alleleFrequency(__Pyx_memv
       }
   }
 
-  /* "adamixture/src/utils_c/tools.pyx":75
+  /* "adamixture/src/utils_c/tools.pyx":105
  * 
  * # Allele frequencies:
  * cpdef void alleleFrequency(uint8_t[:, ::1] G, float[::1] f, int M, int N) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -17777,53 +17987,53 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_G,&__pyx_mstate_global->__pyx_n_u_f,&__pyx_mstate_global->__pyx_n_u_M,&__pyx_mstate_global->__pyx_n_u_N,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 75, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 105, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  4:
         values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 75, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 105, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 75, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 105, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 75, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 105, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 75, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 105, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "alleleFrequency", 0) < (0)) __PYX_ERR(0, 75, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "alleleFrequency", 0) < (0)) __PYX_ERR(0, 105, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 4; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("alleleFrequency", 1, 4, 4, i); __PYX_ERR(0, 75, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("alleleFrequency", 1, 4, 4, i); __PYX_ERR(0, 105, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 4)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 75, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 105, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 75, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 105, __pyx_L3_error)
       values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 75, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 105, __pyx_L3_error)
       values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 75, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 105, __pyx_L3_error)
     }
-    __pyx_v_G = __Pyx_PyObject_to_MemoryviewSlice_d_dc_nn_uint8_t(values[0], PyBUF_WRITABLE); if (unlikely(!__pyx_v_G.memview)) __PYX_ERR(0, 75, __pyx_L3_error)
-    __pyx_v_f = __Pyx_PyObject_to_MemoryviewSlice_dc_float(values[1], PyBUF_WRITABLE); if (unlikely(!__pyx_v_f.memview)) __PYX_ERR(0, 75, __pyx_L3_error)
-    __pyx_v_M = __Pyx_PyLong_As_int(values[2]); if (unlikely((__pyx_v_M == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 75, __pyx_L3_error)
-    __pyx_v_N = __Pyx_PyLong_As_int(values[3]); if (unlikely((__pyx_v_N == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 75, __pyx_L3_error)
+    __pyx_v_G = __Pyx_PyObject_to_MemoryviewSlice_d_dc_nn_uint8_t(values[0], PyBUF_WRITABLE); if (unlikely(!__pyx_v_G.memview)) __PYX_ERR(0, 105, __pyx_L3_error)
+    __pyx_v_f = __Pyx_PyObject_to_MemoryviewSlice_dc_float(values[1], PyBUF_WRITABLE); if (unlikely(!__pyx_v_f.memview)) __PYX_ERR(0, 105, __pyx_L3_error)
+    __pyx_v_M = __Pyx_PyLong_As_int(values[2]); if (unlikely((__pyx_v_M == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 105, __pyx_L3_error)
+    __pyx_v_N = __Pyx_PyLong_As_int(values[3]); if (unlikely((__pyx_v_N == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 105, __pyx_L3_error)
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("alleleFrequency", 1, 4, 4, __pyx_nargs); __PYX_ERR(0, 75, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("alleleFrequency", 1, 4, 4, __pyx_nargs); __PYX_ERR(0, 105, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -17857,7 +18067,7 @@ static PyObject *__pyx_pf_10adamixture_3src_7utils_c_5tools_4alleleFrequency(CYT
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("alleleFrequency", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_void_to_None(__pyx_f_10adamixture_3src_7utils_c_5tools_alleleFrequency(__pyx_v_G, __pyx_v_f, __pyx_v_M, __pyx_v_N, 1)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 75, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_void_to_None(__pyx_f_10adamixture_3src_7utils_c_5tools_alleleFrequency(__pyx_v_G, __pyx_v_f, __pyx_v_M, __pyx_v_N, 1)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 105, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -17874,7 +18084,7 @@ static PyObject *__pyx_pf_10adamixture_3src_7utils_c_5tools_4alleleFrequency(CYT
   return __pyx_r;
 }
 
-/* "adamixture/src/utils_c/tools.pyx":90
+/* "adamixture/src/utils_c/tools.pyx":120
  *         f[x] = sum_val / denom
  * 
  * cpdef float rmse(float[:, ::1] Q1, float[:, ::1] Q2, int N, int K) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -17904,7 +18114,7 @@ static float __pyx_f_10adamixture_3src_7utils_c_5tools_rmse(__Pyx_memviewslice _
   size_t __pyx_t_4;
   size_t __pyx_t_5;
 
-  /* "adamixture/src/utils_c/tools.pyx":92
+  /* "adamixture/src/utils_c/tools.pyx":122
  * cpdef float rmse(float[:, ::1] Q1, float[:, ::1] Q2, int N, int K) noexcept nogil:
  *     cdef:
  *         size_t T = N * K             # <<<<<<<<<<<<<<
@@ -17913,7 +18123,7 @@ static float __pyx_f_10adamixture_3src_7utils_c_5tools_rmse(__Pyx_memviewslice _
 */
   __pyx_v_T = (__pyx_v_N * __pyx_v_K);
 
-  /* "adamixture/src/utils_c/tools.pyx":94
+  /* "adamixture/src/utils_c/tools.pyx":124
  *         size_t T = N * K
  *         size_t i
  *         float inv_T = 1.0 / <float>T             # <<<<<<<<<<<<<<
@@ -17922,7 +18132,7 @@ static float __pyx_f_10adamixture_3src_7utils_c_5tools_rmse(__Pyx_memviewslice _
 */
   __pyx_v_inv_T = (1.0 / ((double)((float)__pyx_v_T)));
 
-  /* "adamixture/src/utils_c/tools.pyx":96
+  /* "adamixture/src/utils_c/tools.pyx":126
  *         float inv_T = 1.0 / <float>T
  *         float diff
  *         double acc = 0.0             # <<<<<<<<<<<<<<
@@ -17931,7 +18141,7 @@ static float __pyx_f_10adamixture_3src_7utils_c_5tools_rmse(__Pyx_memviewslice _
 */
   __pyx_v_acc = 0.0;
 
-  /* "adamixture/src/utils_c/tools.pyx":97
+  /* "adamixture/src/utils_c/tools.pyx":127
  *         float diff
  *         double acc = 0.0
  *         float* q1 = &Q1[0, 0]             # <<<<<<<<<<<<<<
@@ -17942,7 +18152,7 @@ static float __pyx_f_10adamixture_3src_7utils_c_5tools_rmse(__Pyx_memviewslice _
   __pyx_t_2 = 0;
   __pyx_v_q1 = (&(*((float *) ( /* dim=1 */ ((char *) (((float *) ( /* dim=0 */ (__pyx_v_Q1.data + __pyx_t_1 * __pyx_v_Q1.strides[0]) )) + __pyx_t_2)) ))));
 
-  /* "adamixture/src/utils_c/tools.pyx":98
+  /* "adamixture/src/utils_c/tools.pyx":128
  *         double acc = 0.0
  *         float* q1 = &Q1[0, 0]
  *         float* q2 = &Q2[0, 0]             # <<<<<<<<<<<<<<
@@ -17953,7 +18163,7 @@ static float __pyx_f_10adamixture_3src_7utils_c_5tools_rmse(__Pyx_memviewslice _
   __pyx_t_1 = 0;
   __pyx_v_q2 = (&(*((float *) ( /* dim=1 */ ((char *) (((float *) ( /* dim=0 */ (__pyx_v_Q2.data + __pyx_t_2 * __pyx_v_Q2.strides[0]) )) + __pyx_t_1)) ))));
 
-  /* "adamixture/src/utils_c/tools.pyx":99
+  /* "adamixture/src/utils_c/tools.pyx":129
  *         float* q1 = &Q1[0, 0]
  *         float* q2 = &Q2[0, 0]
  *     for i in range(T):             # <<<<<<<<<<<<<<
@@ -17965,7 +18175,7 @@ static float __pyx_f_10adamixture_3src_7utils_c_5tools_rmse(__Pyx_memviewslice _
   for (__pyx_t_5 = 0; __pyx_t_5 < __pyx_t_4; __pyx_t_5+=1) {
     __pyx_v_i = __pyx_t_5;
 
-    /* "adamixture/src/utils_c/tools.pyx":100
+    /* "adamixture/src/utils_c/tools.pyx":130
  *         float* q2 = &Q2[0, 0]
  *     for i in range(T):
  *         diff = q1[i] - q2[i]             # <<<<<<<<<<<<<<
@@ -17974,7 +18184,7 @@ static float __pyx_f_10adamixture_3src_7utils_c_5tools_rmse(__Pyx_memviewslice _
 */
     __pyx_v_diff = ((__pyx_v_q1[__pyx_v_i]) - (__pyx_v_q2[__pyx_v_i]));
 
-    /* "adamixture/src/utils_c/tools.pyx":101
+    /* "adamixture/src/utils_c/tools.pyx":131
  *     for i in range(T):
  *         diff = q1[i] - q2[i]
  *         acc += diff * diff             # <<<<<<<<<<<<<<
@@ -17984,7 +18194,7 @@ static float __pyx_f_10adamixture_3src_7utils_c_5tools_rmse(__Pyx_memviewslice _
     __pyx_v_acc = (__pyx_v_acc + (__pyx_v_diff * __pyx_v_diff));
   }
 
-  /* "adamixture/src/utils_c/tools.pyx":102
+  /* "adamixture/src/utils_c/tools.pyx":132
  *         diff = q1[i] - q2[i]
  *         acc += diff * diff
  *     return sqrtf(<float>(acc * inv_T))             # <<<<<<<<<<<<<<
@@ -17994,7 +18204,7 @@ static float __pyx_f_10adamixture_3src_7utils_c_5tools_rmse(__Pyx_memviewslice _
   __pyx_r = sqrtf(((float)(__pyx_v_acc * __pyx_v_inv_T)));
   goto __pyx_L0;
 
-  /* "adamixture/src/utils_c/tools.pyx":90
+  /* "adamixture/src/utils_c/tools.pyx":120
  *         f[x] = sum_val / denom
  * 
  * cpdef float rmse(float[:, ::1] Q1, float[:, ::1] Q2, int N, int K) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -18049,53 +18259,53 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_Q1,&__pyx_mstate_global->__pyx_n_u_Q2,&__pyx_mstate_global->__pyx_n_u_N,&__pyx_mstate_global->__pyx_n_u_K,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 90, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 120, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  4:
         values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 90, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 120, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 90, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 120, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 90, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 120, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 90, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 120, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "rmse", 0) < (0)) __PYX_ERR(0, 90, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "rmse", 0) < (0)) __PYX_ERR(0, 120, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 4; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("rmse", 1, 4, 4, i); __PYX_ERR(0, 90, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("rmse", 1, 4, 4, i); __PYX_ERR(0, 120, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 4)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 90, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 120, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 90, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 120, __pyx_L3_error)
       values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 90, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 120, __pyx_L3_error)
       values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 90, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 120, __pyx_L3_error)
     }
-    __pyx_v_Q1 = __Pyx_PyObject_to_MemoryviewSlice_d_dc_float(values[0], PyBUF_WRITABLE); if (unlikely(!__pyx_v_Q1.memview)) __PYX_ERR(0, 90, __pyx_L3_error)
-    __pyx_v_Q2 = __Pyx_PyObject_to_MemoryviewSlice_d_dc_float(values[1], PyBUF_WRITABLE); if (unlikely(!__pyx_v_Q2.memview)) __PYX_ERR(0, 90, __pyx_L3_error)
-    __pyx_v_N = __Pyx_PyLong_As_int(values[2]); if (unlikely((__pyx_v_N == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 90, __pyx_L3_error)
-    __pyx_v_K = __Pyx_PyLong_As_int(values[3]); if (unlikely((__pyx_v_K == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 90, __pyx_L3_error)
+    __pyx_v_Q1 = __Pyx_PyObject_to_MemoryviewSlice_d_dc_float(values[0], PyBUF_WRITABLE); if (unlikely(!__pyx_v_Q1.memview)) __PYX_ERR(0, 120, __pyx_L3_error)
+    __pyx_v_Q2 = __Pyx_PyObject_to_MemoryviewSlice_d_dc_float(values[1], PyBUF_WRITABLE); if (unlikely(!__pyx_v_Q2.memview)) __PYX_ERR(0, 120, __pyx_L3_error)
+    __pyx_v_N = __Pyx_PyLong_As_int(values[2]); if (unlikely((__pyx_v_N == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 120, __pyx_L3_error)
+    __pyx_v_K = __Pyx_PyLong_As_int(values[3]); if (unlikely((__pyx_v_K == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 120, __pyx_L3_error)
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("rmse", 1, 4, 4, __pyx_nargs); __PYX_ERR(0, 90, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("rmse", 1, 4, 4, __pyx_nargs); __PYX_ERR(0, 120, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -18129,7 +18339,7 @@ static PyObject *__pyx_pf_10adamixture_3src_7utils_c_5tools_6rmse(CYTHON_UNUSED 
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("rmse", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = PyFloat_FromDouble(__pyx_f_10adamixture_3src_7utils_c_5tools_rmse(__pyx_v_Q1, __pyx_v_Q2, __pyx_v_N, __pyx_v_K, 1)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 90, __pyx_L1_error)
+  __pyx_t_1 = PyFloat_FromDouble(__pyx_f_10adamixture_3src_7utils_c_5tools_rmse(__pyx_v_Q1, __pyx_v_Q2, __pyx_v_N, __pyx_v_K, 1)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 120, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -18146,7 +18356,7 @@ static PyObject *__pyx_pf_10adamixture_3src_7utils_c_5tools_6rmse(CYTHON_UNUSED 
   return __pyx_r;
 }
 
-/* "adamixture/src/utils_c/tools.pyx":105
+/* "adamixture/src/utils_c/tools.pyx":135
  * 
  * # Normalize Q:
  * cdef inline void _norm(float* q, size_t K) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -18166,7 +18376,7 @@ static CYTHON_INLINE void __pyx_f_10adamixture_3src_7utils_c_5tools__norm(float 
   int __pyx_t_4;
   size_t __pyx_t_5;
 
-  /* "adamixture/src/utils_c/tools.pyx":108
+  /* "adamixture/src/utils_c/tools.pyx":138
  *     cdef:
  *         size_t k
  *         double t = 0.0, v = 0.0             # <<<<<<<<<<<<<<
@@ -18176,7 +18386,7 @@ static CYTHON_INLINE void __pyx_f_10adamixture_3src_7utils_c_5tools__norm(float 
   __pyx_v_t = 0.0;
   __pyx_v_v = 0.0;
 
-  /* "adamixture/src/utils_c/tools.pyx":110
+  /* "adamixture/src/utils_c/tools.pyx":140
  *         double t = 0.0, v = 0.0
  *         float raw, clipped
  *     for k in range(K):             # <<<<<<<<<<<<<<
@@ -18188,7 +18398,7 @@ static CYTHON_INLINE void __pyx_f_10adamixture_3src_7utils_c_5tools__norm(float 
   for (__pyx_t_3 = 0; __pyx_t_3 < __pyx_t_2; __pyx_t_3+=1) {
     __pyx_v_k = __pyx_t_3;
 
-    /* "adamixture/src/utils_c/tools.pyx":111
+    /* "adamixture/src/utils_c/tools.pyx":141
  *         float raw, clipped
  *     for k in range(K):
  *         raw = q[k]             # <<<<<<<<<<<<<<
@@ -18197,7 +18407,7 @@ static CYTHON_INLINE void __pyx_f_10adamixture_3src_7utils_c_5tools__norm(float 
 */
     __pyx_v_raw = (__pyx_v_q[__pyx_v_k]);
 
-    /* "adamixture/src/utils_c/tools.pyx":112
+    /* "adamixture/src/utils_c/tools.pyx":142
  *     for k in range(K):
  *         raw = q[k]
  *         if raw < 1e-5:             # <<<<<<<<<<<<<<
@@ -18207,7 +18417,7 @@ static CYTHON_INLINE void __pyx_f_10adamixture_3src_7utils_c_5tools__norm(float 
     __pyx_t_4 = (__pyx_v_raw < 1e-5);
     if (__pyx_t_4) {
 
-      /* "adamixture/src/utils_c/tools.pyx":113
+      /* "adamixture/src/utils_c/tools.pyx":143
  *         raw = q[k]
  *         if raw < 1e-5:
  *             clipped = 1e-5             # <<<<<<<<<<<<<<
@@ -18216,7 +18426,7 @@ static CYTHON_INLINE void __pyx_f_10adamixture_3src_7utils_c_5tools__norm(float 
 */
       __pyx_v_clipped = 1e-5;
 
-      /* "adamixture/src/utils_c/tools.pyx":112
+      /* "adamixture/src/utils_c/tools.pyx":142
  *     for k in range(K):
  *         raw = q[k]
  *         if raw < 1e-5:             # <<<<<<<<<<<<<<
@@ -18226,7 +18436,7 @@ static CYTHON_INLINE void __pyx_f_10adamixture_3src_7utils_c_5tools__norm(float 
       goto __pyx_L5;
     }
 
-    /* "adamixture/src/utils_c/tools.pyx":114
+    /* "adamixture/src/utils_c/tools.pyx":144
  *         if raw < 1e-5:
  *             clipped = 1e-5
  *         elif raw > 1.0-1e-5:             # <<<<<<<<<<<<<<
@@ -18236,7 +18446,7 @@ static CYTHON_INLINE void __pyx_f_10adamixture_3src_7utils_c_5tools__norm(float 
     __pyx_t_4 = (__pyx_v_raw > (1.0 - 1e-5));
     if (__pyx_t_4) {
 
-      /* "adamixture/src/utils_c/tools.pyx":115
+      /* "adamixture/src/utils_c/tools.pyx":145
  *             clipped = 1e-5
  *         elif raw > 1.0-1e-5:
  *             clipped = 1.0-1e-5             # <<<<<<<<<<<<<<
@@ -18245,7 +18455,7 @@ static CYTHON_INLINE void __pyx_f_10adamixture_3src_7utils_c_5tools__norm(float 
 */
       __pyx_v_clipped = (1.0 - 1e-5);
 
-      /* "adamixture/src/utils_c/tools.pyx":114
+      /* "adamixture/src/utils_c/tools.pyx":144
  *         if raw < 1e-5:
  *             clipped = 1e-5
  *         elif raw > 1.0-1e-5:             # <<<<<<<<<<<<<<
@@ -18255,7 +18465,7 @@ static CYTHON_INLINE void __pyx_f_10adamixture_3src_7utils_c_5tools__norm(float 
       goto __pyx_L5;
     }
 
-    /* "adamixture/src/utils_c/tools.pyx":117
+    /* "adamixture/src/utils_c/tools.pyx":147
  *             clipped = 1.0-1e-5
  *         else:
  *             clipped = raw             # <<<<<<<<<<<<<<
@@ -18267,7 +18477,7 @@ static CYTHON_INLINE void __pyx_f_10adamixture_3src_7utils_c_5tools__norm(float 
     }
     __pyx_L5:;
 
-    /* "adamixture/src/utils_c/tools.pyx":118
+    /* "adamixture/src/utils_c/tools.pyx":148
  *         else:
  *             clipped = raw
  *         t += clipped             # <<<<<<<<<<<<<<
@@ -18276,7 +18486,7 @@ static CYTHON_INLINE void __pyx_f_10adamixture_3src_7utils_c_5tools__norm(float 
 */
     __pyx_v_t = (__pyx_v_t + __pyx_v_clipped);
 
-    /* "adamixture/src/utils_c/tools.pyx":119
+    /* "adamixture/src/utils_c/tools.pyx":149
  *             clipped = raw
  *         t += clipped
  *         q[k] = clipped             # <<<<<<<<<<<<<<
@@ -18286,7 +18496,7 @@ static CYTHON_INLINE void __pyx_f_10adamixture_3src_7utils_c_5tools__norm(float 
     (__pyx_v_q[__pyx_v_k]) = __pyx_v_clipped;
   }
 
-  /* "adamixture/src/utils_c/tools.pyx":120
+  /* "adamixture/src/utils_c/tools.pyx":150
  *         t += clipped
  *         q[k] = clipped
  *     v = 1.0 / <float>t             # <<<<<<<<<<<<<<
@@ -18295,7 +18505,7 @@ static CYTHON_INLINE void __pyx_f_10adamixture_3src_7utils_c_5tools__norm(float 
 */
   __pyx_v_v = (1.0 / ((double)((float)__pyx_v_t)));
 
-  /* "adamixture/src/utils_c/tools.pyx":121
+  /* "adamixture/src/utils_c/tools.pyx":151
  *         q[k] = clipped
  *     v = 1.0 / <float>t
  *     for k in range(K):             # <<<<<<<<<<<<<<
@@ -18307,7 +18517,7 @@ static CYTHON_INLINE void __pyx_f_10adamixture_3src_7utils_c_5tools__norm(float 
   for (__pyx_t_3 = 0; __pyx_t_3 < __pyx_t_2; __pyx_t_3+=1) {
     __pyx_v_k = __pyx_t_3;
 
-    /* "adamixture/src/utils_c/tools.pyx":122
+    /* "adamixture/src/utils_c/tools.pyx":152
  *     v = 1.0 / <float>t
  *     for k in range(K):
  *         q[k] *= v             # <<<<<<<<<<<<<<
@@ -18318,7 +18528,7 @@ static CYTHON_INLINE void __pyx_f_10adamixture_3src_7utils_c_5tools__norm(float 
     (__pyx_v_q[__pyx_t_5]) = ((__pyx_v_q[__pyx_t_5]) * __pyx_v_v);
   }
 
-  /* "adamixture/src/utils_c/tools.pyx":105
+  /* "adamixture/src/utils_c/tools.pyx":135
  * 
  * # Normalize Q:
  * cdef inline void _norm(float* q, size_t K) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -18329,7 +18539,7 @@ static CYTHON_INLINE void __pyx_f_10adamixture_3src_7utils_c_5tools__norm(float 
   /* function exit code */
 }
 
-/* "adamixture/src/utils_c/tools.pyx":125
+/* "adamixture/src/utils_c/tools.pyx":155
  * 
  * # Map Q:
  * cpdef void mapQ(float[:,::1] Q, int N, int K) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -18352,7 +18562,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_5tools_mapQ(__Pyx_memviewslice __
   size_t __pyx_t_4;
   Py_ssize_t __pyx_t_5;
 
-  /* "adamixture/src/utils_c/tools.pyx":128
+  /* "adamixture/src/utils_c/tools.pyx":158
  *     cdef:
  *         size_t j
  *     for j in prange(N, schedule='guided'):             # <<<<<<<<<<<<<<
@@ -18386,7 +18596,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_5tools_mapQ(__Pyx_memviewslice __
                         {
                             __pyx_v_j = (size_t)(0 + 1 * __pyx_t_2);
 
-                            /* "adamixture/src/utils_c/tools.pyx":129
+                            /* "adamixture/src/utils_c/tools.pyx":159
  *         size_t j
  *     for j in prange(N, schedule='guided'):
  *         _norm(&Q[j,0], K)             # <<<<<<<<<<<<<<
@@ -18409,7 +18619,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_5tools_mapQ(__Pyx_memviewslice __
         #endif
       }
 
-      /* "adamixture/src/utils_c/tools.pyx":128
+      /* "adamixture/src/utils_c/tools.pyx":158
  *     cdef:
  *         size_t j
  *     for j in prange(N, schedule='guided'):             # <<<<<<<<<<<<<<
@@ -18426,7 +18636,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_5tools_mapQ(__Pyx_memviewslice __
       }
   }
 
-  /* "adamixture/src/utils_c/tools.pyx":125
+  /* "adamixture/src/utils_c/tools.pyx":155
  * 
  * # Map Q:
  * cpdef void mapQ(float[:,::1] Q, int N, int K) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -18478,46 +18688,46 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_Q,&__pyx_mstate_global->__pyx_n_u_N,&__pyx_mstate_global->__pyx_n_u_K,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 125, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 155, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 125, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 155, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 125, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 155, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 125, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 155, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "mapQ", 0) < (0)) __PYX_ERR(0, 125, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "mapQ", 0) < (0)) __PYX_ERR(0, 155, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 3; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("mapQ", 1, 3, 3, i); __PYX_ERR(0, 125, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("mapQ", 1, 3, 3, i); __PYX_ERR(0, 155, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 3)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 125, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 155, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 125, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 155, __pyx_L3_error)
       values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 125, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 155, __pyx_L3_error)
     }
-    __pyx_v_Q = __Pyx_PyObject_to_MemoryviewSlice_d_dc_float(values[0], PyBUF_WRITABLE); if (unlikely(!__pyx_v_Q.memview)) __PYX_ERR(0, 125, __pyx_L3_error)
-    __pyx_v_N = __Pyx_PyLong_As_int(values[1]); if (unlikely((__pyx_v_N == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 125, __pyx_L3_error)
-    __pyx_v_K = __Pyx_PyLong_As_int(values[2]); if (unlikely((__pyx_v_K == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 125, __pyx_L3_error)
+    __pyx_v_Q = __Pyx_PyObject_to_MemoryviewSlice_d_dc_float(values[0], PyBUF_WRITABLE); if (unlikely(!__pyx_v_Q.memview)) __PYX_ERR(0, 155, __pyx_L3_error)
+    __pyx_v_N = __Pyx_PyLong_As_int(values[1]); if (unlikely((__pyx_v_N == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 155, __pyx_L3_error)
+    __pyx_v_K = __Pyx_PyLong_As_int(values[2]); if (unlikely((__pyx_v_K == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 155, __pyx_L3_error)
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("mapQ", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 125, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("mapQ", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 155, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -18549,7 +18759,7 @@ static PyObject *__pyx_pf_10adamixture_3src_7utils_c_5tools_8mapQ(CYTHON_UNUSED 
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("mapQ", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_void_to_None(__pyx_f_10adamixture_3src_7utils_c_5tools_mapQ(__pyx_v_Q, __pyx_v_N, __pyx_v_K, 1)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 125, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_void_to_None(__pyx_f_10adamixture_3src_7utils_c_5tools_mapQ(__pyx_v_Q, __pyx_v_N, __pyx_v_K, 1)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 155, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -18566,7 +18776,7 @@ static PyObject *__pyx_pf_10adamixture_3src_7utils_c_5tools_8mapQ(CYTHON_UNUSED 
   return __pyx_r;
 }
 
-/* "adamixture/src/utils_c/tools.pyx":132
+/* "adamixture/src/utils_c/tools.pyx":162
  * 
  * # Map P:
  * cpdef void mapP(float[:,::1] P, int M, int K) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -18595,7 +18805,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_5tools_mapP(__Pyx_memviewslice __
   int __pyx_t_7;
   int __pyx_t_8;
 
-  /* "adamixture/src/utils_c/tools.pyx":137
+  /* "adamixture/src/utils_c/tools.pyx":167
  *         float raw
  *         float* p
  *     for i in prange(M, schedule='guided'):             # <<<<<<<<<<<<<<
@@ -18629,7 +18839,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_5tools_mapP(__Pyx_memviewslice __
                         {
                             __pyx_v_i = (size_t)(0 + 1 * __pyx_t_2);
 
-                            /* "adamixture/src/utils_c/tools.pyx":138
+                            /* "adamixture/src/utils_c/tools.pyx":168
  *         float* p
  *     for i in prange(M, schedule='guided'):
  *         p = &P[i,0]             # <<<<<<<<<<<<<<
@@ -18640,7 +18850,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_5tools_mapP(__Pyx_memviewslice __
                             __pyx_t_5 = 0;
                             __pyx_v_p = (&(*((float *) ( /* dim=1 */ ((char *) (((float *) ( /* dim=0 */ (__pyx_v_P.data + __pyx_t_4 * __pyx_v_P.strides[0]) )) + __pyx_t_5)) ))));
 
-                            /* "adamixture/src/utils_c/tools.pyx":139
+                            /* "adamixture/src/utils_c/tools.pyx":169
  *     for i in prange(M, schedule='guided'):
  *         p = &P[i,0]
  *         for k in range(K):             # <<<<<<<<<<<<<<
@@ -18652,7 +18862,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_5tools_mapP(__Pyx_memviewslice __
                             for (__pyx_t_4 = 0; __pyx_t_4 < __pyx_t_7; __pyx_t_4+=1) {
                               __pyx_v_k = __pyx_t_4;
 
-                              /* "adamixture/src/utils_c/tools.pyx":140
+                              /* "adamixture/src/utils_c/tools.pyx":170
  *         p = &P[i,0]
  *         for k in range(K):
  *             raw = p[k]             # <<<<<<<<<<<<<<
@@ -18661,7 +18871,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_5tools_mapP(__Pyx_memviewslice __
 */
                               __pyx_v_raw = (__pyx_v_p[__pyx_v_k]);
 
-                              /* "adamixture/src/utils_c/tools.pyx":141
+                              /* "adamixture/src/utils_c/tools.pyx":171
  *         for k in range(K):
  *             raw = p[k]
  *             if raw < 1e-5:             # <<<<<<<<<<<<<<
@@ -18671,7 +18881,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_5tools_mapP(__Pyx_memviewslice __
                               __pyx_t_8 = (__pyx_v_raw < 1e-5);
                               if (__pyx_t_8) {
 
-                                /* "adamixture/src/utils_c/tools.pyx":142
+                                /* "adamixture/src/utils_c/tools.pyx":172
  *             raw = p[k]
  *             if raw < 1e-5:
  *                 p[k] = 1e-5             # <<<<<<<<<<<<<<
@@ -18680,7 +18890,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_5tools_mapP(__Pyx_memviewslice __
 */
                                 (__pyx_v_p[__pyx_v_k]) = 1e-5;
 
-                                /* "adamixture/src/utils_c/tools.pyx":141
+                                /* "adamixture/src/utils_c/tools.pyx":171
  *         for k in range(K):
  *             raw = p[k]
  *             if raw < 1e-5:             # <<<<<<<<<<<<<<
@@ -18690,7 +18900,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_5tools_mapP(__Pyx_memviewslice __
                                 goto __pyx_L12;
                               }
 
-                              /* "adamixture/src/utils_c/tools.pyx":143
+                              /* "adamixture/src/utils_c/tools.pyx":173
  *             if raw < 1e-5:
  *                 p[k] = 1e-5
  *             elif raw > 1.0 - 1e-5:             # <<<<<<<<<<<<<<
@@ -18700,7 +18910,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_5tools_mapP(__Pyx_memviewslice __
                               __pyx_t_8 = (__pyx_v_raw > (1.0 - 1e-5));
                               if (__pyx_t_8) {
 
-                                /* "adamixture/src/utils_c/tools.pyx":144
+                                /* "adamixture/src/utils_c/tools.pyx":174
  *                 p[k] = 1e-5
  *             elif raw > 1.0 - 1e-5:
  *                 p[k] = 1.0 - 1e-5             # <<<<<<<<<<<<<<
@@ -18709,7 +18919,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_5tools_mapP(__Pyx_memviewslice __
 */
                                 (__pyx_v_p[__pyx_v_k]) = (1.0 - 1e-5);
 
-                                /* "adamixture/src/utils_c/tools.pyx":143
+                                /* "adamixture/src/utils_c/tools.pyx":173
  *             if raw < 1e-5:
  *                 p[k] = 1e-5
  *             elif raw > 1.0 - 1e-5:             # <<<<<<<<<<<<<<
@@ -18732,7 +18942,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_5tools_mapP(__Pyx_memviewslice __
         #endif
       }
 
-      /* "adamixture/src/utils_c/tools.pyx":137
+      /* "adamixture/src/utils_c/tools.pyx":167
  *         float raw
  *         float* p
  *     for i in prange(M, schedule='guided'):             # <<<<<<<<<<<<<<
@@ -18749,7 +18959,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_5tools_mapP(__Pyx_memviewslice __
       }
   }
 
-  /* "adamixture/src/utils_c/tools.pyx":132
+  /* "adamixture/src/utils_c/tools.pyx":162
  * 
  * # Map P:
  * cpdef void mapP(float[:,::1] P, int M, int K) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -18801,46 +19011,46 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_P,&__pyx_mstate_global->__pyx_n_u_M,&__pyx_mstate_global->__pyx_n_u_K,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 132, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 162, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 132, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 162, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 132, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 162, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 132, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 162, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "mapP", 0) < (0)) __PYX_ERR(0, 132, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "mapP", 0) < (0)) __PYX_ERR(0, 162, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 3; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("mapP", 1, 3, 3, i); __PYX_ERR(0, 132, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("mapP", 1, 3, 3, i); __PYX_ERR(0, 162, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 3)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 132, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 162, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 132, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 162, __pyx_L3_error)
       values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 132, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 162, __pyx_L3_error)
     }
-    __pyx_v_P = __Pyx_PyObject_to_MemoryviewSlice_d_dc_float(values[0], PyBUF_WRITABLE); if (unlikely(!__pyx_v_P.memview)) __PYX_ERR(0, 132, __pyx_L3_error)
-    __pyx_v_M = __Pyx_PyLong_As_int(values[1]); if (unlikely((__pyx_v_M == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 132, __pyx_L3_error)
-    __pyx_v_K = __Pyx_PyLong_As_int(values[2]); if (unlikely((__pyx_v_K == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 132, __pyx_L3_error)
+    __pyx_v_P = __Pyx_PyObject_to_MemoryviewSlice_d_dc_float(values[0], PyBUF_WRITABLE); if (unlikely(!__pyx_v_P.memview)) __PYX_ERR(0, 162, __pyx_L3_error)
+    __pyx_v_M = __Pyx_PyLong_As_int(values[1]); if (unlikely((__pyx_v_M == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 162, __pyx_L3_error)
+    __pyx_v_K = __Pyx_PyLong_As_int(values[2]); if (unlikely((__pyx_v_K == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 162, __pyx_L3_error)
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("mapP", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 132, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("mapP", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 162, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -18872,7 +19082,7 @@ static PyObject *__pyx_pf_10adamixture_3src_7utils_c_5tools_10mapP(CYTHON_UNUSED
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("mapP", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_void_to_None(__pyx_f_10adamixture_3src_7utils_c_5tools_mapP(__pyx_v_P, __pyx_v_M, __pyx_v_K, 1)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 132, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_void_to_None(__pyx_f_10adamixture_3src_7utils_c_5tools_mapP(__pyx_v_P, __pyx_v_M, __pyx_v_K, 1)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 162, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -18889,7 +19099,7 @@ static PyObject *__pyx_pf_10adamixture_3src_7utils_c_5tools_10mapP(CYTHON_UNUSED
   return __pyx_r;
 }
 
-/* "adamixture/src/utils_c/tools.pyx":147
+/* "adamixture/src/utils_c/tools.pyx":177
  * 
  * # Eval KL divergence:
  * cpdef double KL(double[:, ::1] Q1, double[:, ::1] Q2, int N, int K) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -18923,7 +19133,7 @@ static double __pyx_f_10adamixture_3src_7utils_c_5tools_KL(__Pyx_memviewslice __
   int __pyx_t_6;
   int __pyx_t_7;
 
-  /* "adamixture/src/utils_c/tools.pyx":150
+  /* "adamixture/src/utils_c/tools.pyx":180
  *     cdef:
  *         size_t i, k
  *         double eps = 1e-10             # <<<<<<<<<<<<<<
@@ -18932,7 +19142,7 @@ static double __pyx_f_10adamixture_3src_7utils_c_5tools_KL(__Pyx_memviewslice __
 */
   __pyx_v_eps = 1e-10;
 
-  /* "adamixture/src/utils_c/tools.pyx":151
+  /* "adamixture/src/utils_c/tools.pyx":181
  *         size_t i, k
  *         double eps = 1e-10
  *         double acc = 0.0             # <<<<<<<<<<<<<<
@@ -18941,7 +19151,7 @@ static double __pyx_f_10adamixture_3src_7utils_c_5tools_KL(__Pyx_memviewslice __
 */
   __pyx_v_acc = 0.0;
 
-  /* "adamixture/src/utils_c/tools.pyx":155
+  /* "adamixture/src/utils_c/tools.pyx":185
  *         double* pa
  *         double* pb
  *     for i in prange(N, schedule='guided'):             # <<<<<<<<<<<<<<
@@ -18975,7 +19185,7 @@ static double __pyx_f_10adamixture_3src_7utils_c_5tools_KL(__Pyx_memviewslice __
                         {
                             __pyx_v_i = (size_t)(0 + 1 * __pyx_t_2);
 
-                            /* "adamixture/src/utils_c/tools.pyx":156
+                            /* "adamixture/src/utils_c/tools.pyx":186
  *         double* pb
  *     for i in prange(N, schedule='guided'):
  *         pa = &Q1[i, 0]             # <<<<<<<<<<<<<<
@@ -18986,7 +19196,7 @@ static double __pyx_f_10adamixture_3src_7utils_c_5tools_KL(__Pyx_memviewslice __
                             __pyx_t_5 = 0;
                             __pyx_v_pa = (&(*((double *) ( /* dim=1 */ ((char *) (((double *) ( /* dim=0 */ (__pyx_v_Q1.data + __pyx_t_4 * __pyx_v_Q1.strides[0]) )) + __pyx_t_5)) ))));
 
-                            /* "adamixture/src/utils_c/tools.pyx":157
+                            /* "adamixture/src/utils_c/tools.pyx":187
  *     for i in prange(N, schedule='guided'):
  *         pa = &Q1[i, 0]
  *         pb = &Q2[i, 0]             # <<<<<<<<<<<<<<
@@ -18997,7 +19207,7 @@ static double __pyx_f_10adamixture_3src_7utils_c_5tools_KL(__Pyx_memviewslice __
                             __pyx_t_5 = 0;
                             __pyx_v_pb = (&(*((double *) ( /* dim=1 */ ((char *) (((double *) ( /* dim=0 */ (__pyx_v_Q2.data + __pyx_t_4 * __pyx_v_Q2.strides[0]) )) + __pyx_t_5)) ))));
 
-                            /* "adamixture/src/utils_c/tools.pyx":158
+                            /* "adamixture/src/utils_c/tools.pyx":188
  *         pa = &Q1[i, 0]
  *         pb = &Q2[i, 0]
  *         for k in range(K):             # <<<<<<<<<<<<<<
@@ -19009,7 +19219,7 @@ static double __pyx_f_10adamixture_3src_7utils_c_5tools_KL(__Pyx_memviewslice __
                             for (__pyx_t_4 = 0; __pyx_t_4 < __pyx_t_7; __pyx_t_4+=1) {
                               __pyx_v_k = __pyx_t_4;
 
-                              /* "adamixture/src/utils_c/tools.pyx":159
+                              /* "adamixture/src/utils_c/tools.pyx":189
  *         pb = &Q2[i, 0]
  *         for k in range(K):
  *             ai = pa[k]             # <<<<<<<<<<<<<<
@@ -19018,7 +19228,7 @@ static double __pyx_f_10adamixture_3src_7utils_c_5tools_KL(__Pyx_memviewslice __
 */
                               __pyx_v_ai = (__pyx_v_pa[__pyx_v_k]);
 
-                              /* "adamixture/src/utils_c/tools.pyx":160
+                              /* "adamixture/src/utils_c/tools.pyx":190
  *         for k in range(K):
  *             ai = pa[k]
  *             bi = pb[k]             # <<<<<<<<<<<<<<
@@ -19027,7 +19237,7 @@ static double __pyx_f_10adamixture_3src_7utils_c_5tools_KL(__Pyx_memviewslice __
 */
                               __pyx_v_bi = (__pyx_v_pb[__pyx_v_k]);
 
-                              /* "adamixture/src/utils_c/tools.pyx":161
+                              /* "adamixture/src/utils_c/tools.pyx":191
  *             ai = pa[k]
  *             bi = pb[k]
  *             m = 0.5 * (ai + bi)             # <<<<<<<<<<<<<<
@@ -19036,7 +19246,7 @@ static double __pyx_f_10adamixture_3src_7utils_c_5tools_KL(__Pyx_memviewslice __
 */
                               __pyx_v_m = (0.5 * (__pyx_v_ai + __pyx_v_bi));
 
-                              /* "adamixture/src/utils_c/tools.pyx":162
+                              /* "adamixture/src/utils_c/tools.pyx":192
  *             bi = pb[k]
  *             m = 0.5 * (ai + bi)
  *             acc += ai * log((ai) / m + eps)             # <<<<<<<<<<<<<<
@@ -19058,7 +19268,7 @@ static double __pyx_f_10adamixture_3src_7utils_c_5tools_KL(__Pyx_memviewslice __
         #endif
       }
 
-      /* "adamixture/src/utils_c/tools.pyx":155
+      /* "adamixture/src/utils_c/tools.pyx":185
  *         double* pa
  *         double* pb
  *     for i in prange(N, schedule='guided'):             # <<<<<<<<<<<<<<
@@ -19075,7 +19285,7 @@ static double __pyx_f_10adamixture_3src_7utils_c_5tools_KL(__Pyx_memviewslice __
       }
   }
 
-  /* "adamixture/src/utils_c/tools.pyx":163
+  /* "adamixture/src/utils_c/tools.pyx":193
  *             m = 0.5 * (ai + bi)
  *             acc += ai * log((ai) / m + eps)
  *     return acc / <double>N             # <<<<<<<<<<<<<<
@@ -19085,7 +19295,7 @@ static double __pyx_f_10adamixture_3src_7utils_c_5tools_KL(__Pyx_memviewslice __
   __pyx_r = (__pyx_v_acc / ((double)__pyx_v_N));
   goto __pyx_L0;
 
-  /* "adamixture/src/utils_c/tools.pyx":147
+  /* "adamixture/src/utils_c/tools.pyx":177
  * 
  * # Eval KL divergence:
  * cpdef double KL(double[:, ::1] Q1, double[:, ::1] Q2, int N, int K) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -19140,53 +19350,53 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_Q1,&__pyx_mstate_global->__pyx_n_u_Q2,&__pyx_mstate_global->__pyx_n_u_N,&__pyx_mstate_global->__pyx_n_u_K,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 147, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 177, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  4:
         values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 147, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 177, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 147, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 177, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 147, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 177, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 147, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 177, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "KL", 0) < (0)) __PYX_ERR(0, 147, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "KL", 0) < (0)) __PYX_ERR(0, 177, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 4; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("KL", 1, 4, 4, i); __PYX_ERR(0, 147, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("KL", 1, 4, 4, i); __PYX_ERR(0, 177, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 4)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 147, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 177, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 147, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 177, __pyx_L3_error)
       values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 147, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 177, __pyx_L3_error)
       values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 147, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 177, __pyx_L3_error)
     }
-    __pyx_v_Q1 = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double(values[0], PyBUF_WRITABLE); if (unlikely(!__pyx_v_Q1.memview)) __PYX_ERR(0, 147, __pyx_L3_error)
-    __pyx_v_Q2 = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double(values[1], PyBUF_WRITABLE); if (unlikely(!__pyx_v_Q2.memview)) __PYX_ERR(0, 147, __pyx_L3_error)
-    __pyx_v_N = __Pyx_PyLong_As_int(values[2]); if (unlikely((__pyx_v_N == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 147, __pyx_L3_error)
-    __pyx_v_K = __Pyx_PyLong_As_int(values[3]); if (unlikely((__pyx_v_K == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 147, __pyx_L3_error)
+    __pyx_v_Q1 = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double(values[0], PyBUF_WRITABLE); if (unlikely(!__pyx_v_Q1.memview)) __PYX_ERR(0, 177, __pyx_L3_error)
+    __pyx_v_Q2 = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double(values[1], PyBUF_WRITABLE); if (unlikely(!__pyx_v_Q2.memview)) __PYX_ERR(0, 177, __pyx_L3_error)
+    __pyx_v_N = __Pyx_PyLong_As_int(values[2]); if (unlikely((__pyx_v_N == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 177, __pyx_L3_error)
+    __pyx_v_K = __Pyx_PyLong_As_int(values[3]); if (unlikely((__pyx_v_K == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 177, __pyx_L3_error)
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("KL", 1, 4, 4, __pyx_nargs); __PYX_ERR(0, 147, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("KL", 1, 4, 4, __pyx_nargs); __PYX_ERR(0, 177, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -19220,7 +19430,7 @@ static PyObject *__pyx_pf_10adamixture_3src_7utils_c_5tools_12KL(CYTHON_UNUSED P
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("KL", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = PyFloat_FromDouble(__pyx_f_10adamixture_3src_7utils_c_5tools_KL(__pyx_v_Q1, __pyx_v_Q2, __pyx_v_N, __pyx_v_K, 1)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 147, __pyx_L1_error)
+  __pyx_t_1 = PyFloat_FromDouble(__pyx_f_10adamixture_3src_7utils_c_5tools_KL(__pyx_v_Q1, __pyx_v_Q2, __pyx_v_N, __pyx_v_K, 1)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 177, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -19237,7 +19447,7 @@ static PyObject *__pyx_pf_10adamixture_3src_7utils_c_5tools_12KL(CYTHON_UNUSED P
   return __pyx_r;
 }
 
-/* "adamixture/src/utils_c/tools.pyx":166
+/* "adamixture/src/utils_c/tools.pyx":196
  * 
  * # Eval RMSE:
  * cpdef double rmse_d(double[:,::1] Q1, double[:,::1] Q2, int N, int K) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -19267,7 +19477,7 @@ static double __pyx_f_10adamixture_3src_7utils_c_5tools_rmse_d(__Pyx_memviewslic
   size_t __pyx_t_4;
   size_t __pyx_t_5;
 
-  /* "adamixture/src/utils_c/tools.pyx":168
+  /* "adamixture/src/utils_c/tools.pyx":198
  * cpdef double rmse_d(double[:,::1] Q1, double[:,::1] Q2, int N, int K) noexcept nogil:
  *     cdef:
  *         size_t T = N * K             # <<<<<<<<<<<<<<
@@ -19276,7 +19486,7 @@ static double __pyx_f_10adamixture_3src_7utils_c_5tools_rmse_d(__Pyx_memviewslic
 */
   __pyx_v_T = (__pyx_v_N * __pyx_v_K);
 
-  /* "adamixture/src/utils_c/tools.pyx":170
+  /* "adamixture/src/utils_c/tools.pyx":200
  *         size_t T = N * K
  *         size_t i
  *         double inv_T = 1.0 / <double>T             # <<<<<<<<<<<<<<
@@ -19285,7 +19495,7 @@ static double __pyx_f_10adamixture_3src_7utils_c_5tools_rmse_d(__Pyx_memviewslic
 */
   __pyx_v_inv_T = (1.0 / ((double)__pyx_v_T));
 
-  /* "adamixture/src/utils_c/tools.pyx":171
+  /* "adamixture/src/utils_c/tools.pyx":201
  *         size_t i
  *         double inv_T = 1.0 / <double>T
  *         double acc = 0.0             # <<<<<<<<<<<<<<
@@ -19294,7 +19504,7 @@ static double __pyx_f_10adamixture_3src_7utils_c_5tools_rmse_d(__Pyx_memviewslic
 */
   __pyx_v_acc = 0.0;
 
-  /* "adamixture/src/utils_c/tools.pyx":173
+  /* "adamixture/src/utils_c/tools.pyx":203
  *         double acc = 0.0
  *         double diff
  *         double* q1 = &Q1[0, 0]             # <<<<<<<<<<<<<<
@@ -19305,7 +19515,7 @@ static double __pyx_f_10adamixture_3src_7utils_c_5tools_rmse_d(__Pyx_memviewslic
   __pyx_t_2 = 0;
   __pyx_v_q1 = (&(*((double *) ( /* dim=1 */ ((char *) (((double *) ( /* dim=0 */ (__pyx_v_Q1.data + __pyx_t_1 * __pyx_v_Q1.strides[0]) )) + __pyx_t_2)) ))));
 
-  /* "adamixture/src/utils_c/tools.pyx":174
+  /* "adamixture/src/utils_c/tools.pyx":204
  *         double diff
  *         double* q1 = &Q1[0, 0]
  *         double* q2 = &Q2[0, 0]             # <<<<<<<<<<<<<<
@@ -19316,7 +19526,7 @@ static double __pyx_f_10adamixture_3src_7utils_c_5tools_rmse_d(__Pyx_memviewslic
   __pyx_t_1 = 0;
   __pyx_v_q2 = (&(*((double *) ( /* dim=1 */ ((char *) (((double *) ( /* dim=0 */ (__pyx_v_Q2.data + __pyx_t_2 * __pyx_v_Q2.strides[0]) )) + __pyx_t_1)) ))));
 
-  /* "adamixture/src/utils_c/tools.pyx":175
+  /* "adamixture/src/utils_c/tools.pyx":205
  *         double* q1 = &Q1[0, 0]
  *         double* q2 = &Q2[0, 0]
  *     for i in range(T):             # <<<<<<<<<<<<<<
@@ -19328,7 +19538,7 @@ static double __pyx_f_10adamixture_3src_7utils_c_5tools_rmse_d(__Pyx_memviewslic
   for (__pyx_t_5 = 0; __pyx_t_5 < __pyx_t_4; __pyx_t_5+=1) {
     __pyx_v_i = __pyx_t_5;
 
-    /* "adamixture/src/utils_c/tools.pyx":176
+    /* "adamixture/src/utils_c/tools.pyx":206
  *         double* q2 = &Q2[0, 0]
  *     for i in range(T):
  *         diff = q1[i] - q2[i]             # <<<<<<<<<<<<<<
@@ -19337,24 +19547,27 @@ static double __pyx_f_10adamixture_3src_7utils_c_5tools_rmse_d(__Pyx_memviewslic
 */
     __pyx_v_diff = ((__pyx_v_q1[__pyx_v_i]) - (__pyx_v_q2[__pyx_v_i]));
 
-    /* "adamixture/src/utils_c/tools.pyx":177
+    /* "adamixture/src/utils_c/tools.pyx":207
  *     for i in range(T):
  *         diff = q1[i] - q2[i]
  *         acc += diff * diff             # <<<<<<<<<<<<<<
  *     return sqrt(acc * inv_T)
+ * 
 */
     __pyx_v_acc = (__pyx_v_acc + (__pyx_v_diff * __pyx_v_diff));
   }
 
-  /* "adamixture/src/utils_c/tools.pyx":178
+  /* "adamixture/src/utils_c/tools.pyx":208
  *         diff = q1[i] - q2[i]
  *         acc += diff * diff
  *     return sqrt(acc * inv_T)             # <<<<<<<<<<<<<<
+ * 
+ * # Log-likelihood on a subset of samples (cross-validation)
 */
   __pyx_r = sqrt((__pyx_v_acc * __pyx_v_inv_T));
   goto __pyx_L0;
 
-  /* "adamixture/src/utils_c/tools.pyx":166
+  /* "adamixture/src/utils_c/tools.pyx":196
  * 
  * # Eval RMSE:
  * cpdef double rmse_d(double[:,::1] Q1, double[:,::1] Q2, int N, int K) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -19409,53 +19622,53 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_Q1,&__pyx_mstate_global->__pyx_n_u_Q2,&__pyx_mstate_global->__pyx_n_u_N,&__pyx_mstate_global->__pyx_n_u_K,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 166, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 196, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  4:
         values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 166, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 196, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 166, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 196, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 166, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 196, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 166, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 196, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "rmse_d", 0) < (0)) __PYX_ERR(0, 166, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "rmse_d", 0) < (0)) __PYX_ERR(0, 196, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 4; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("rmse_d", 1, 4, 4, i); __PYX_ERR(0, 166, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("rmse_d", 1, 4, 4, i); __PYX_ERR(0, 196, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 4)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 166, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 196, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 166, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 196, __pyx_L3_error)
       values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 166, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 196, __pyx_L3_error)
       values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 166, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 196, __pyx_L3_error)
     }
-    __pyx_v_Q1 = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double(values[0], PyBUF_WRITABLE); if (unlikely(!__pyx_v_Q1.memview)) __PYX_ERR(0, 166, __pyx_L3_error)
-    __pyx_v_Q2 = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double(values[1], PyBUF_WRITABLE); if (unlikely(!__pyx_v_Q2.memview)) __PYX_ERR(0, 166, __pyx_L3_error)
-    __pyx_v_N = __Pyx_PyLong_As_int(values[2]); if (unlikely((__pyx_v_N == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 166, __pyx_L3_error)
-    __pyx_v_K = __Pyx_PyLong_As_int(values[3]); if (unlikely((__pyx_v_K == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 166, __pyx_L3_error)
+    __pyx_v_Q1 = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double(values[0], PyBUF_WRITABLE); if (unlikely(!__pyx_v_Q1.memview)) __PYX_ERR(0, 196, __pyx_L3_error)
+    __pyx_v_Q2 = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double(values[1], PyBUF_WRITABLE); if (unlikely(!__pyx_v_Q2.memview)) __PYX_ERR(0, 196, __pyx_L3_error)
+    __pyx_v_N = __Pyx_PyLong_As_int(values[2]); if (unlikely((__pyx_v_N == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 196, __pyx_L3_error)
+    __pyx_v_K = __Pyx_PyLong_As_int(values[3]); if (unlikely((__pyx_v_K == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 196, __pyx_L3_error)
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("rmse_d", 1, 4, 4, __pyx_nargs); __PYX_ERR(0, 166, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("rmse_d", 1, 4, 4, __pyx_nargs); __PYX_ERR(0, 196, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -19489,7 +19702,7 @@ static PyObject *__pyx_pf_10adamixture_3src_7utils_c_5tools_14rmse_d(CYTHON_UNUS
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("rmse_d", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = PyFloat_FromDouble(__pyx_f_10adamixture_3src_7utils_c_5tools_rmse_d(__pyx_v_Q1, __pyx_v_Q2, __pyx_v_N, __pyx_v_K, 1)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 166, __pyx_L1_error)
+  __pyx_t_1 = PyFloat_FromDouble(__pyx_f_10adamixture_3src_7utils_c_5tools_rmse_d(__pyx_v_Q1, __pyx_v_Q2, __pyx_v_N, __pyx_v_K, 1)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 196, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -19499,6 +19712,1122 @@ static PyObject *__pyx_pf_10adamixture_3src_7utils_c_5tools_14rmse_d(CYTHON_UNUS
   __pyx_L1_error:;
   __Pyx_XDECREF(__pyx_t_1);
   __Pyx_AddTraceback("adamixture.src.utils_c.tools.rmse_d", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = NULL;
+  __pyx_L0:;
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "adamixture/src/utils_c/tools.pyx":211
+ * 
+ * # Log-likelihood on a subset of samples (cross-validation)
+ * cpdef double loglike_cross(uint8_t[:,::1] G, double[:,::1] P, double[:,::1] Q,             # <<<<<<<<<<<<<<
+ *                            uint32_t[::1] s_ind, int M, int N_sub, int K) noexcept nogil:
+ *     cdef:
+*/
+
+static PyObject *__pyx_pw_10adamixture_3src_7utils_c_5tools_17loglike_cross(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+); /*proto*/
+static double __pyx_f_10adamixture_3src_7utils_c_5tools_loglike_cross(__Pyx_memviewslice __pyx_v_G, __Pyx_memviewslice __pyx_v_P, __Pyx_memviewslice __pyx_v_Q, __Pyx_memviewslice __pyx_v_s_ind, int __pyx_v_M, int __pyx_v_N_sub, int __pyx_v_K, CYTHON_UNUSED int __pyx_skip_dispatch) {
+  size_t __pyx_v_j;
+  double __pyx_v_ll;
+  double *__pyx_v_rec;
+  double __pyx_r;
+  int __pyx_t_1;
+  size_t __pyx_t_2;
+  size_t __pyx_t_3;
+  Py_ssize_t __pyx_t_4;
+  Py_ssize_t __pyx_t_5;
+  size_t __pyx_t_6;
+  Py_ssize_t __pyx_t_7;
+  Py_ssize_t __pyx_t_8;
+
+  /* "adamixture/src/utils_c/tools.pyx":215
+ *     cdef:
+ *         size_t j
+ *         double ll = 0.0             # <<<<<<<<<<<<<<
+ *         double* rec
+ *     with nogil, parallel():
+*/
+  __pyx_v_ll = 0.0;
+
+  /* "adamixture/src/utils_c/tools.pyx":217
+ *         double ll = 0.0
+ *         double* rec
+ *     with nogil, parallel():             # <<<<<<<<<<<<<<
+ *         rec = <double*>calloc(N_sub, sizeof(double))
+ *         for j in prange(M, schedule='guided'):
+*/
+  {
+      __Pyx_UnknownThreadState _save;
+      _save = __Pyx_SaveUnknownThread();
+      __Pyx_FastGIL_Remember();
+      /*try:*/ {
+        {
+            #if ((defined(__APPLE__) || defined(__OSX__)) && (defined(__GNUC__) && (__GNUC__ > 2 || (__GNUC__ == 2 && (__GNUC_MINOR__ > 95)))))
+                #undef likely
+                #undef unlikely
+                #define likely(x)   (x)
+                #define unlikely(x) (x)
+            #endif
+            #ifdef _OPENMP
+            #pragma omp parallel firstprivate(__pyx_v_rec) reduction(+:__pyx_v_ll) private(__pyx_t_1, __pyx_t_2, __pyx_t_3, __pyx_t_4, __pyx_t_5, __pyx_t_6, __pyx_t_7, __pyx_t_8)
+            #endif /* _OPENMP */
+            {
+
+                /* "adamixture/src/utils_c/tools.pyx":218
+ *         double* rec
+ *     with nogil, parallel():
+ *         rec = <double*>calloc(N_sub, sizeof(double))             # <<<<<<<<<<<<<<
+ *         for j in prange(M, schedule='guided'):
+ *             _reconstruct_sub(&Q[0,0], &P[j,0], rec, &s_ind[0], N_sub, K)
+*/
+                __pyx_v_rec = ((double *)calloc(__pyx_v_N_sub, (sizeof(double))));
+
+                /* "adamixture/src/utils_c/tools.pyx":219
+ *     with nogil, parallel():
+ *         rec = <double*>calloc(N_sub, sizeof(double))
+ *         for j in prange(M, schedule='guided'):             # <<<<<<<<<<<<<<
+ *             _reconstruct_sub(&Q[0,0], &P[j,0], rec, &s_ind[0], N_sub, K)
+ *             ll += _ind_loglike_sub(&G[j,0], rec, &s_ind[0], N_sub)
+*/
+                __pyx_t_1 = __pyx_v_M;
+                {
+                    __pyx_t_3 = (__pyx_t_1 - 0 + 1 - 1/abs(1)) / 1;
+                    if (__pyx_t_3 > 0)
+                    {
+                        #ifdef _OPENMP
+                        #pragma omp for firstprivate(__pyx_v_j) lastprivate(__pyx_v_j) schedule(guided)
+                        #endif /* _OPENMP */
+                        for (__pyx_t_2 = 0; __pyx_t_2 < __pyx_t_3; __pyx_t_2++){
+                            {
+                                __pyx_v_j = (size_t)(0 + 1 * __pyx_t_2);
+
+                                /* "adamixture/src/utils_c/tools.pyx":220
+ *         rec = <double*>calloc(N_sub, sizeof(double))
+ *         for j in prange(M, schedule='guided'):
+ *             _reconstruct_sub(&Q[0,0], &P[j,0], rec, &s_ind[0], N_sub, K)             # <<<<<<<<<<<<<<
+ *             ll += _ind_loglike_sub(&G[j,0], rec, &s_ind[0], N_sub)
+ *         free(rec)
+*/
+                                __pyx_t_4 = 0;
+                                __pyx_t_5 = 0;
+                                __pyx_t_6 = __pyx_v_j;
+                                __pyx_t_7 = 0;
+                                __pyx_t_8 = 0;
+                                __pyx_f_10adamixture_3src_7utils_c_5tools__reconstruct_sub((&(*((double *) ( /* dim=1 */ ((char *) (((double *) ( /* dim=0 */ (__pyx_v_Q.data + __pyx_t_4 * __pyx_v_Q.strides[0]) )) + __pyx_t_5)) )))), (&(*((double *) ( /* dim=1 */ ((char *) (((double *) ( /* dim=0 */ (__pyx_v_P.data + __pyx_t_6 * __pyx_v_P.strides[0]) )) + __pyx_t_7)) )))), __pyx_v_rec, (&(*((uint32_t *) ( /* dim=0 */ ((char *) (((uint32_t *) __pyx_v_s_ind.data) + __pyx_t_8)) )))), __pyx_v_N_sub, __pyx_v_K);
+
+                                /* "adamixture/src/utils_c/tools.pyx":221
+ *         for j in prange(M, schedule='guided'):
+ *             _reconstruct_sub(&Q[0,0], &P[j,0], rec, &s_ind[0], N_sub, K)
+ *             ll += _ind_loglike_sub(&G[j,0], rec, &s_ind[0], N_sub)             # <<<<<<<<<<<<<<
+ *         free(rec)
+ *     return ll
+*/
+                                __pyx_t_6 = __pyx_v_j;
+                                __pyx_t_8 = 0;
+                                __pyx_t_7 = 0;
+                                __pyx_v_ll = (__pyx_v_ll + __pyx_f_10adamixture_3src_7utils_c_5tools__ind_loglike_sub((&(*((uint8_t *) ( /* dim=1 */ ((char *) (((uint8_t *) ( /* dim=0 */ (__pyx_v_G.data + __pyx_t_6 * __pyx_v_G.strides[0]) )) + __pyx_t_8)) )))), __pyx_v_rec, (&(*((uint32_t *) ( /* dim=0 */ ((char *) (((uint32_t *) __pyx_v_s_ind.data) + __pyx_t_7)) )))), __pyx_v_N_sub));
+                            }
+                        }
+                    }
+                }
+
+                /* "adamixture/src/utils_c/tools.pyx":222
+ *             _reconstruct_sub(&Q[0,0], &P[j,0], rec, &s_ind[0], N_sub, K)
+ *             ll += _ind_loglike_sub(&G[j,0], rec, &s_ind[0], N_sub)
+ *         free(rec)             # <<<<<<<<<<<<<<
+ *     return ll
+ * 
+*/
+                free(__pyx_v_rec);
+            }
+        }
+        #if ((defined(__APPLE__) || defined(__OSX__)) && (defined(__GNUC__) && (__GNUC__ > 2 || (__GNUC__ == 2 && (__GNUC_MINOR__ > 95)))))
+            #undef likely
+            #undef unlikely
+            #define likely(x)   __builtin_expect(!!(x), 1)
+            #define unlikely(x) __builtin_expect(!!(x), 0)
+        #endif
+      }
+
+      /* "adamixture/src/utils_c/tools.pyx":217
+ *         double ll = 0.0
+ *         double* rec
+ *     with nogil, parallel():             # <<<<<<<<<<<<<<
+ *         rec = <double*>calloc(N_sub, sizeof(double))
+ *         for j in prange(M, schedule='guided'):
+*/
+      /*finally:*/ {
+        /*normal exit:*/{
+          __Pyx_FastGIL_Forget();
+          __Pyx_RestoreUnknownThread(_save);
+          goto __pyx_L5;
+        }
+        __pyx_L5:;
+      }
+  }
+
+  /* "adamixture/src/utils_c/tools.pyx":223
+ *             ll += _ind_loglike_sub(&G[j,0], rec, &s_ind[0], N_sub)
+ *         free(rec)
+ *     return ll             # <<<<<<<<<<<<<<
+ * 
+ * # Deviance residual on a subset of samples (cross-validation)
+*/
+  __pyx_r = __pyx_v_ll;
+  goto __pyx_L0;
+
+  /* "adamixture/src/utils_c/tools.pyx":211
+ * 
+ * # Log-likelihood on a subset of samples (cross-validation)
+ * cpdef double loglike_cross(uint8_t[:,::1] G, double[:,::1] P, double[:,::1] Q,             # <<<<<<<<<<<<<<
+ *                            uint32_t[::1] s_ind, int M, int N_sub, int K) noexcept nogil:
+ *     cdef:
+*/
+
+  /* function exit code */
+  __pyx_L0:;
+  return __pyx_r;
+}
+
+/* Python wrapper */
+static PyObject *__pyx_pw_10adamixture_3src_7utils_c_5tools_17loglike_cross(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+); /*proto*/
+static PyMethodDef __pyx_mdef_10adamixture_3src_7utils_c_5tools_17loglike_cross = {"loglike_cross", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_10adamixture_3src_7utils_c_5tools_17loglike_cross, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_10adamixture_3src_7utils_c_5tools_17loglike_cross(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+) {
+  __Pyx_memviewslice __pyx_v_G = { 0, 0, { 0 }, { 0 }, { 0 } };
+  __Pyx_memviewslice __pyx_v_P = { 0, 0, { 0 }, { 0 }, { 0 } };
+  __Pyx_memviewslice __pyx_v_Q = { 0, 0, { 0 }, { 0 }, { 0 } };
+  __Pyx_memviewslice __pyx_v_s_ind = { 0, 0, { 0 }, { 0 }, { 0 } };
+  int __pyx_v_M;
+  int __pyx_v_N_sub;
+  int __pyx_v_K;
+  #if !CYTHON_METH_FASTCALL
+  CYTHON_UNUSED Py_ssize_t __pyx_nargs;
+  #endif
+  CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
+  PyObject* values[7] = {0,0,0,0,0,0,0};
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  PyObject *__pyx_r = 0;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("loglike_cross (wrapper)", 0);
+  #if !CYTHON_METH_FASTCALL
+  #if CYTHON_ASSUME_SAFE_SIZE
+  __pyx_nargs = PyTuple_GET_SIZE(__pyx_args);
+  #else
+  __pyx_nargs = PyTuple_Size(__pyx_args); if (unlikely(__pyx_nargs < 0)) return NULL;
+  #endif
+  #endif
+  __pyx_kwvalues = __Pyx_KwValues_FASTCALL(__pyx_args, __pyx_nargs);
+  {
+    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_G,&__pyx_mstate_global->__pyx_n_u_P,&__pyx_mstate_global->__pyx_n_u_Q,&__pyx_mstate_global->__pyx_n_u_s_ind,&__pyx_mstate_global->__pyx_n_u_M,&__pyx_mstate_global->__pyx_n_u_N_sub,&__pyx_mstate_global->__pyx_n_u_K,0};
+    const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 211, __pyx_L3_error)
+    if (__pyx_kwds_len > 0) {
+      switch (__pyx_nargs) {
+        case  7:
+        values[6] = __Pyx_ArgRef_FASTCALL(__pyx_args, 6);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[6])) __PYX_ERR(0, 211, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  6:
+        values[5] = __Pyx_ArgRef_FASTCALL(__pyx_args, 5);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 211, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  5:
+        values[4] = __Pyx_ArgRef_FASTCALL(__pyx_args, 4);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 211, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  4:
+        values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 211, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  3:
+        values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 211, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  2:
+        values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 211, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  1:
+        values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 211, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  0: break;
+        default: goto __pyx_L5_argtuple_error;
+      }
+      const Py_ssize_t kwd_pos_args = __pyx_nargs;
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "loglike_cross", 0) < (0)) __PYX_ERR(0, 211, __pyx_L3_error)
+      for (Py_ssize_t i = __pyx_nargs; i < 7; i++) {
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("loglike_cross", 1, 7, 7, i); __PYX_ERR(0, 211, __pyx_L3_error) }
+      }
+    } else if (unlikely(__pyx_nargs != 7)) {
+      goto __pyx_L5_argtuple_error;
+    } else {
+      values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 211, __pyx_L3_error)
+      values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 211, __pyx_L3_error)
+      values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 211, __pyx_L3_error)
+      values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 211, __pyx_L3_error)
+      values[4] = __Pyx_ArgRef_FASTCALL(__pyx_args, 4);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 211, __pyx_L3_error)
+      values[5] = __Pyx_ArgRef_FASTCALL(__pyx_args, 5);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 211, __pyx_L3_error)
+      values[6] = __Pyx_ArgRef_FASTCALL(__pyx_args, 6);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[6])) __PYX_ERR(0, 211, __pyx_L3_error)
+    }
+    __pyx_v_G = __Pyx_PyObject_to_MemoryviewSlice_d_dc_nn_uint8_t(values[0], PyBUF_WRITABLE); if (unlikely(!__pyx_v_G.memview)) __PYX_ERR(0, 211, __pyx_L3_error)
+    __pyx_v_P = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double(values[1], PyBUF_WRITABLE); if (unlikely(!__pyx_v_P.memview)) __PYX_ERR(0, 211, __pyx_L3_error)
+    __pyx_v_Q = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double(values[2], PyBUF_WRITABLE); if (unlikely(!__pyx_v_Q.memview)) __PYX_ERR(0, 211, __pyx_L3_error)
+    __pyx_v_s_ind = __Pyx_PyObject_to_MemoryviewSlice_dc_nn_uint32_t(values[3], PyBUF_WRITABLE); if (unlikely(!__pyx_v_s_ind.memview)) __PYX_ERR(0, 212, __pyx_L3_error)
+    __pyx_v_M = __Pyx_PyLong_As_int(values[4]); if (unlikely((__pyx_v_M == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 212, __pyx_L3_error)
+    __pyx_v_N_sub = __Pyx_PyLong_As_int(values[5]); if (unlikely((__pyx_v_N_sub == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 212, __pyx_L3_error)
+    __pyx_v_K = __Pyx_PyLong_As_int(values[6]); if (unlikely((__pyx_v_K == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 212, __pyx_L3_error)
+  }
+  goto __pyx_L6_skip;
+  __pyx_L5_argtuple_error:;
+  __Pyx_RaiseArgtupleInvalid("loglike_cross", 1, 7, 7, __pyx_nargs); __PYX_ERR(0, 211, __pyx_L3_error)
+  __pyx_L6_skip:;
+  goto __pyx_L4_argument_unpacking_done;
+  __pyx_L3_error:;
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_G, 1);
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_P, 1);
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_Q, 1);
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_s_ind, 1);
+  __Pyx_AddTraceback("adamixture.src.utils_c.tools.loglike_cross", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_RefNannyFinishContext();
+  return NULL;
+  __pyx_L4_argument_unpacking_done:;
+  __pyx_r = __pyx_pf_10adamixture_3src_7utils_c_5tools_16loglike_cross(__pyx_self, __pyx_v_G, __pyx_v_P, __pyx_v_Q, __pyx_v_s_ind, __pyx_v_M, __pyx_v_N_sub, __pyx_v_K);
+
+  /* function exit code */
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_G, 1);
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_P, 1);
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_Q, 1);
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_s_ind, 1);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_pf_10adamixture_3src_7utils_c_5tools_16loglike_cross(CYTHON_UNUSED PyObject *__pyx_self, __Pyx_memviewslice __pyx_v_G, __Pyx_memviewslice __pyx_v_P, __Pyx_memviewslice __pyx_v_Q, __Pyx_memviewslice __pyx_v_s_ind, int __pyx_v_M, int __pyx_v_N_sub, int __pyx_v_K) {
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("loglike_cross", 0);
+  __Pyx_XDECREF(__pyx_r);
+  __pyx_t_1 = PyFloat_FromDouble(__pyx_f_10adamixture_3src_7utils_c_5tools_loglike_cross(__pyx_v_G, __pyx_v_P, __pyx_v_Q, __pyx_v_s_ind, __pyx_v_M, __pyx_v_N_sub, __pyx_v_K, 1)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 211, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_r = __pyx_t_1;
+  __pyx_t_1 = 0;
+  goto __pyx_L0;
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_AddTraceback("adamixture.src.utils_c.tools.loglike_cross", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = NULL;
+  __pyx_L0:;
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "adamixture/src/utils_c/tools.pyx":226
+ * 
+ * # Deviance residual on a subset of samples (cross-validation)
+ * cpdef double deviance(uint8_t[:,::1] G, double[:,::1] P, double[:,::1] Q,             # <<<<<<<<<<<<<<
+ *                       uint32_t[::1] s_ind, int M, int N_sub, int K) noexcept nogil:
+ *     cdef:
+*/
+
+static PyObject *__pyx_pw_10adamixture_3src_7utils_c_5tools_19deviance(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+); /*proto*/
+static double __pyx_f_10adamixture_3src_7utils_c_5tools_deviance(__Pyx_memviewslice __pyx_v_G, __Pyx_memviewslice __pyx_v_P, __Pyx_memviewslice __pyx_v_Q, __Pyx_memviewslice __pyx_v_s_ind, int __pyx_v_M, int __pyx_v_N_sub, int __pyx_v_K, CYTHON_UNUSED int __pyx_skip_dispatch) {
+  size_t __pyx_v_i;
+  size_t __pyx_v_j;
+  size_t __pyx_v_k;
+  uint32_t __pyx_v_l;
+  uint8_t *__pyx_v_g;
+  double __pyx_v_r;
+  double __pyx_v_e;
+  double __pyx_v_d;
+  double __pyx_v_h;
+  double *__pyx_v_p;
+  double __pyx_r;
+  int __pyx_t_1;
+  size_t __pyx_t_2;
+  size_t __pyx_t_3;
+  size_t __pyx_t_4;
+  Py_ssize_t __pyx_t_5;
+  int __pyx_t_6;
+  int __pyx_t_7;
+  size_t __pyx_t_8;
+  int __pyx_t_9;
+  int __pyx_t_10;
+  int __pyx_t_11;
+  size_t __pyx_t_12;
+  size_t __pyx_t_13;
+  double __pyx_t_14;
+
+  /* "adamixture/src/utils_c/tools.pyx":232
+ *         uint32_t l
+ *         uint8_t* g
+ *         double r = 0.0             # <<<<<<<<<<<<<<
+ *         double e = 1e-10
+ *         double d, h
+*/
+  __pyx_v_r = 0.0;
+
+  /* "adamixture/src/utils_c/tools.pyx":233
+ *         uint8_t* g
+ *         double r = 0.0
+ *         double e = 1e-10             # <<<<<<<<<<<<<<
+ *         double d, h
+ *         double* p
+*/
+  __pyx_v_e = 1e-10;
+
+  /* "adamixture/src/utils_c/tools.pyx":236
+ *         double d, h
+ *         double* p
+ *     for j in prange(M, schedule='guided'):             # <<<<<<<<<<<<<<
+ *         g = &G[j, 0]
+ *         p = &P[j, 0]
+*/
+  {
+      __Pyx_UnknownThreadState _save;
+      _save = __Pyx_SaveUnknownThread();
+      __Pyx_FastGIL_Remember();
+      /*try:*/ {
+        __pyx_t_1 = __pyx_v_M;
+        {
+            #if ((defined(__APPLE__) || defined(__OSX__)) && (defined(__GNUC__) && (__GNUC__ > 2 || (__GNUC__ == 2 && (__GNUC_MINOR__ > 95)))))
+                #undef likely
+                #undef unlikely
+                #define likely(x)   (x)
+                #define unlikely(x) (x)
+            #endif
+            __pyx_t_3 = (__pyx_t_1 - 0 + 1 - 1/abs(1)) / 1;
+            if (__pyx_t_3 > 0)
+            {
+                #ifdef _OPENMP
+                #pragma omp parallel reduction(+:__pyx_v_r) private(__pyx_t_10, __pyx_t_11, __pyx_t_12, __pyx_t_13, __pyx_t_14, __pyx_t_4, __pyx_t_5, __pyx_t_6, __pyx_t_7, __pyx_t_8, __pyx_t_9)
+                #endif /* _OPENMP */
+                {
+                    #ifdef _OPENMP
+                    #pragma omp for firstprivate(__pyx_v_d) lastprivate(__pyx_v_d) firstprivate(__pyx_v_g) lastprivate(__pyx_v_g) firstprivate(__pyx_v_h) lastprivate(__pyx_v_h) firstprivate(__pyx_v_i) lastprivate(__pyx_v_i) firstprivate(__pyx_v_j) lastprivate(__pyx_v_j) firstprivate(__pyx_v_k) lastprivate(__pyx_v_k) firstprivate(__pyx_v_l) lastprivate(__pyx_v_l) firstprivate(__pyx_v_p) lastprivate(__pyx_v_p) schedule(guided)
+                    #endif /* _OPENMP */
+                    for (__pyx_t_2 = 0; __pyx_t_2 < __pyx_t_3; __pyx_t_2++){
+                        {
+                            __pyx_v_j = (size_t)(0 + 1 * __pyx_t_2);
+
+                            /* "adamixture/src/utils_c/tools.pyx":237
+ *         double* p
+ *     for j in prange(M, schedule='guided'):
+ *         g = &G[j, 0]             # <<<<<<<<<<<<<<
+ *         p = &P[j, 0]
+ *         for i in range(N_sub):
+*/
+                            __pyx_t_4 = __pyx_v_j;
+                            __pyx_t_5 = 0;
+                            __pyx_v_g = (&(*((uint8_t *) ( /* dim=1 */ ((char *) (((uint8_t *) ( /* dim=0 */ (__pyx_v_G.data + __pyx_t_4 * __pyx_v_G.strides[0]) )) + __pyx_t_5)) ))));
+
+                            /* "adamixture/src/utils_c/tools.pyx":238
+ *     for j in prange(M, schedule='guided'):
+ *         g = &G[j, 0]
+ *         p = &P[j, 0]             # <<<<<<<<<<<<<<
+ *         for i in range(N_sub):
+ *             l = s_ind[i]
+*/
+                            __pyx_t_4 = __pyx_v_j;
+                            __pyx_t_5 = 0;
+                            __pyx_v_p = (&(*((double *) ( /* dim=1 */ ((char *) (((double *) ( /* dim=0 */ (__pyx_v_P.data + __pyx_t_4 * __pyx_v_P.strides[0]) )) + __pyx_t_5)) ))));
+
+                            /* "adamixture/src/utils_c/tools.pyx":239
+ *         g = &G[j, 0]
+ *         p = &P[j, 0]
+ *         for i in range(N_sub):             # <<<<<<<<<<<<<<
+ *             l = s_ind[i]
+ *             if g[l] != 3:
+*/
+                            __pyx_t_6 = __pyx_v_N_sub;
+                            __pyx_t_7 = __pyx_t_6;
+                            for (__pyx_t_4 = 0; __pyx_t_4 < __pyx_t_7; __pyx_t_4+=1) {
+                              __pyx_v_i = __pyx_t_4;
+
+                              /* "adamixture/src/utils_c/tools.pyx":240
+ *         p = &P[j, 0]
+ *         for i in range(N_sub):
+ *             l = s_ind[i]             # <<<<<<<<<<<<<<
+ *             if g[l] != 3:
+ *                 h = 0.0
+*/
+                              __pyx_t_8 = __pyx_v_i;
+                              __pyx_v_l = (*((uint32_t *) ( /* dim=0 */ ((char *) (((uint32_t *) __pyx_v_s_ind.data) + __pyx_t_8)) )));
+
+                              /* "adamixture/src/utils_c/tools.pyx":241
+ *         for i in range(N_sub):
+ *             l = s_ind[i]
+ *             if g[l] != 3:             # <<<<<<<<<<<<<<
+ *                 h = 0.0
+ *                 for k in range(K):
+*/
+                              __pyx_t_9 = ((__pyx_v_g[__pyx_v_l]) != 3);
+                              if (__pyx_t_9) {
+
+                                /* "adamixture/src/utils_c/tools.pyx":242
+ *             l = s_ind[i]
+ *             if g[l] != 3:
+ *                 h = 0.0             # <<<<<<<<<<<<<<
+ *                 for k in range(K):
+ *                     h += p[k] * Q[l, k]
+*/
+                                __pyx_v_h = 0.0;
+
+                                /* "adamixture/src/utils_c/tools.pyx":243
+ *             if g[l] != 3:
+ *                 h = 0.0
+ *                 for k in range(K):             # <<<<<<<<<<<<<<
+ *                     h += p[k] * Q[l, k]
+ *                 h = 2.0 * h
+*/
+                                __pyx_t_10 = __pyx_v_K;
+                                __pyx_t_11 = __pyx_t_10;
+                                for (__pyx_t_8 = 0; __pyx_t_8 < __pyx_t_11; __pyx_t_8+=1) {
+                                  __pyx_v_k = __pyx_t_8;
+
+                                  /* "adamixture/src/utils_c/tools.pyx":244
+ *                 h = 0.0
+ *                 for k in range(K):
+ *                     h += p[k] * Q[l, k]             # <<<<<<<<<<<<<<
+ *                 h = 2.0 * h
+ *                 d = <double>g[l]
+*/
+                                  __pyx_t_12 = __pyx_v_l;
+                                  __pyx_t_13 = __pyx_v_k;
+                                  __pyx_v_h = (__pyx_v_h + ((__pyx_v_p[__pyx_v_k]) * (*((double *) ( /* dim=1 */ ((char *) (((double *) ( /* dim=0 */ (__pyx_v_Q.data + __pyx_t_12 * __pyx_v_Q.strides[0]) )) + __pyx_t_13)) )))));
+                                }
+
+                                /* "adamixture/src/utils_c/tools.pyx":245
+ *                 for k in range(K):
+ *                     h += p[k] * Q[l, k]
+ *                 h = 2.0 * h             # <<<<<<<<<<<<<<
+ *                 d = <double>g[l]
+ *                 if d > e:
+*/
+                                __pyx_v_h = (2.0 * __pyx_v_h);
+
+                                /* "adamixture/src/utils_c/tools.pyx":246
+ *                     h += p[k] * Q[l, k]
+ *                 h = 2.0 * h
+ *                 d = <double>g[l]             # <<<<<<<<<<<<<<
+ *                 if d > e:
+ *                     r += d * log(d / h if d / h > e else e)
+*/
+                                __pyx_v_d = ((double)(__pyx_v_g[__pyx_v_l]));
+
+                                /* "adamixture/src/utils_c/tools.pyx":247
+ *                 h = 2.0 * h
+ *                 d = <double>g[l]
+ *                 if d > e:             # <<<<<<<<<<<<<<
+ *                     r += d * log(d / h if d / h > e else e)
+ *                 if (2.0 - d) > e:
+*/
+                                __pyx_t_9 = (__pyx_v_d > __pyx_v_e);
+                                if (__pyx_t_9) {
+
+                                  /* "adamixture/src/utils_c/tools.pyx":248
+ *                 d = <double>g[l]
+ *                 if d > e:
+ *                     r += d * log(d / h if d / h > e else e)             # <<<<<<<<<<<<<<
+ *                 if (2.0 - d) > e:
+ *                     r += (2.0 - d) * log((2.0 - d) / (2.0 - h) if (2.0 - d) / (2.0 - h) > e else e)
+*/
+                                  __pyx_t_9 = ((__pyx_v_d / __pyx_v_h) > __pyx_v_e);
+                                  if (__pyx_t_9) {
+                                    __pyx_t_14 = (__pyx_v_d / __pyx_v_h);
+                                  } else {
+                                    __pyx_t_14 = __pyx_v_e;
+                                  }
+                                  __pyx_v_r = (__pyx_v_r + (__pyx_v_d * log(__pyx_t_14)));
+
+                                  /* "adamixture/src/utils_c/tools.pyx":247
+ *                 h = 2.0 * h
+ *                 d = <double>g[l]
+ *                 if d > e:             # <<<<<<<<<<<<<<
+ *                     r += d * log(d / h if d / h > e else e)
+ *                 if (2.0 - d) > e:
+*/
+                                }
+
+                                /* "adamixture/src/utils_c/tools.pyx":249
+ *                 if d > e:
+ *                     r += d * log(d / h if d / h > e else e)
+ *                 if (2.0 - d) > e:             # <<<<<<<<<<<<<<
+ *                     r += (2.0 - d) * log((2.0 - d) / (2.0 - h) if (2.0 - d) / (2.0 - h) > e else e)
+ *     return r
+*/
+                                __pyx_t_9 = ((2.0 - __pyx_v_d) > __pyx_v_e);
+                                if (__pyx_t_9) {
+
+                                  /* "adamixture/src/utils_c/tools.pyx":250
+ *                     r += d * log(d / h if d / h > e else e)
+ *                 if (2.0 - d) > e:
+ *                     r += (2.0 - d) * log((2.0 - d) / (2.0 - h) if (2.0 - d) / (2.0 - h) > e else e)             # <<<<<<<<<<<<<<
+ *     return r
+ * 
+*/
+                                  __pyx_t_9 = (((2.0 - __pyx_v_d) / (2.0 - __pyx_v_h)) > __pyx_v_e);
+                                  if (__pyx_t_9) {
+                                    __pyx_t_14 = ((2.0 - __pyx_v_d) / (2.0 - __pyx_v_h));
+                                  } else {
+                                    __pyx_t_14 = __pyx_v_e;
+                                  }
+                                  __pyx_v_r = (__pyx_v_r + ((2.0 - __pyx_v_d) * log(__pyx_t_14)));
+
+                                  /* "adamixture/src/utils_c/tools.pyx":249
+ *                 if d > e:
+ *                     r += d * log(d / h if d / h > e else e)
+ *                 if (2.0 - d) > e:             # <<<<<<<<<<<<<<
+ *                     r += (2.0 - d) * log((2.0 - d) / (2.0 - h) if (2.0 - d) / (2.0 - h) > e else e)
+ *     return r
+*/
+                                }
+
+                                /* "adamixture/src/utils_c/tools.pyx":241
+ *         for i in range(N_sub):
+ *             l = s_ind[i]
+ *             if g[l] != 3:             # <<<<<<<<<<<<<<
+ *                 h = 0.0
+ *                 for k in range(K):
+*/
+                              }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        #if ((defined(__APPLE__) || defined(__OSX__)) && (defined(__GNUC__) && (__GNUC__ > 2 || (__GNUC__ == 2 && (__GNUC_MINOR__ > 95)))))
+            #undef likely
+            #undef unlikely
+            #define likely(x)   __builtin_expect(!!(x), 1)
+            #define unlikely(x) __builtin_expect(!!(x), 0)
+        #endif
+      }
+
+      /* "adamixture/src/utils_c/tools.pyx":236
+ *         double d, h
+ *         double* p
+ *     for j in prange(M, schedule='guided'):             # <<<<<<<<<<<<<<
+ *         g = &G[j, 0]
+ *         p = &P[j, 0]
+*/
+      /*finally:*/ {
+        /*normal exit:*/{
+          __Pyx_FastGIL_Forget();
+          __Pyx_RestoreUnknownThread(_save);
+          goto __pyx_L5;
+        }
+        __pyx_L5:;
+      }
+  }
+
+  /* "adamixture/src/utils_c/tools.pyx":251
+ *                 if (2.0 - d) > e:
+ *                     r += (2.0 - d) * log((2.0 - d) / (2.0 - h) if (2.0 - d) / (2.0 - h) > e else e)
+ *     return r             # <<<<<<<<<<<<<<
+ * 
+ * # Count non-missing genotypes for a subset of samples (normalization for CV)
+*/
+  __pyx_r = __pyx_v_r;
+  goto __pyx_L0;
+
+  /* "adamixture/src/utils_c/tools.pyx":226
+ * 
+ * # Deviance residual on a subset of samples (cross-validation)
+ * cpdef double deviance(uint8_t[:,::1] G, double[:,::1] P, double[:,::1] Q,             # <<<<<<<<<<<<<<
+ *                       uint32_t[::1] s_ind, int M, int N_sub, int K) noexcept nogil:
+ *     cdef:
+*/
+
+  /* function exit code */
+  __pyx_L0:;
+  return __pyx_r;
+}
+
+/* Python wrapper */
+static PyObject *__pyx_pw_10adamixture_3src_7utils_c_5tools_19deviance(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+); /*proto*/
+static PyMethodDef __pyx_mdef_10adamixture_3src_7utils_c_5tools_19deviance = {"deviance", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_10adamixture_3src_7utils_c_5tools_19deviance, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_10adamixture_3src_7utils_c_5tools_19deviance(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+) {
+  __Pyx_memviewslice __pyx_v_G = { 0, 0, { 0 }, { 0 }, { 0 } };
+  __Pyx_memviewslice __pyx_v_P = { 0, 0, { 0 }, { 0 }, { 0 } };
+  __Pyx_memviewslice __pyx_v_Q = { 0, 0, { 0 }, { 0 }, { 0 } };
+  __Pyx_memviewslice __pyx_v_s_ind = { 0, 0, { 0 }, { 0 }, { 0 } };
+  int __pyx_v_M;
+  int __pyx_v_N_sub;
+  int __pyx_v_K;
+  #if !CYTHON_METH_FASTCALL
+  CYTHON_UNUSED Py_ssize_t __pyx_nargs;
+  #endif
+  CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
+  PyObject* values[7] = {0,0,0,0,0,0,0};
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  PyObject *__pyx_r = 0;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("deviance (wrapper)", 0);
+  #if !CYTHON_METH_FASTCALL
+  #if CYTHON_ASSUME_SAFE_SIZE
+  __pyx_nargs = PyTuple_GET_SIZE(__pyx_args);
+  #else
+  __pyx_nargs = PyTuple_Size(__pyx_args); if (unlikely(__pyx_nargs < 0)) return NULL;
+  #endif
+  #endif
+  __pyx_kwvalues = __Pyx_KwValues_FASTCALL(__pyx_args, __pyx_nargs);
+  {
+    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_G,&__pyx_mstate_global->__pyx_n_u_P,&__pyx_mstate_global->__pyx_n_u_Q,&__pyx_mstate_global->__pyx_n_u_s_ind,&__pyx_mstate_global->__pyx_n_u_M,&__pyx_mstate_global->__pyx_n_u_N_sub,&__pyx_mstate_global->__pyx_n_u_K,0};
+    const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 226, __pyx_L3_error)
+    if (__pyx_kwds_len > 0) {
+      switch (__pyx_nargs) {
+        case  7:
+        values[6] = __Pyx_ArgRef_FASTCALL(__pyx_args, 6);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[6])) __PYX_ERR(0, 226, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  6:
+        values[5] = __Pyx_ArgRef_FASTCALL(__pyx_args, 5);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 226, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  5:
+        values[4] = __Pyx_ArgRef_FASTCALL(__pyx_args, 4);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 226, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  4:
+        values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 226, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  3:
+        values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 226, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  2:
+        values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 226, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  1:
+        values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 226, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  0: break;
+        default: goto __pyx_L5_argtuple_error;
+      }
+      const Py_ssize_t kwd_pos_args = __pyx_nargs;
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "deviance", 0) < (0)) __PYX_ERR(0, 226, __pyx_L3_error)
+      for (Py_ssize_t i = __pyx_nargs; i < 7; i++) {
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("deviance", 1, 7, 7, i); __PYX_ERR(0, 226, __pyx_L3_error) }
+      }
+    } else if (unlikely(__pyx_nargs != 7)) {
+      goto __pyx_L5_argtuple_error;
+    } else {
+      values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 226, __pyx_L3_error)
+      values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 226, __pyx_L3_error)
+      values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 226, __pyx_L3_error)
+      values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 226, __pyx_L3_error)
+      values[4] = __Pyx_ArgRef_FASTCALL(__pyx_args, 4);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 226, __pyx_L3_error)
+      values[5] = __Pyx_ArgRef_FASTCALL(__pyx_args, 5);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 226, __pyx_L3_error)
+      values[6] = __Pyx_ArgRef_FASTCALL(__pyx_args, 6);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[6])) __PYX_ERR(0, 226, __pyx_L3_error)
+    }
+    __pyx_v_G = __Pyx_PyObject_to_MemoryviewSlice_d_dc_nn_uint8_t(values[0], PyBUF_WRITABLE); if (unlikely(!__pyx_v_G.memview)) __PYX_ERR(0, 226, __pyx_L3_error)
+    __pyx_v_P = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double(values[1], PyBUF_WRITABLE); if (unlikely(!__pyx_v_P.memview)) __PYX_ERR(0, 226, __pyx_L3_error)
+    __pyx_v_Q = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double(values[2], PyBUF_WRITABLE); if (unlikely(!__pyx_v_Q.memview)) __PYX_ERR(0, 226, __pyx_L3_error)
+    __pyx_v_s_ind = __Pyx_PyObject_to_MemoryviewSlice_dc_nn_uint32_t(values[3], PyBUF_WRITABLE); if (unlikely(!__pyx_v_s_ind.memview)) __PYX_ERR(0, 227, __pyx_L3_error)
+    __pyx_v_M = __Pyx_PyLong_As_int(values[4]); if (unlikely((__pyx_v_M == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 227, __pyx_L3_error)
+    __pyx_v_N_sub = __Pyx_PyLong_As_int(values[5]); if (unlikely((__pyx_v_N_sub == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 227, __pyx_L3_error)
+    __pyx_v_K = __Pyx_PyLong_As_int(values[6]); if (unlikely((__pyx_v_K == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 227, __pyx_L3_error)
+  }
+  goto __pyx_L6_skip;
+  __pyx_L5_argtuple_error:;
+  __Pyx_RaiseArgtupleInvalid("deviance", 1, 7, 7, __pyx_nargs); __PYX_ERR(0, 226, __pyx_L3_error)
+  __pyx_L6_skip:;
+  goto __pyx_L4_argument_unpacking_done;
+  __pyx_L3_error:;
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_G, 1);
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_P, 1);
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_Q, 1);
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_s_ind, 1);
+  __Pyx_AddTraceback("adamixture.src.utils_c.tools.deviance", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_RefNannyFinishContext();
+  return NULL;
+  __pyx_L4_argument_unpacking_done:;
+  __pyx_r = __pyx_pf_10adamixture_3src_7utils_c_5tools_18deviance(__pyx_self, __pyx_v_G, __pyx_v_P, __pyx_v_Q, __pyx_v_s_ind, __pyx_v_M, __pyx_v_N_sub, __pyx_v_K);
+
+  /* function exit code */
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_G, 1);
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_P, 1);
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_Q, 1);
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_s_ind, 1);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_pf_10adamixture_3src_7utils_c_5tools_18deviance(CYTHON_UNUSED PyObject *__pyx_self, __Pyx_memviewslice __pyx_v_G, __Pyx_memviewslice __pyx_v_P, __Pyx_memviewslice __pyx_v_Q, __Pyx_memviewslice __pyx_v_s_ind, int __pyx_v_M, int __pyx_v_N_sub, int __pyx_v_K) {
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("deviance", 0);
+  __Pyx_XDECREF(__pyx_r);
+  __pyx_t_1 = PyFloat_FromDouble(__pyx_f_10adamixture_3src_7utils_c_5tools_deviance(__pyx_v_G, __pyx_v_P, __pyx_v_Q, __pyx_v_s_ind, __pyx_v_M, __pyx_v_N_sub, __pyx_v_K, 1)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 226, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_r = __pyx_t_1;
+  __pyx_t_1 = 0;
+  goto __pyx_L0;
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_AddTraceback("adamixture.src.utils_c.tools.deviance", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = NULL;
+  __pyx_L0:;
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "adamixture/src/utils_c/tools.pyx":254
+ * 
+ * # Count non-missing genotypes for a subset of samples (normalization for CV)
+ * cpdef double cross_norm(uint8_t[:,::1] G, uint32_t[::1] s_ind, int M, int N_sub) noexcept nogil:             # <<<<<<<<<<<<<<
+ *     cdef:
+ *         size_t i, j
+*/
+
+static PyObject *__pyx_pw_10adamixture_3src_7utils_c_5tools_21cross_norm(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+); /*proto*/
+static double __pyx_f_10adamixture_3src_7utils_c_5tools_cross_norm(__Pyx_memviewslice __pyx_v_G, __Pyx_memviewslice __pyx_v_s_ind, int __pyx_v_M, int __pyx_v_N_sub, CYTHON_UNUSED int __pyx_skip_dispatch) {
+  size_t __pyx_v_i;
+  size_t __pyx_v_j;
+  uint32_t __pyx_v_l;
+  uint8_t *__pyx_v_g;
+  double __pyx_v_count;
+  double __pyx_r;
+  int __pyx_t_1;
+  int __pyx_t_2;
+  size_t __pyx_t_3;
+  size_t __pyx_t_4;
+  Py_ssize_t __pyx_t_5;
+  int __pyx_t_6;
+  int __pyx_t_7;
+  size_t __pyx_t_8;
+  int __pyx_t_9;
+
+  /* "adamixture/src/utils_c/tools.pyx":259
+ *         uint32_t l
+ *         uint8_t* g
+ *         double count = 0.0             # <<<<<<<<<<<<<<
+ *     for j in range(M):
+ *         g = &G[j, 0]
+*/
+  __pyx_v_count = 0.0;
+
+  /* "adamixture/src/utils_c/tools.pyx":260
+ *         uint8_t* g
+ *         double count = 0.0
+ *     for j in range(M):             # <<<<<<<<<<<<<<
+ *         g = &G[j, 0]
+ *         for i in range(N_sub):
+*/
+  __pyx_t_1 = __pyx_v_M;
+  __pyx_t_2 = __pyx_t_1;
+  for (__pyx_t_3 = 0; __pyx_t_3 < __pyx_t_2; __pyx_t_3+=1) {
+    __pyx_v_j = __pyx_t_3;
+
+    /* "adamixture/src/utils_c/tools.pyx":261
+ *         double count = 0.0
+ *     for j in range(M):
+ *         g = &G[j, 0]             # <<<<<<<<<<<<<<
+ *         for i in range(N_sub):
+ *             l = s_ind[i]
+*/
+    __pyx_t_4 = __pyx_v_j;
+    __pyx_t_5 = 0;
+    __pyx_v_g = (&(*((uint8_t *) ( /* dim=1 */ ((char *) (((uint8_t *) ( /* dim=0 */ (__pyx_v_G.data + __pyx_t_4 * __pyx_v_G.strides[0]) )) + __pyx_t_5)) ))));
+
+    /* "adamixture/src/utils_c/tools.pyx":262
+ *     for j in range(M):
+ *         g = &G[j, 0]
+ *         for i in range(N_sub):             # <<<<<<<<<<<<<<
+ *             l = s_ind[i]
+ *             if g[l] != 3:
+*/
+    __pyx_t_6 = __pyx_v_N_sub;
+    __pyx_t_7 = __pyx_t_6;
+    for (__pyx_t_4 = 0; __pyx_t_4 < __pyx_t_7; __pyx_t_4+=1) {
+      __pyx_v_i = __pyx_t_4;
+
+      /* "adamixture/src/utils_c/tools.pyx":263
+ *         g = &G[j, 0]
+ *         for i in range(N_sub):
+ *             l = s_ind[i]             # <<<<<<<<<<<<<<
+ *             if g[l] != 3:
+ *                 count += 1.0
+*/
+      __pyx_t_8 = __pyx_v_i;
+      __pyx_v_l = (*((uint32_t *) ( /* dim=0 */ ((char *) (((uint32_t *) __pyx_v_s_ind.data) + __pyx_t_8)) )));
+
+      /* "adamixture/src/utils_c/tools.pyx":264
+ *         for i in range(N_sub):
+ *             l = s_ind[i]
+ *             if g[l] != 3:             # <<<<<<<<<<<<<<
+ *                 count += 1.0
+ *     return count
+*/
+      __pyx_t_9 = ((__pyx_v_g[__pyx_v_l]) != 3);
+      if (__pyx_t_9) {
+
+        /* "adamixture/src/utils_c/tools.pyx":265
+ *             l = s_ind[i]
+ *             if g[l] != 3:
+ *                 count += 1.0             # <<<<<<<<<<<<<<
+ *     return count
+*/
+        __pyx_v_count = (__pyx_v_count + 1.0);
+
+        /* "adamixture/src/utils_c/tools.pyx":264
+ *         for i in range(N_sub):
+ *             l = s_ind[i]
+ *             if g[l] != 3:             # <<<<<<<<<<<<<<
+ *                 count += 1.0
+ *     return count
+*/
+      }
+    }
+  }
+
+  /* "adamixture/src/utils_c/tools.pyx":266
+ *             if g[l] != 3:
+ *                 count += 1.0
+ *     return count             # <<<<<<<<<<<<<<
+*/
+  __pyx_r = __pyx_v_count;
+  goto __pyx_L0;
+
+  /* "adamixture/src/utils_c/tools.pyx":254
+ * 
+ * # Count non-missing genotypes for a subset of samples (normalization for CV)
+ * cpdef double cross_norm(uint8_t[:,::1] G, uint32_t[::1] s_ind, int M, int N_sub) noexcept nogil:             # <<<<<<<<<<<<<<
+ *     cdef:
+ *         size_t i, j
+*/
+
+  /* function exit code */
+  __pyx_L0:;
+  return __pyx_r;
+}
+
+/* Python wrapper */
+static PyObject *__pyx_pw_10adamixture_3src_7utils_c_5tools_21cross_norm(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+); /*proto*/
+static PyMethodDef __pyx_mdef_10adamixture_3src_7utils_c_5tools_21cross_norm = {"cross_norm", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_10adamixture_3src_7utils_c_5tools_21cross_norm, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_10adamixture_3src_7utils_c_5tools_21cross_norm(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+) {
+  __Pyx_memviewslice __pyx_v_G = { 0, 0, { 0 }, { 0 }, { 0 } };
+  __Pyx_memviewslice __pyx_v_s_ind = { 0, 0, { 0 }, { 0 }, { 0 } };
+  int __pyx_v_M;
+  int __pyx_v_N_sub;
+  #if !CYTHON_METH_FASTCALL
+  CYTHON_UNUSED Py_ssize_t __pyx_nargs;
+  #endif
+  CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
+  PyObject* values[4] = {0,0,0,0};
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  PyObject *__pyx_r = 0;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("cross_norm (wrapper)", 0);
+  #if !CYTHON_METH_FASTCALL
+  #if CYTHON_ASSUME_SAFE_SIZE
+  __pyx_nargs = PyTuple_GET_SIZE(__pyx_args);
+  #else
+  __pyx_nargs = PyTuple_Size(__pyx_args); if (unlikely(__pyx_nargs < 0)) return NULL;
+  #endif
+  #endif
+  __pyx_kwvalues = __Pyx_KwValues_FASTCALL(__pyx_args, __pyx_nargs);
+  {
+    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_G,&__pyx_mstate_global->__pyx_n_u_s_ind,&__pyx_mstate_global->__pyx_n_u_M,&__pyx_mstate_global->__pyx_n_u_N_sub,0};
+    const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 254, __pyx_L3_error)
+    if (__pyx_kwds_len > 0) {
+      switch (__pyx_nargs) {
+        case  4:
+        values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 254, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  3:
+        values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 254, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  2:
+        values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 254, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  1:
+        values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 254, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  0: break;
+        default: goto __pyx_L5_argtuple_error;
+      }
+      const Py_ssize_t kwd_pos_args = __pyx_nargs;
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "cross_norm", 0) < (0)) __PYX_ERR(0, 254, __pyx_L3_error)
+      for (Py_ssize_t i = __pyx_nargs; i < 4; i++) {
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("cross_norm", 1, 4, 4, i); __PYX_ERR(0, 254, __pyx_L3_error) }
+      }
+    } else if (unlikely(__pyx_nargs != 4)) {
+      goto __pyx_L5_argtuple_error;
+    } else {
+      values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 254, __pyx_L3_error)
+      values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 254, __pyx_L3_error)
+      values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 254, __pyx_L3_error)
+      values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 254, __pyx_L3_error)
+    }
+    __pyx_v_G = __Pyx_PyObject_to_MemoryviewSlice_d_dc_nn_uint8_t(values[0], PyBUF_WRITABLE); if (unlikely(!__pyx_v_G.memview)) __PYX_ERR(0, 254, __pyx_L3_error)
+    __pyx_v_s_ind = __Pyx_PyObject_to_MemoryviewSlice_dc_nn_uint32_t(values[1], PyBUF_WRITABLE); if (unlikely(!__pyx_v_s_ind.memview)) __PYX_ERR(0, 254, __pyx_L3_error)
+    __pyx_v_M = __Pyx_PyLong_As_int(values[2]); if (unlikely((__pyx_v_M == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 254, __pyx_L3_error)
+    __pyx_v_N_sub = __Pyx_PyLong_As_int(values[3]); if (unlikely((__pyx_v_N_sub == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 254, __pyx_L3_error)
+  }
+  goto __pyx_L6_skip;
+  __pyx_L5_argtuple_error:;
+  __Pyx_RaiseArgtupleInvalid("cross_norm", 1, 4, 4, __pyx_nargs); __PYX_ERR(0, 254, __pyx_L3_error)
+  __pyx_L6_skip:;
+  goto __pyx_L4_argument_unpacking_done;
+  __pyx_L3_error:;
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_G, 1);
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_s_ind, 1);
+  __Pyx_AddTraceback("adamixture.src.utils_c.tools.cross_norm", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_RefNannyFinishContext();
+  return NULL;
+  __pyx_L4_argument_unpacking_done:;
+  __pyx_r = __pyx_pf_10adamixture_3src_7utils_c_5tools_20cross_norm(__pyx_self, __pyx_v_G, __pyx_v_s_ind, __pyx_v_M, __pyx_v_N_sub);
+
+  /* function exit code */
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_G, 1);
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_s_ind, 1);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_pf_10adamixture_3src_7utils_c_5tools_20cross_norm(CYTHON_UNUSED PyObject *__pyx_self, __Pyx_memviewslice __pyx_v_G, __Pyx_memviewslice __pyx_v_s_ind, int __pyx_v_M, int __pyx_v_N_sub) {
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("cross_norm", 0);
+  __Pyx_XDECREF(__pyx_r);
+  __pyx_t_1 = PyFloat_FromDouble(__pyx_f_10adamixture_3src_7utils_c_5tools_cross_norm(__pyx_v_G, __pyx_v_s_ind, __pyx_v_M, __pyx_v_N_sub, 1)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 254, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_r = __pyx_t_1;
+  __pyx_t_1 = 0;
+  goto __pyx_L0;
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_AddTraceback("adamixture.src.utils_c.tools.cross_norm", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
   __Pyx_XGIVEREF(__pyx_r);
@@ -21353,109 +22682,154 @@ __Pyx_RefNannySetupContext("PyInit_tools", 0);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_read_bed, __pyx_t_4) < (0)) __PYX_ERR(0, 8, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "adamixture/src/utils_c/tools.pyx":58
+  /* "adamixture/src/utils_c/tools.pyx":88
  * 
  * # Log-likelihood:
  * cpdef double loglikelihood(uint8_t[:,::1] G, double[:,::1] P, double[:,::1] Q) noexcept nogil:             # <<<<<<<<<<<<<<
  *     cdef:
  *         Py_ssize_t M = G.shape[0]
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_10adamixture_3src_7utils_c_5tools_3loglikelihood, 0, __pyx_mstate_global->__pyx_n_u_loglikelihood, NULL, __pyx_mstate_global->__pyx_n_u_adamixture_src_utils_c_tools, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[1])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 58, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_10adamixture_3src_7utils_c_5tools_3loglikelihood, 0, __pyx_mstate_global->__pyx_n_u_loglikelihood, NULL, __pyx_mstate_global->__pyx_n_u_adamixture_src_utils_c_tools, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[1])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 88, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
   #endif
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_loglikelihood, __pyx_t_4) < (0)) __PYX_ERR(0, 58, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_loglikelihood, __pyx_t_4) < (0)) __PYX_ERR(0, 88, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "adamixture/src/utils_c/tools.pyx":75
+  /* "adamixture/src/utils_c/tools.pyx":105
  * 
  * # Allele frequencies:
  * cpdef void alleleFrequency(uint8_t[:, ::1] G, float[::1] f, int M, int N) noexcept nogil:             # <<<<<<<<<<<<<<
  *     cdef:
  *         size_t x, y
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_10adamixture_3src_7utils_c_5tools_5alleleFrequency, 0, __pyx_mstate_global->__pyx_n_u_alleleFrequency, NULL, __pyx_mstate_global->__pyx_n_u_adamixture_src_utils_c_tools, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[2])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 75, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_10adamixture_3src_7utils_c_5tools_5alleleFrequency, 0, __pyx_mstate_global->__pyx_n_u_alleleFrequency, NULL, __pyx_mstate_global->__pyx_n_u_adamixture_src_utils_c_tools, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[2])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 105, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
   #endif
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_alleleFrequency, __pyx_t_4) < (0)) __PYX_ERR(0, 75, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_alleleFrequency, __pyx_t_4) < (0)) __PYX_ERR(0, 105, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "adamixture/src/utils_c/tools.pyx":90
+  /* "adamixture/src/utils_c/tools.pyx":120
  *         f[x] = sum_val / denom
  * 
  * cpdef float rmse(float[:, ::1] Q1, float[:, ::1] Q2, int N, int K) noexcept nogil:             # <<<<<<<<<<<<<<
  *     cdef:
  *         size_t T = N * K
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_10adamixture_3src_7utils_c_5tools_7rmse, 0, __pyx_mstate_global->__pyx_n_u_rmse, NULL, __pyx_mstate_global->__pyx_n_u_adamixture_src_utils_c_tools, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[3])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 90, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_10adamixture_3src_7utils_c_5tools_7rmse, 0, __pyx_mstate_global->__pyx_n_u_rmse, NULL, __pyx_mstate_global->__pyx_n_u_adamixture_src_utils_c_tools, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[3])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 120, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
   #endif
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_rmse, __pyx_t_4) < (0)) __PYX_ERR(0, 90, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_rmse, __pyx_t_4) < (0)) __PYX_ERR(0, 120, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "adamixture/src/utils_c/tools.pyx":125
+  /* "adamixture/src/utils_c/tools.pyx":155
  * 
  * # Map Q:
  * cpdef void mapQ(float[:,::1] Q, int N, int K) noexcept nogil:             # <<<<<<<<<<<<<<
  *     cdef:
  *         size_t j
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_10adamixture_3src_7utils_c_5tools_9mapQ, 0, __pyx_mstate_global->__pyx_n_u_mapQ, NULL, __pyx_mstate_global->__pyx_n_u_adamixture_src_utils_c_tools, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[4])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 125, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_10adamixture_3src_7utils_c_5tools_9mapQ, 0, __pyx_mstate_global->__pyx_n_u_mapQ, NULL, __pyx_mstate_global->__pyx_n_u_adamixture_src_utils_c_tools, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[4])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 155, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
   #endif
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_mapQ, __pyx_t_4) < (0)) __PYX_ERR(0, 125, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_mapQ, __pyx_t_4) < (0)) __PYX_ERR(0, 155, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "adamixture/src/utils_c/tools.pyx":132
+  /* "adamixture/src/utils_c/tools.pyx":162
  * 
  * # Map P:
  * cpdef void mapP(float[:,::1] P, int M, int K) noexcept nogil:             # <<<<<<<<<<<<<<
  *     cdef:
  *         size_t i, k
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_10adamixture_3src_7utils_c_5tools_11mapP, 0, __pyx_mstate_global->__pyx_n_u_mapP, NULL, __pyx_mstate_global->__pyx_n_u_adamixture_src_utils_c_tools, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[5])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 132, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_10adamixture_3src_7utils_c_5tools_11mapP, 0, __pyx_mstate_global->__pyx_n_u_mapP, NULL, __pyx_mstate_global->__pyx_n_u_adamixture_src_utils_c_tools, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[5])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 162, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
   #endif
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_mapP, __pyx_t_4) < (0)) __PYX_ERR(0, 132, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_mapP, __pyx_t_4) < (0)) __PYX_ERR(0, 162, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "adamixture/src/utils_c/tools.pyx":147
+  /* "adamixture/src/utils_c/tools.pyx":177
  * 
  * # Eval KL divergence:
  * cpdef double KL(double[:, ::1] Q1, double[:, ::1] Q2, int N, int K) noexcept nogil:             # <<<<<<<<<<<<<<
  *     cdef:
  *         size_t i, k
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_10adamixture_3src_7utils_c_5tools_13KL, 0, __pyx_mstate_global->__pyx_n_u_KL, NULL, __pyx_mstate_global->__pyx_n_u_adamixture_src_utils_c_tools, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[6])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 147, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_10adamixture_3src_7utils_c_5tools_13KL, 0, __pyx_mstate_global->__pyx_n_u_KL, NULL, __pyx_mstate_global->__pyx_n_u_adamixture_src_utils_c_tools, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[6])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 177, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
   #endif
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_KL, __pyx_t_4) < (0)) __PYX_ERR(0, 147, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_KL, __pyx_t_4) < (0)) __PYX_ERR(0, 177, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "adamixture/src/utils_c/tools.pyx":166
+  /* "adamixture/src/utils_c/tools.pyx":196
  * 
  * # Eval RMSE:
  * cpdef double rmse_d(double[:,::1] Q1, double[:,::1] Q2, int N, int K) noexcept nogil:             # <<<<<<<<<<<<<<
  *     cdef:
  *         size_t T = N * K
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_10adamixture_3src_7utils_c_5tools_15rmse_d, 0, __pyx_mstate_global->__pyx_n_u_rmse_d, NULL, __pyx_mstate_global->__pyx_n_u_adamixture_src_utils_c_tools, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[7])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 166, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_10adamixture_3src_7utils_c_5tools_15rmse_d, 0, __pyx_mstate_global->__pyx_n_u_rmse_d, NULL, __pyx_mstate_global->__pyx_n_u_adamixture_src_utils_c_tools, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[7])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 196, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
   #endif
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_rmse_d, __pyx_t_4) < (0)) __PYX_ERR(0, 166, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_rmse_d, __pyx_t_4) < (0)) __PYX_ERR(0, 196, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+
+  /* "adamixture/src/utils_c/tools.pyx":211
+ * 
+ * # Log-likelihood on a subset of samples (cross-validation)
+ * cpdef double loglike_cross(uint8_t[:,::1] G, double[:,::1] P, double[:,::1] Q,             # <<<<<<<<<<<<<<
+ *                            uint32_t[::1] s_ind, int M, int N_sub, int K) noexcept nogil:
+ *     cdef:
+*/
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_10adamixture_3src_7utils_c_5tools_17loglike_cross, 0, __pyx_mstate_global->__pyx_n_u_loglike_cross, NULL, __pyx_mstate_global->__pyx_n_u_adamixture_src_utils_c_tools, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[8])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 211, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
+  PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
+  #endif
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_loglike_cross, __pyx_t_4) < (0)) __PYX_ERR(0, 211, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+
+  /* "adamixture/src/utils_c/tools.pyx":226
+ * 
+ * # Deviance residual on a subset of samples (cross-validation)
+ * cpdef double deviance(uint8_t[:,::1] G, double[:,::1] P, double[:,::1] Q,             # <<<<<<<<<<<<<<
+ *                       uint32_t[::1] s_ind, int M, int N_sub, int K) noexcept nogil:
+ *     cdef:
+*/
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_10adamixture_3src_7utils_c_5tools_19deviance, 0, __pyx_mstate_global->__pyx_n_u_deviance, NULL, __pyx_mstate_global->__pyx_n_u_adamixture_src_utils_c_tools, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[9])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 226, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
+  PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
+  #endif
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_deviance, __pyx_t_4) < (0)) __PYX_ERR(0, 226, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+
+  /* "adamixture/src/utils_c/tools.pyx":254
+ * 
+ * # Count non-missing genotypes for a subset of samples (normalization for CV)
+ * cpdef double cross_norm(uint8_t[:,::1] G, uint32_t[::1] s_ind, int M, int N_sub) noexcept nogil:             # <<<<<<<<<<<<<<
+ *     cdef:
+ *         size_t i, j
+*/
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_10adamixture_3src_7utils_c_5tools_21cross_norm, 0, __pyx_mstate_global->__pyx_n_u_cross_norm, NULL, __pyx_mstate_global->__pyx_n_u_adamixture_src_utils_c_tools, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[10])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 254, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
+  PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
+  #endif
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_cross_norm, __pyx_t_4) < (0)) __PYX_ERR(0, 254, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
   /* "adamixture/src/utils_c/tools.pyx":1
@@ -21601,31 +22975,31 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
 static int __Pyx_InitConstants(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
   {
-    const struct { const unsigned int length: 9; } index[] = {{2},{68},{35},{54},{37},{60},{24},{52},{26},{34},{29},{33},{45},{22},{15},{179},{37},{30},{32},{1},{1},{1},{1},{1},{32},{8},{5},{6},{15},{23},{25},{7},{6},{2},{6},{35},{9},{30},{50},{8},{20},{32},{22},{30},{37},{5},{8},{1},{1},{2},{1},{1},{1},{20},{1},{2},{2},{8},{15},{3},{28},{15},{15},{18},{4},{10},{1},{9},{17},{18},{5},{8},{15},{6},{9},{5},{1},{5},{6},{7},{8},{11},{12},{2},{10},{5},{13},{5},{8},{13},{8},{4},{4},{7},{4},{10},{4},{8},{4},{7},{3},{4},{3},{14},{11},{10},{19},{14},{12},{8},{10},{17},{13},{8},{4},{6},{12},{10},{12},{19},{5},{4},{5},{4},{4},{6},{8},{6},{6},{6},{1},{86},{95},{28},{105},{103},{258},{123},{129},{1}};
-    #if (CYTHON_COMPRESS_STRINGS) == 2 /* compression: bz2 (1747 bytes) */
-const char* const cstring = "BZh91AY&SY\333/0\336\000\001\007\377\377\377\177\377\337\372\357\377_\277\277\377{\377\377\377\374@@@@@@@@@@@@@\000@\000`\006_=\311\261\213,\"\2265j\2308\341\023I\020\r\0003\320\322\236\210\001\2654\321\220\364\232\001\240\000\000d\006FG\250\036M \033\324\201\241\000\203F\210\311\240$\375SF\247\251\240\001\352~\244=M=@h\000\000\000z\233D\321\243\323H\320\002\014\000\023\000\0010\000\000\000\000\000\000\000\000\000\000\000\000i\220\204j\004\323E\031\344\246\217\325=\021\264\200=F\215\032\000\000\000\000\000h\000\003 \0100\000L\000\004\300\000\000\000\000\000\000\000\000\000\000\000\001)\244\231\010&$\323h0\240=# d\000\000\000\000\014\200\r\000\0002\000S=\016\347a\217\253\037f\322\323P\203<>\372`\350\027\343\363&\217\360j\017\321?\371\244\n,\007\370BHB\020\204b\026\230\200\255aQ9 \242\200i\rQ\003\253 \220\343\022\002p\244_`\201P!\256.\034(\261vw\017Hj\006\302\031\200y0\310jq-P07\036\365\260L\327\004\335T\236\365=\264L\233\334}\241\3149\002\271\225\312}\212}^\343\331\325S\272\211\331\241\274\253}\017\tKL\314z\212\r\333\004\023\004\354\243\341\374\266\341<G\341e\224\345c\341\3658\274\210\266\217.\2231p\227\345\236\3422\242\277z9\320$t\367\037\021\005\363\345\304@\303C\3775\223\323\302\271\025\354S\324Fg)\335\205f\263\031\336\266\311yb,\r\261\313C\353a\2250\355\002cap3 m\266\327u\375\275E\001\224\202\276N1\263\261\0348\307\254\3416\235\007\206\020S\006\244T\267M\014R.\344\211\025\230\013\005\352X<\341\215Y,\005\177\252\370\375\331\202\216f\357\365\331\001H\216\220*\371\273\354\001{\310\350\224\302\230\225\n\004fF\211\240\311K_;\361\302m#e\023\007\353t\3338\345\336\310\253\237\\\025\007\375\215\237&E6/\343\353\016L\327a\327\266\177\242zO\365\361\320s+\332\377\302trXp\004\026\353\352(\302D\354,\317\003\245a\362g\313M\263\311\310\037_(\320S79s\2775}\346l4\361\270g~\027a\303\003\266:x\271\366\022\352yh\303\201<\335i\3016\246B\366\261\016\370\211\273'd\t\010\262.\223\t\"e\002$g\206\247(\321\005\\\323C\030\243\310\316sg\007\357X\250\245\330\214xm\356\377b4\215\\=\246H1\216""\036v!K\003\206\342\025\310\206,\261\207\267o\014#B\234\253n\330\251gR&\253\014\263\320R\245\024fe2l\001\367q\353c\360Lr\345cW+\263k\002p$\022U\211\312q\337\226\377\361\334\342\3275\246z\245\270\225\225j\264\004m\256\321\000\346\260\330k\367&\010\336\207\000\270F\337\351\306,\302\3432\010\266\020*7\357\022\300\260\373*PE\334f\010F\342\264u\316\206<*\202\254ciq\210\034\030\303\226\030 \230\261\036\013\247\020\340=\2703\337'\017\371\2309\346-+l\023\330\273oR)\252\273\005v\022M\004\277,=\220Rj\265M\230<\025\224\267\366A J\301\325\261n\r\354#(V\260\031\025\251\374 \363\310\242x\331k\312C\313\006HG+*\265\207\213A)f<\212zJ2e\251\n\030\373\3640f\220\265.|+uf\014\314\327\260\211\346 5\230\326<\243\342\262\2408\254+HT\004\371t.a^\364\225_HJ\302\245s\230J\251x\3601QF\202\210\006W\235fA\223a\260g\375\254\222\304\220\203GP\222\t\234\267j\2027\343\002\303\r-;\216\344\260\254\t\276M\002\355$\023J\002\034\360\036K\200Z\264\335:\241&\277\307\013n\300\262\360\265\023\357Le\230\300\350\345\311\235`\\\360&\350&\016B5\306\001.\2038u\267\250`,\234\272\201\256p\244\300\230\303\013`\3166\337\257\000\013\016\205CV\004k\266\014\324\313\200v\241\270\265\021 \247\320\357\000\024\211\250gH\250XSCx\212\0300R\322w\t\n\252&AQ\244\305\024J\322HHD\364\023\204F\236\020ha*\2040\257\005(+=R\251]\247\274jU\371\004f\211R\2227^\243\203\303\2268N\023V.)]\025/\"#\225\331\234\305\252\311\006`\267\356\324\037\252\362\242\201van\312\032\351\332F14b/rR\245\354\206Zi~\004<O\032&nn\006q\234\314\020\354$S\024\311\262A6+Y,5\202\275\263\016\320\304\n\201\263m\027\322\n\235\324Z\242z\221A\244\262@\021\210Ei\t\027\231\021\215\250-\006\036\226:\315\024\322\031\366\245H\200\221\n.\027#,\252\r;\255\253\255vx\270m\372\266F\265\231\371Y@) \2548\304g\233\200\214!\215f\350e\332\203&C\260\313H0\027\205b `P\003\224s\352S\\_\030\306\275\246\354\260\275(\210$5pB\314\036\374vs\006\206\212\310bB%P\250\303a\023p\002\353\350\242\240\305\002\336:\037\002kk\027$4\242k\274\271\367\177\221\017\002sP\311\321\035\323\013\312\035`\333""\227v\201X<Kg:\013@e\211\365i\271\003\024\256d_u\216_j\2262'`\210\222\"\222Lu\037\020\020PY\253\215\024+O\220f\314\345\371\341Zv8q\t4\367\306\252N\263,\256>\373\227\2544,+\272\375\326y\323\217\2244\006\321\340\010Z%\014y\253y\373\010q\335\271\266v\242\322\357\272.\226D#\314\034v\203\372y\"\210/\020|\334F\017[ALg\272I\207\321\341\023?\261\275\275\3272G>\2448\211\221p\322\237'\341\236&\274\331\327\2462\221\010<v\213GV-RC\246v\275y\010\nrF\224\332\355\204\020\021p\026\017xP\313\340\273\273\205\276\020I\247\t\010~\213xx?\002A\005N\002\301\363\377\025Z\240\315Z\037\254VV9\006\232\221_\2410E\005\003\3312PQ\r+\242o\325\013\001\014t@\023\003\tJ1\032M\233\215+H\361\215X\212\2279\026\022^<\376\344\265z\225\354\366\363g\275\327\244\016\272\311\202=\222\3567um'\016\310\361\t\216j%\236\203\236\316\245\021Q\t8\251BUj(\3235P(YL\247&%w\275\017\245\305\201\037\370\273\222)\302\204\206\331y\206\360";
-    PyObject *data = __Pyx_DecompressString(cstring, 1747, 2);
+    const struct { const unsigned int length: 9; } index[] = {{2},{68},{35},{54},{37},{60},{24},{52},{26},{34},{29},{33},{45},{22},{15},{179},{37},{30},{32},{1},{1},{1},{1},{1},{32},{8},{5},{6},{15},{23},{25},{7},{6},{2},{6},{35},{9},{30},{50},{8},{20},{32},{22},{30},{37},{5},{8},{1},{1},{2},{1},{1},{5},{1},{20},{1},{2},{2},{8},{15},{3},{28},{15},{15},{18},{4},{10},{1},{9},{17},{18},{5},{10},{8},{8},{15},{6},{9},{5},{1},{5},{6},{7},{8},{11},{12},{2},{10},{5},{13},{5},{8},{13},{13},{8},{4},{4},{7},{4},{10},{4},{8},{4},{7},{3},{4},{3},{14},{11},{10},{19},{14},{12},{8},{10},{17},{13},{8},{4},{6},{5},{12},{10},{12},{19},{5},{4},{5},{4},{4},{6},{8},{6},{6},{6},{1},{86},{95},{28},{249},{105},{103},{258},{115},{123},{76},{129},{1}};
+    #if (CYTHON_COMPRESS_STRINGS) == 2 /* compression: bz2 (1987 bytes) */
+const char* const cstring = "BZh91AY&SY\216\304\031\365\000\001R\177\377\377\177\377\377\376\357\377_\277\377\377{\377\377\377\374@@@@@@@@@@@@@\000@\000`\007=\206\306\026\230B\002\212\240o\273\001\006\204\201)\346\251\352h\036\232\236\030\2321M4OP\362\232\r\006OP\365\000\r\006\232\000z\203\321\244\364\304\311\224\320\364\201)\250\002\002d\215\244\323&\223\t56\246\324i\210\332\236\220f\240\000\000\032\000\006\010\000\036\223C\324A\200\023\000\000\000\230\000L\000\000\002`\004\320\300\000\000\000\000\001\246B\020\200\250\375\n2{T\033S\323\324\236\247\2506\246\201\240\032\000\000\000\006\200\323\023@\320\323\312z\236\220A\200\023\000\000\000\230\000L\000\000\002`\004\320\300\000\000\000\000\001\244\2224\311\246C\002h\310\3104\0320\232\003\010\014\206\232\006\232i\200F\r\002\032b\003\002\013\252,\260N\347\340a\374\263u\233\372m\366.\354\023\360o\200\2134\010x\376\370e\246\007\\b\204\347\3573\307\371B\200\21107\224BHB\020\204r\266l\017e\225\324\233I\232\216\2430H\032\251\214\331\t\017k\020\303\236\016\221n\362\004\302\001kZ\330>\0040\362\316\325\026\224\212B5C\235&$G\313}\341\270j\224H&\367\261\306\254B\020\260A\325Z\306)\253*\023z\027v\032\253Z\301J\372:\235\274\003\030\270\025\215X\217\362\337\207#K\370\024\315\204\334\220\306%\232\220\320F\33031\337PcN2\016\020_\242\265\334T\300'\210\352\331c8\330\371\337\347w\351\305\263z\324\231\214\002_\306\\\004cEpQ\316a#\207;\336 \276\\w\210\027f~*\311\341\272\270\226\026)\352##\224\356\302\263Y\214\257[b\302\232\016\330\032\206\340\335vpv\224jC\310v\206\245\004\367R\214\351\003\275\240\272\236\207Gw\327\344\250w\250\340\277\1771\340\306:\343\217\2672\336\033\326\355\325|N\207?>\324\344^i\356&\300\014\371\2333k\340\013\224\213\346\202\014=\276\023\337\037_\355\330F\315\366\301\366y\276\344\35501\340\026~?;p\337q\323\301\232\302\302\363\006\315\3605&\034\231(#zg\312\004\177\1775\273\3167\330\024\333\321H\026\361\3665\367\365\261,\255\273\242\330[\234\355\3754\303g+\351u\237\267\332=\275\333x\377\217S_\027>\235'\337\360h5W\277\347\t\317\262\000\343\000\230k8""\326\207)(N\344\351 \005\202\302\333EjJ\353\266\224\230\023$\023\020.'P6Z\274h0f4\2500\247\016Q\024~?A@\235\365;\rP7\216\266\3575\3550\237R0\340N\356\312pM\251\210\275\254C\275\342pd\354\211$\"\311't\302H\211(3)\344x\021h)\014\335l/\356r\2532W)\313\305\333\221\251\263\375\330S\325\344\362\177\303\013\316\237W\371\307 \346=oG\220\266\306\007\207\304\205\344\203d\266\216\323L\3024S.\323AU\234\244B\327\371\307\264UJ(\360w\306Lw\206\357\366\371 \020\364\027>\256\037 y\307\023\262[\341\332\023\002A%\211sZ\030\207}\275\337\005|}6\362\245\307.\247jj?X\220\351k\237\n\223\224TT>\315\203\245\346zf\302\035\236\363\316\3360f\030\206T\021k\350$lb\211`Xu*PE\334e\010G`\2469\016\205\373j\202\254c\031q\334\\\006\234\222\345\205\350&,G\224\351\304\007\001\356\323\233{\036NO_0s\312Z\026\324\023\270\355\261H\246\275t\212\351$\232\023/\260\036\310.5\025\226\275.`\360VB\334D\022\004\253\335[\006\323\261td\n\326\003\022\2658\020y\343\321<1\327F\310\370\342g2\313<u\305u\310g\301\036\033\374\017M\035n\255\321\246\233\342m\310\326\355\224\256\251\352BIB\235,\325C\216(\342zK\307\236!\343\315\265\261\210[\313\317\013\r]\354\237\253\337\231f\327\302\324;\022\372\036\177S\333\263\033\333\020M\265d\230\225\273\216\223\237\374\353\316\006nbG\373I\tF\373Zl\215!T\305u\264sx\364\230\234\010\333v\242\326\212\022\224\206;\002\215\n\220\177\r-}r\225=2\022\351 \336y\320\324\321\335ym\020y\234\274\233\240\033(\026w]\31572\206\025\035\260\254~O\031z\310 \323\244q\024m\036\356f\224Q\010\233\217SNuPs\037\032cN\0049\351ViaQ\355%iI9!9\363\273\300\005\"o\033\324\027\214\306\036\274\324\023\001nIj$\005\001\300\210 X\322b\224\224\262rBB\035Ba\021\246\367\263\360V\017\303\240*\202\347ZZ^\323\3506.2\010\220\211eH\360u\216\007?\347\016\t\204.7\251p\025]Y\222\036^\314\342&\3112BCy\2738\025\337\243]Sf\323_\033\245;d\310\352N\225\035\266|\370\3557kc\307n\315\206\3672F\256^\333\002\314\233pr\3358L\001$\021}\023&\336\t\264l\215M\250\303i\2571\207\232\205\037R\355\267\215\177k\240?\005\320\353\310\n\264\262\001Q3ha\235""\274O'0\332\320\206\200E\311a\262h\246\220\317\264\225\"\003\235$\341\361\270w>\021t\216NV\331\324\366|.\033l\332\351FR\337\375es`\231d\363\"\210\306\373\274,\207E\307J\235\2326\236'\227\362\254\323s\010!\273\"\020,N\003\270\262P\225_XV_\007TX\263d\346\364$5,qV\037o\303\253\325\222$d\307c\0276&(\225pS\003M\267]\211\027\215\357\225\324\253JZ\215\035^\016v\2327g\035?\356-P\271<\345\357\036DCa=g\213gm\306B\353n\236\252\301\302n\265\364+\301\346\207^\006\376\343\223\271\316\343[\253y\026\010\211x\\I$\230\373\016\330\010*g~\350\241kt\321Yd\024\031Sl\220\325\\\006\t\232\000\243\206OC0\364x\265,\3219;\010\344ZK1\353/\032\255\021H\000\217x@\300\300\362F\000\242\023R(f\007\003\214G\027:f\340\305\367\340q\200\313\030\300\202>\360\336k\007_/\236\333l\250\001\347\260\352\240Yt\271D\010.4\204I`\206\327\333P.H\260\022\302\345s\330\202hB\302\025\250d\014O\003\0333\356\217P2\264\361\n\304\362\345\234aJF*\203e\360b\200=`\201FJ\017\033\333\212\006\020)\367\200\272\375\224\274)^\020\010\021\025|[\337\204oS\346\"\360C\204\365\202\263\351\241/\267\235\272*\032\014\364\337\310\266\211\305Pd2CA\004:\346\020\316\214\003\265\374It\241\340?\251\305DL\277\024G\326\244$\021\277w^3\353\030\235;+\216\036W6^\016\271}\340+\253+\273f,\270\343\335\205\007r\273_\342\351\274U\254-a\342\270\350{V\307(Y:\262\272\274\214\332\216\037nL\232\375\234\274\017\302\355f\371\3235'\314\226\334\206\277\324v\035\332i\253,\277[e\370\257\263V\234l\321\321\336\304x\261i\n\201\311UwpQ\212n\234m\004\216\301\363\303\"\026\230S+\004C%\302\342\031\320\224ED*\207\200BHK\275f\254DQD\325\340U\320\025\022YL\247&\004\2573\235\345\326\005\201a\377\213\271\"\234(HGb\014\372\200";
+    PyObject *data = __Pyx_DecompressString(cstring, 1987, 2);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #elif (CYTHON_COMPRESS_STRINGS) != 0 /* compression: zlib (1618 bytes) */
-const char* const cstring = "x\332\215TMs\0237\030\256\2012NIKL\002dZZ\024\230\214a\n\006\247\320\351\264)\035'\244L\332B\343\004:m\031\272\325\356\312\266\310ZZK\332`S\016=\372\250\243\216{\334c\2169\346\310\321G\037\375\023\372\023\372J\3538\t\264\235\036\326\326\307\373\371<\317\253/Q-\212PH\333\204I\312\231D\261 \001\t)k\036\036\242\305\020\265\023\251\220O\020e!\351\222\020a\026\"\306\025\222\021\005\363\225\244\321 \002\355P\362\002\205\234HwE\2721\227\004I%hH\344*f\210\263\250\207\002A\260\"\010#?wR-\254\020\225(\340L\321f\302\023\tIP\233\264\271\350U\300\313\206\302R\322&C\212#p\016o\2728\271\205M96\032\007~!\250\302~D\306\006yQ\r\301\333\377\345\353\332B/\250j!\325\213\t*\217\317\225\300L\2726\016]r3\360\240\000\225:\202\335\375\243\200\321\034\204\334h\255\035\253\036\222-\014\241U\022Cq\r.P\320S-\316*X\010\334[w\005\360D!\336@>OX(\3215\334\205(\213\341\365\365\267s\345\340'q\314\205\"\341:\333\301\021\005\226xHnX\340\301\030H*\007e\004y\312\220\3146R\276\201\232\340u`\234\227\003X\2734\313\017]\203?\331\006\241\204G\034\240t\324\254\272*m?!\211\250O\004\200\014\020ZZ!\211\343\217\241\215\265\215\233w\276\270\343d!\310sH/\241:?\210\2009\220\203\355)\241\221\202d\026^YA\353\r\324\343\tb\004\312\004Zc\260;\352\240Z\204!I\224]\240\262\343\002+\350\333\003w\320fy\214+\335!\326\373[\034IR\371\361\030xP\362X`8\010\210<@sK\221\030\265q\317\341\007z~I\004?\004\372\ts\312\201\220\240\306\035\"@\030\212\264\355\236\373\266\251\312\275\362\365op\210\333\264\253\022AnI\021\334J\024\215\244\027\334R\234G\262\022\367\2728\014=f\341\263` @\360v7\340Qd\313\005\342*\330\017\226\217h\335\032\345\315\334{\363\370@b\367B*m]\304U\327\014\3205Kc\323\251\313vh\207\225t\025a\312\215\316\341\334R\231\273\204\266\013I_\022\264\3745\272\375\226\366\030\007j\0338\211\024\362<A\302$ \236\207\302\304\001\3018\273\tT\357P\034\301m@\031Up\231\303qo9\037\356\360X\027o\237Y\021N\2329v?9M&\310\343(\342\201{!lm(\304\nW\376\3416W\257\2151~`*\265\255\325\365\365\265(\242\261\244\362\301\367\337\377\360\360\321\206\347m""\364\272\360\335\007\255z\217\000\244M\322\250\327\253\365\245-\322I\010\013\210\325{\345P\372@\316!\275\025\240\2672\246\267\342\350\205\354$\"\337\212\334\271wP\214\227+\r\313\036\013(\257\004\\\300 SF\244\217%\361I\350I\236\210\200\004\200\237\325\267\347\035,\232DYj\354\026\314=\n\372\0268 >\016\266\003\2201 \035\332\302\275\320N\215G\245\227\343\016\271a\320\tK\332n\032\211\020\\4\032\021nJ\240\266\215\325x\336=\257\2210H\332$\214{\n\013\310f7J*[\263GC\370\332\366\001\201\177\373\374\330\004\223\332s\311\214u\023\361fD\267a\374[\234\203W\033C\245\360\033o\300W\207\227\321>\213\366\355\201C\036&\021\3743\334>\374\005E\302/y\341\331\372ch.\346\261\347\301\250xA\213\004\3332i\347\273qav\351\032v\253\204\3054\330\206\230k\354\300n\307=\360\026\306N\202\243<\211}\334=\213\365D\301\223U\256\365#\007\320*,\233T\302\373%\332\222\330\317\003Oxp\306%\303j<\022n=.\354\310\372 \246\223\241\205\010\216\005\334\221X*\016\237H,o\n\216=\333\001\364\234\304 e\002OoBd\367\317\302_\357\27535\247\253\2726,N\367k\375z\037\367\205.\331\315\232>\257\261\356\014\247\317\351\005g0}\266\257\364\222\256\017gJ\272\244\027\341\252t^oje\226\314\344\314m\216E\005\357aqF\027\376=\376\331~G\027\364\254^\205\315\314\207\346Zz%}\220U\263Z\006Q\347\315i\343\247\340<\325/\365\027\373]-L\t\302\237\236\204\177\337\205\264\001\316\351;\272\363gaT\234\205\"7ugT\274\240Cs\305<H\253\243\342y(\2738\247k\366\302\2344\325\343\233S\305\376\273\375'\266\315a\361\254\255O_\205;He\026\354A\242W4\036\236:\323\277\013i\346\315\234\3314\307\023]t}\377\234B\016H\344\262i\337\024\314\254\251\r\217m\376o\242;\320\321)\273\261i\346\315\231\364\363\254\224\201\311G\346\253\264\341\220)^2\337\345K\013\306\365\254\220\315f\253\231\334]\030M\315\233\302p\372cS7x8=\243\247\315ZZJ\027\2063\227\315K\010r}\267:\234\371\330\374\222\372Ya43\253\277r\360\316]6\235t*\373d\367\325~u\377\341\240\2765\330z<\232\273\250\377\000.V\254\351p\376jZM\327\263\247{'\366\026\367^\275^z\375l\360\353\263\301\263\337\007\277\373\003?\030\315""\333\312\374\354Dv%\253\r/\225\323N6\265\373\321\336\312\036\331_~-\006\365\337\006\277\341\001\016\007ac\320h\216.]6\177\200\341J\346\357\026\206\350S\340z}\367\351\376\211\375\305\375W\203\255'\203'\020\221\014Hk\320z>x\276\235\263}A\347\330\376U<\306\274\357\204\363\346\346\210\266J \013\247\335\311b\006\200]\325\022\204\001\233Y\375\031ps\022\310{\234\236K\227\322\315\264\223\303/\200\347\222\005\377\"H\344\264\301\2463\374\307\345\310\352(\207\274\370A\237\352\035\200=HK\303ik\0014\300\205%\327T\315\212\t\323\005\300\260\006ITvw\367$\020\001\243u\303FI\013@\321\225\364~\366\256e\326\315\211-\243\372\343\337N\203EC";
-    PyObject *data = __Pyx_DecompressString(cstring, 1618, 1);
+    #elif (CYTHON_COMPRESS_STRINGS) != 0 /* compression: zlib (1855 bytes) */
+const char* const cstring = "x\332\225UMs\333\306\031\016e\331C5j-\352#V\023\247^\311\326\320\236\332t(+\235N\243\272C\311\212\253\246vD)\352\270\3168\310\002XRk\201Xrw!\221\216\0179\362\210\343\036q\304\221G\036u\324\021G\036\371\023\372\023\372\356\002\244(9\355\264\007P\373\361~>\317\363\256\376\204*\236\207\\\332 \276\240\314\027\250\311\211C\\\352\327/\016\321\232\213\032\201\220\310&\210\372.i\023\027a\337E>\223Hx\024\314\267\202Z\215ptB\311)r\031\021\346\212\264\233L\020$$\247.\021\333\330G\314\367:\310\341\004K\2020\262S'y\204%\242\0029\314\227\264\036\260@@\022\324 \r\306;%\360\322\241\260\020\264\356#\311\0208\273\217L\234\324B\247\314\214\262\300\247\234Jl{$3H\213\252q\326\370o\276\246-tJ\345\021\222\235&A\305\354\\r\354\013\323\306\205Kj\006\036\024\240\222\023\330=\233\004\214\246 \244F;\215\246\354 q\204!\264\014\232P\\\215q\344t\344\021\363K\230s\334\3315\005\260@\"VC6\013|W\240\373\270\rQ\326\334\007\273\037\346J\301\017\232M\306%qw\375\023\354Q`\211\271\344\241\006\036\214\201\244\242SD\220\247\010\311t#\305\207\250\016^#\343\264\034\300\332\244\331|a\032\374\207n\020Jx\311\000JC\315\266\251R\367\343\022\217\332\204\003\310\000\241\246\025\222\030\376|\264\267\263\367h\343\217\033F\026\234\274\205\364\002\252\263\035\017\230\0039\350\236\002\352IH\246\341\025%\264[C\035\026 \237@\231@k\023\354&\035\344\021\361\221 R/P\321p\201%\364m\201;h\263\230\341JO\210\366\376\032{\202\224\276\275\004\036\224\234\t\014;\016\021#4\017$i\242\006\356\030\374@\317\357\010g\027@\037\372F9\020\022\324xB8\010C\222\206\3363[7UzZ|\360\027\354\342\006m\313\200\223\307\202;\217\003I=a9\217%c\236(5;m\354\272\226\257\341\323` @\360\213\266\303<O\227\013\304\225\260\355lNh]\033\245\315<\275z<\222\330S\227\n]\0271\325\325\035t_\323X7\352\322\035\352a%mI|iF\347bn\251H]\\\335\205\240\357\010\332\3743\372\342\003\355\371\014\250\255\341\300\223\310\2628q\003\207X\026r\003\003\204\317\374G@\365\t\305\036\334:\324\247\022.S8\236n\246\303\355^\352\342\3033-\302q3\227\356\307\247\301\030y\354y\3141/\204\256\r""\271X\342\322/\334\246\352\3251\262\007\246T9\330\336\335\335\361<\332\024T<\377\346\233\277\277x\371\322\002M\355Y\326^\247\r\3373\020\254\365\022\220\332'\265j\265\\]? \255\200\370\016\321\242/]\350\037\030\272\340\270\004\034\2272\216K\206c(\201x\344k\236:wF\025Y\251\334\260\350\370\016e%\207q\230f\352\023acAl\342Z\202\005\334!\016\200\250EnY\243E\235H\315\217\336\202\271EA\344\034;\304\306\316\261\003Z\226\016g`\3453\336p\t\320\340kv\\\335\212\345\352a\262\250\260R:\240\032\230\177\342\007\r3\244\204s\306k5\017\327\0050\336\3002{\006,\253\026\370PF\235\370\314\222\230C~\275\221B\352.,\352\302\327\320\357\n\374\325\257\222N0\356&UR&'\217\325=zL,Sa\266\361\350\021c\020\242\201\241\021\370m\356\301W\205\327S?\235\372}\202C\346\006\036\374\365q\343\342\027T\013\277\344\324\322\3154\241\367&kZ\026\214\223\345\034\021\347X\004\215t\227U\251\227\246{\263\n\374&u\216!\346\216?\262;1\377\0044\312\255\000{i\022\375\017\300\322T\214U>^\245\3630q\000}\303\262N\005\274q\274!\210\376,WhH,\013^\246\254nXe\263c\326Yu\023\353Q`\243W\r\032\034s\270#M!\031|<\320LJ8\266t\033\320x\320\004\315\023x\243\003\"\332?\347\376\365\253\217f\026\303rX\031\344g\273\225n\265\213\273<,\350\315N\270\024\342\2605\230\235\017W\214\301\354\315\256\014\327\303\352`\256\020\026\3025\270*,\205\373\241T\353j|f6\227\242\202\367 ?\027\346\376s\374\233\335V\230\013\027\302m\330\314}\252\356G\253\321\363\270\034Wb\210\272\254n(;\002\347\231n\241\273\326m\207\\\025 \374\215q\370_\233\220:\300|\270\021\266\340n\326\334\r\362\013ay\302n\224\\\350r\256l\306\225\314\205\327\303j\210\257\224\264\010\376\360\263\243\226\024V\255\301\342oUA\255\250'\272\256\250\020\335\215\252\372\366\231\232R+z\361WUQU\205\007s\013\200\325~h\354\347\001\225\003\260\236\217\326\243\303x5\336\212\355\336T\257\330/\214<\357\252}\035\371Su\017\242^\003\253\2038\027\027\342{`w\255\367\244\347\366W\373\317\3176\316\370\371\302\371\366\271L\016\016\223\303W\311\253\327\311k\234`{0\375q\267\374sn\230\3172\016\363\237\204\256ZU\317\243""\3620\277\004|\345\241\003}\241\256\251\362\345\315t\276{\275{\250\371\035\344ojb\302\273p\307u\203\372 \010\267\000\r\010\377%\240\261\254\026u\225\227\022\3352\204\277\002\010t\"\223-\264UN-\250\312\340\322\346\177M\264\001\300O\353\215N\263\254>\216\376\0000\200\311g\352\253\250f$\221\277\255\376\226.5\273\017\000\247\205x;\026\275\225\341\314\262\312\rf?7\350\003\225\263j\007\350\001N\356\250w\020\344A\257<\230\373\\\3753\262\343\334\020\310\371\312\350j\361\216jE3\361\357z\357\317\312g/\222\352Ar\360\335p\361V\370\023\210pK\233\016\226\357F\345h7\376\276?\325_\353\277?_?\177\223\274~\223\274\3711\371\321Nlg\270\254+\263\343)`\2652\270]\214Z\361L\357\263\376V\237\234m\236\363\244\372C\362\003P\344&n-\251\325\207\267\357\250\2372\372s\003\364{\020\371n\357\373\263\251\263\265\263\367\206S\210H\022r\224\034\275M\336\036\203\224\363\037\315,\205\225\264\261\374o\2724<\201\346\352\200\366\354- \020\232\275\235\212\rz\230\212\356E\030\262\347\342\371x#\016z\225\336a\177\245\277\321?=\0030\346\223\371\325h\005\372\250DU(v:\336\351\025zk\275V\177\272?\032\215LD\032\323O\302\224N\235~b\312l3\021W7\023\323S\200\0214\357\304x1\007\\n\207\002\264\010\233\205\360\t\310\341\032\350\345;3\010\373Q+e\234\203\264\n\351\233\261\014q&\245\362\377\r*\014\346x\0264@7\314\274\376\342r\250\307\340\n\260NT\030\003\013\027f\312\313jK\271\031t\373\221\214\277\204y,\353'\361\241A]?\000\253\321\263\370\272\026\346\005\216\337\376\033\313\216\002\252";
+    PyObject *data = __Pyx_DecompressString(cstring, 1855, 1);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #else /* compression: none (2839 bytes) */
-const char* const bytes = ": All dimensions preceding dimension %d must be indexed and not slicedBuffer view does not expose stridesCan only create a buffer that is contiguous in memory.Cannot assign to read-only memoryviewCannot create writable memory view from read-only memoryviewCannot index with type 'Cannot transpose memoryview with indirect dimensionsDimension %d is not directEmpty shape tuple for cython.arrayIndex out of bounds (axis %d)Indirect dimensions not supportedInvalid mode, expected 'c' or 'fortran', got Invalid shape in axis <MemoryView of Note that Cython is deliberately stricter than PEP-484 and rejects subclasses of builtin types. If you need to pass subclasses then set the 'annotation_typing' directive to False.Out of bounds on buffer access (axis Step may not be zero (axis %d)Unable to convert item to object.>')?adamixture/src/utils_c/tools.pyxadd_note and  at 0xcollections.abc<contiguous and direct><contiguous and indirect>disableenablegc (got got differing extents in dimension isenableditemsize <= 0 for cython.arrayno default __reduce__ due to non-trivial __cinit__ object><strided and direct><strided and direct or indirect><strided and indirect>unable to allocate array data.unable to allocate shape and strides.ASCIIEllipsisGKKLMNP__Pyx_PyDict_NextRefQQ1Q2SequenceView.MemoryViewabcadamixture.src.utils_c.toolsalleleFrequencyallocate_bufferasyncio.coroutinesbasebed_sourcec__class____class_getitem__cline_in_tracebackcount__dict__dtype_is_objectencodeenumerateerrorfflagsformatfortran__func__geno_target__getstate__id__import__index_is_coroutineitemsitemsizeloglikelihood__main__mapPmapQmemviewmode__module__name__name__ndim__new__objpackpop__pyx_checksum__pyx_state__pyx_type__pyx_unpickle_Enum__pyx_vtable____qualname__read_bed__reduce____reduce_cython____reduce_ex__registerrmsermse_d__set_name__setdefault__setstate____setstate_cython__shapesizestartstepstopstruct__test__unpackupdatevaluesx\200\001\360\n\000\t\024\2201\220A\330\010\014\210A\210Q\210a\210r\220\021\330\010\014""\210E\220\025\220a\220q\330\014\022\220!\2201\220A\330\014\017\210t\2202\220Q\330\020\021\220\021\220%\220q\330\021\025\220R\220t\2302\230Q\330\020\021\220\021\220%\220t\2302\230Q\200\001\360\n\000\t\024\2201\220A\330\010\022\220!\330\010\020\220\001\330\010\014\210A\210Q\210a\210r\220\021\330\010\014\210E\220\025\220a\220q\330\014\017\210q\220\001\220\023\220C\220q\330\020\032\230(\240\"\240G\2501\250A\250Q\330\020\030\230\006\230b\240\001\330\010\t\210\021\210%\210x\220r\230\021\200\001\360\006\000\t\024\2201\220A\330\010\r\210Q\210a\210q\220\001\220\022\2204\220q\200\001\340\010\023\2202\220R\220q\340\010\026\220d\230\"\230G\2401\340\010\025\220Q\330\010\024\220A\220R\220q\230\003\2301\330\010\024\220A\220R\220q\230\003\2301\330\004\010\210\005\210U\220!\2201\330\010\017\210r\220\021\220#\220R\220r\230\021\230!\330\010\017\210u\220B\220a\330\004\013\2105\220\001\220\030\230\024\230R\230q\200\001\340\010\023\2202\220R\220q\340\010\027\220t\2302\230X\240Q\330\010\025\220Q\340\010\025\220Q\220b\230\001\230\023\230A\330\010\025\220Q\220b\230\001\230\023\230A\330\004\010\210\005\210U\220!\2201\330\010\017\210r\220\021\220#\220R\220r\230\021\230!\330\010\017\210u\220B\220a\330\004\013\2104\210q\220\004\220B\220a\200\001\340\010\030\230\013\2406\250\021\250!\330\010\033\230;\240f\250A\250Q\330\010\034\230J\240f\250A\250Q\360\006\000\t)\250\001\250\023\250C\250s\260!\340\t\030\230\001\330\014\035\230Q\230a\330\014\020\220\014\230E\240\021\240!\330\020\037\230z\250\021\250)\2601\330\020\035\230Y\240b\250\001\340\020\023\220;\230b\240\001\330\024\037\230q\240\t\250\036\260|\3001\300M\320QS\320ST\340\024\027\220{\240\"\240B\240b\250\001\330\030#\2401\240I\250[\270\002\270%\270|\3102\310]\320Z]\320]`\320`b\320bc\340\030\033\230;\240b\250\002\250\"\250A\330\034'\240q\250\t\260\033\270B\270e\300<\310r\320Q^\320^a\320ad\320df\320fg\340\034\037\230{\250\"\250B\250b\260\001\330 +\2501\250I\260[\300\002\300%\300|\320SU\320Ub\320be\320eh\320hj\320jk\200\001\360\006\000\t\026\220Q""\330\010\025\220Q\360\010\000\t\024\2201\220A\330\010\r\210Q\210b\220\001\220\023\220A\330\010\r\210Q\210b\220\001\220\023\220A\330\010\014\210E\220\025\220a\220q\330\014\021\220\022\2201\220A\330\014\021\220\022\2201\220A\330\014\020\220\004\220C\220s\230\"\230A\330\014\023\2203\220b\230\003\2302\230T\240\022\2402\240R\240q\330\004\013\2104\210r\220\030\230\021\200\001\340\010\027\220q\230\006\230a\230q\330\010\027\220q\230\006\230a\230q\330\010\027\220q\230\006\230a\230q\340\010\024\220A\340\t\030\230\001\330\010\016\210i\220v\230Q\230c\240\021\330\014\027\220q\230\001\330\014\030\230\001\230\021\230!\2301\230B\230d\240!\2401\240A\240R\240t\2505\260\003\2601\330\014\022\220,\230a\230q\240\001\240\021\240\"\240D\250\005\250Q\330\010\014\210A\210Q\330\004\013\2101O";
+    #else /* compression: none (3320 bytes) */
+const char* const bytes = ": All dimensions preceding dimension %d must be indexed and not slicedBuffer view does not expose stridesCan only create a buffer that is contiguous in memory.Cannot assign to read-only memoryviewCannot create writable memory view from read-only memoryviewCannot index with type 'Cannot transpose memoryview with indirect dimensionsDimension %d is not directEmpty shape tuple for cython.arrayIndex out of bounds (axis %d)Indirect dimensions not supportedInvalid mode, expected 'c' or 'fortran', got Invalid shape in axis <MemoryView of Note that Cython is deliberately stricter than PEP-484 and rejects subclasses of builtin types. If you need to pass subclasses then set the 'annotation_typing' directive to False.Out of bounds on buffer access (axis Step may not be zero (axis %d)Unable to convert item to object.>')?adamixture/src/utils_c/tools.pyxadd_note and  at 0xcollections.abc<contiguous and direct><contiguous and indirect>disableenablegc (got got differing extents in dimension isenableditemsize <= 0 for cython.arrayno default __reduce__ due to non-trivial __cinit__ object><strided and direct><strided and direct or indirect><strided and indirect>unable to allocate array data.unable to allocate shape and strides.ASCIIEllipsisGKKLMNN_subP__Pyx_PyDict_NextRefQQ1Q2SequenceView.MemoryViewabcadamixture.src.utils_c.toolsalleleFrequencyallocate_bufferasyncio.coroutinesbasebed_sourcec__class____class_getitem__cline_in_tracebackcountcross_normdeviance__dict__dtype_is_objectencodeenumerateerrorfflagsformatfortran__func__geno_target__getstate__id__import__index_is_coroutineitemsitemsizeloglike_crossloglikelihood__main__mapPmapQmemviewmode__module__name__name__ndim__new__objpackpop__pyx_checksum__pyx_state__pyx_type__pyx_unpickle_Enum__pyx_vtable____qualname__read_bed__reduce____reduce_cython____reduce_ex__registerrmsermse_ds_ind__set_name__setdefault__setstate____setstate_cython__shapesizestartstepstopstruct__test__unpackupdatevaluesx\200\001\360\n\000\t\024\2201\220A\330\010\014""\210A\210Q\210a\210r\220\021\330\010\014\210E\220\025\220a\220q\330\014\022\220!\2201\220A\330\014\017\210t\2202\220Q\330\020\021\220\021\220%\220q\330\021\025\220R\220t\2302\230Q\330\020\021\220\021\220%\220t\2302\230Q\200\001\360\n\000\t\024\2201\220A\330\010\022\220!\330\010\020\220\001\330\010\014\210A\210Q\210a\210r\220\021\330\010\014\210E\220\025\220a\220q\330\014\017\210q\220\001\220\023\220C\220q\330\020\032\230(\240\"\240G\2501\250A\250Q\330\020\030\230\006\230b\240\001\330\010\t\210\021\210%\210x\220r\230\021\200\001\360\006\000\t\024\2201\220A\330\010\r\210Q\210a\210q\220\001\220\022\2204\220q\200\001\360\014\000\t\024\2201\330\010\023\2201\360\006\000\t\024\2201\220A\330\010\014\210A\210Q\210a\210s\220!\330\010\014\210A\210Q\210a\210s\220!\330\010\014\210E\220\025\220a\220q\330\014\020\220\005\220Q\220a\330\014\017\210q\220\001\220\023\220C\220q\330\020\024\220A\330\020\024\220E\230\025\230a\230q\330\024\031\230\021\230!\2303\230b\240\001\240\021\240#\240Q\330\020\024\220D\230\002\230!\330\020\024\220H\230A\230Q\230a\330\020\023\2202\220R\220q\330\024\031\230\022\2302\230S\240\001\240\022\2402\240U\250\"\250B\250b\260\002\260'\270\021\330\020\024\220D\230\002\230#\230R\230q\330\024\032\230$\230b\240\003\2402\240S\250\001\250\021\250$\250b\260\003\2603\260d\270\"\270G\3004\300r\310\023\310C\310t\320SU\320UX\320XZ\320Za\320ab\330\004\013\2101\200\001\340\010\023\2202\220R\220q\340\010\026\220d\230\"\230G\2401\340\010\025\220Q\330\010\024\220A\220R\220q\230\003\2301\330\010\024\220A\220R\220q\230\003\2301\330\004\010\210\005\210U\220!\2201\330\010\017\210r\220\021\220#\220R\220r\230\021\230!\330\010\017\210u\220B\220a\330\004\013\2105\220\001\220\030\230\024\230R\230q\200\001\340\010\023\2202\220R\220q\340\010\027\220t\2302\230X\240Q\330\010\025\220Q\340\010\025\220Q\220b\230\001\230\023\230A\330\010\025\220Q\220b\230\001\230\023\230A\330\004\010\210\005\210U\220!\2201\330\010\017\210r\220\021\220#\220R\220r\230\021\230!\330\010\017\210u\220B\220a\330\004""\013\2104\210q\220\004\220B\220a\200\001\340\010\030\230\013\2406\250\021\250!\330\010\033\230;\240f\250A\250Q\330\010\034\230J\240f\250A\250Q\360\006\000\t)\250\001\250\023\250C\250s\260!\340\t\030\230\001\330\014\035\230Q\230a\330\014\020\220\014\230E\240\021\240!\330\020\037\230z\250\021\250)\2601\330\020\035\230Y\240b\250\001\340\020\023\220;\230b\240\001\330\024\037\230q\240\t\250\036\260|\3001\300M\320QS\320ST\340\024\027\220{\240\"\240B\240b\250\001\330\030#\2401\240I\250[\270\002\270%\270|\3102\310]\320Z]\320]`\320`b\320bc\340\030\033\230;\240b\250\002\250\"\250A\330\034'\240q\250\t\260\033\270B\270e\300<\310r\320Q^\320^a\320ad\320df\320fg\340\034\037\230{\250\"\250B\250b\260\001\330 +\2501\250I\260[\300\002\300%\300|\320SU\320Ub\320be\320eh\320hj\320jk\200\001\360\010\000\t\025\220A\340\t\030\230\001\330\010\016\210i\220v\230Q\230g\240Q\330\014\027\220q\230\001\330\014\034\230A\230Q\230a\230q\240\002\240$\240a\240q\250\001\250\022\2504\250u\260A\260U\270!\2704\270w\300a\330\014\022\320\022\"\240!\2401\240A\240Q\240b\250\004\250E\260\021\260%\260q\270\004\270A\330\010\014\210A\210Q\330\004\013\2101\200\001\360\006\000\t\026\220Q\330\010\025\220Q\360\010\000\t\024\2201\220A\330\010\r\210Q\210b\220\001\220\023\220A\330\010\r\210Q\210b\220\001\220\023\220A\330\010\014\210E\220\025\220a\220q\330\014\021\220\022\2201\220A\330\014\021\220\022\2201\220A\330\014\020\220\004\220C\220s\230\"\230A\330\014\023\2203\220b\230\003\2302\230T\240\022\2402\240R\240q\330\004\013\2104\210r\220\030\230\021\200\001\360\n\000\t\030\220q\330\004\010\210\005\210U\220!\2201\330\010\014\210A\210Q\210a\210s\220!\330\010\014\210E\220\025\220a\220q\330\014\020\220\005\220Q\220a\330\014\017\210q\220\001\220\023\220C\220q\330\020\031\230\021\330\004\013\2101\200\001\340\010\027\220q\230\006\230a\230q\330\010\027\220q\230\006\230a\230q\330\010\027\220q\230\006\230a\230q\340\010\024\220A\340\t\030\230\001\330\010\016\210i\220v\230Q\230c\240\021\330\014\027\220q\230\001\330\014\030\230\001""\230\021\230!\2301\230B\230d\240!\2401\240A\240R\240t\2505\260\003\2601\330\014\022\220,\230a\230q\240\001\240\021\240\"\240D\250\005\250Q\330\010\014\210A\210Q\330\004\013\2101O";
     PyObject *data = NULL;
     CYTHON_UNUSED_VAR(__Pyx_DecompressString);
     #endif
     PyObject **stringtab = __pyx_mstate->__pyx_string_tab;
     Py_ssize_t pos = 0;
-    for (int i = 0; i < 131; i++) {
+    for (int i = 0; i < 136; i++) {
       Py_ssize_t bytes_length = index[i].length;
       PyObject *string = PyUnicode_DecodeUTF8(bytes + pos, bytes_length, NULL);
       if (likely(string) && i >= 45) PyUnicode_InternInPlace(&string);
@@ -21636,7 +23010,7 @@ const char* const bytes = ": All dimensions preceding dimension %d must be index
       stringtab[i] = string;
       pos += bytes_length;
     }
-    for (int i = 131; i < 140; i++) {
+    for (int i = 136; i < 148; i++) {
       Py_ssize_t bytes_length = index[i].length;
       PyObject *string = PyBytes_FromStringAndSize(bytes + pos, bytes_length);
       stringtab[i] = string;
@@ -21647,15 +23021,15 @@ const char* const bytes = ": All dimensions preceding dimension %d must be index
       }
     }
     Py_XDECREF(data);
-    for (Py_ssize_t i = 0; i < 140; i++) {
+    for (Py_ssize_t i = 0; i < 148; i++) {
       if (unlikely(PyObject_Hash(stringtab[i]) == -1)) {
         __PYX_ERR(0, 1, __pyx_L1_error)
       }
     }
     #if CYTHON_IMMORTAL_CONSTANTS
     {
-      PyObject **table = stringtab + 131;
-      for (Py_ssize_t i=0; i<9; ++i) {
+      PyObject **table = stringtab + 136;
+      for (Py_ssize_t i=0; i<12; ++i) {
         #if CYTHON_COMPILING_IN_CPYTHON_FREETHREADING
         #if PY_VERSION_HEX < 0x030E0000
         if (_Py_IsOwnedByCurrentThread(table[i]) && Py_REFCNT(table[i]) == 1)
@@ -21733,39 +23107,54 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate_global->__pyx_codeobj_tab[0] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_adamixture_src_utils_c_tools_pyx, __pyx_mstate->__pyx_n_u_read_bed, __pyx_mstate->__pyx_kp_b_iso88591_6_fAQ_JfAQ_Cs_Qa_E_z_1_Yb_b_q_1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[0])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {3, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 58};
+    const __Pyx_PyCode_New_function_description descr = {3, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 88};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_G, __pyx_mstate->__pyx_n_u_P, __pyx_mstate->__pyx_n_u_Q};
     __pyx_mstate_global->__pyx_codeobj_tab[1] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_adamixture_src_utils_c_tools_pyx, __pyx_mstate->__pyx_n_u_loglikelihood, __pyx_mstate->__pyx_kp_b_iso88591_q_aq_q_aq_q_aq_A_ivQc_q_1Bd_1AR, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[1])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {4, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 75};
+    const __Pyx_PyCode_New_function_description descr = {4, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 105};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_G, __pyx_mstate->__pyx_n_u_f, __pyx_mstate->__pyx_n_u_M, __pyx_mstate->__pyx_n_u_N};
     __pyx_mstate_global->__pyx_codeobj_tab[2] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_adamixture_src_utils_c_tools_pyx, __pyx_mstate->__pyx_n_u_alleleFrequency, __pyx_mstate->__pyx_kp_b_iso88591_1A_AQar_E_aq_q_Cq_G1AQ_b_xr, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[2])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {4, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 90};
+    const __Pyx_PyCode_New_function_description descr = {4, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 120};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_Q1, __pyx_mstate->__pyx_n_u_Q2, __pyx_mstate->__pyx_n_u_N, __pyx_mstate->__pyx_n_u_K};
     __pyx_mstate_global->__pyx_codeobj_tab[3] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_adamixture_src_utils_c_tools_pyx, __pyx_mstate->__pyx_n_u_rmse, __pyx_mstate->__pyx_kp_b_iso88591_2Rq_d_G1_Q_ARq_1_ARq_1_U_1_r_Rr, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[3])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {3, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 125};
+    const __Pyx_PyCode_New_function_description descr = {3, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 155};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_Q, __pyx_mstate->__pyx_n_u_N, __pyx_mstate->__pyx_n_u_K};
     __pyx_mstate_global->__pyx_codeobj_tab[4] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_adamixture_src_utils_c_tools_pyx, __pyx_mstate->__pyx_n_u_mapQ, __pyx_mstate->__pyx_kp_b_iso88591_1A_Qaq_4q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[4])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {3, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 132};
+    const __Pyx_PyCode_New_function_description descr = {3, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 162};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_P, __pyx_mstate->__pyx_n_u_M, __pyx_mstate->__pyx_n_u_K};
     __pyx_mstate_global->__pyx_codeobj_tab[5] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_adamixture_src_utils_c_tools_pyx, __pyx_mstate->__pyx_n_u_mapP, __pyx_mstate->__pyx_kp_b_iso88591_1A_AQar_E_aq_1A_t2Q_q_Rt2Q_t2Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[5])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {4, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 147};
+    const __Pyx_PyCode_New_function_description descr = {4, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 177};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_Q1, __pyx_mstate->__pyx_n_u_Q2, __pyx_mstate->__pyx_n_u_N, __pyx_mstate->__pyx_n_u_K};
     __pyx_mstate_global->__pyx_codeobj_tab[6] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_adamixture_src_utils_c_tools_pyx, __pyx_mstate->__pyx_n_u_KL, __pyx_mstate->__pyx_kp_b_iso88591_Q_Q_1A_Qb_A_Qb_A_E_aq_1A_1A_Cs, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[6])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {4, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 166};
+    const __Pyx_PyCode_New_function_description descr = {4, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 196};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_Q1, __pyx_mstate->__pyx_n_u_Q2, __pyx_mstate->__pyx_n_u_N, __pyx_mstate->__pyx_n_u_K};
     __pyx_mstate_global->__pyx_codeobj_tab[7] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_adamixture_src_utils_c_tools_pyx, __pyx_mstate->__pyx_n_u_rmse_d, __pyx_mstate->__pyx_kp_b_iso88591_2Rq_t2XQ_Q_Qb_A_Qb_A_U_1_r_Rr_u, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[7])) goto bad;
+  }
+  {
+    const __Pyx_PyCode_New_function_description descr = {7, 0, 0, 7, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 211};
+    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_G, __pyx_mstate->__pyx_n_u_P, __pyx_mstate->__pyx_n_u_Q, __pyx_mstate->__pyx_n_u_s_ind, __pyx_mstate->__pyx_n_u_M, __pyx_mstate->__pyx_n_u_N_sub, __pyx_mstate->__pyx_n_u_K};
+    __pyx_mstate_global->__pyx_codeobj_tab[8] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_adamixture_src_utils_c_tools_pyx, __pyx_mstate->__pyx_n_u_loglike_cross, __pyx_mstate->__pyx_kp_b_iso88591_A_ivQgQ_q_AQaq_aq_4uAU_4wa_1AQb, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[8])) goto bad;
+  }
+  {
+    const __Pyx_PyCode_New_function_description descr = {7, 0, 0, 7, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 226};
+    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_G, __pyx_mstate->__pyx_n_u_P, __pyx_mstate->__pyx_n_u_Q, __pyx_mstate->__pyx_n_u_s_ind, __pyx_mstate->__pyx_n_u_M, __pyx_mstate->__pyx_n_u_N_sub, __pyx_mstate->__pyx_n_u_K};
+    __pyx_mstate_global->__pyx_codeobj_tab[9] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_adamixture_src_utils_c_tools_pyx, __pyx_mstate->__pyx_n_u_deviance, __pyx_mstate->__pyx_kp_b_iso88591_1_1_1A_AQas_AQas_E_aq_Qa_q_Cq_A, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[9])) goto bad;
+  }
+  {
+    const __Pyx_PyCode_New_function_description descr = {4, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 254};
+    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_G, __pyx_mstate->__pyx_n_u_s_ind, __pyx_mstate->__pyx_n_u_M, __pyx_mstate->__pyx_n_u_N_sub};
+    __pyx_mstate_global->__pyx_codeobj_tab[10] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_adamixture_src_utils_c_tools_pyx, __pyx_mstate->__pyx_n_u_cross_norm, __pyx_mstate->__pyx_kp_b_iso88591_q_U_1_AQas_E_aq_Qa_q_Cq_1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[10])) goto bad;
   }
   Py_DECREF(tuple_dedup_map);
   return 0;
@@ -28074,6 +29463,29 @@ static const char* __Pyx_BufFmt_CheckString(__Pyx_BufFmt_Context* ctx, const cha
       retcode = __Pyx_ValidateAndInit_memviewslice(axes_specs, __Pyx_IS_C_CONTIG,
                                                    (PyBUF_C_CONTIGUOUS | PyBUF_FORMAT) | writable_flag, 2,
                                                    &__Pyx_TypeInfo_float, stack,
+                                                   &result, obj);
+      if (unlikely(retcode == -1))
+          goto __pyx_fail;
+      return result;
+  __pyx_fail:
+      result.memview = NULL;
+      result.data = NULL;
+      return result;
+  }
+  
+/* ObjectToMemviewSlice */
+  static CYTHON_INLINE __Pyx_memviewslice __Pyx_PyObject_to_MemoryviewSlice_dc_nn_uint32_t(PyObject *obj, int writable_flag) {
+      __Pyx_memviewslice result = __Pyx_MEMSLICE_INIT;
+      __Pyx_BufFmt_StackElem stack[1];
+      int axes_specs[] = { (__Pyx_MEMVIEW_DIRECT | __Pyx_MEMVIEW_CONTIG) };
+      int retcode;
+      if (obj == Py_None) {
+          result.memview = (struct __pyx_memoryview_obj *) Py_None;
+          return result;
+      }
+      retcode = __Pyx_ValidateAndInit_memviewslice(axes_specs, __Pyx_IS_C_CONTIG,
+                                                   (PyBUF_C_CONTIGUOUS | PyBUF_FORMAT) | writable_flag, 1,
+                                                   &__Pyx_TypeInfo_nn_uint32_t, stack,
                                                    &result, obj);
       if (unlikely(retcode == -1))
           goto __pyx_fail;

@@ -28,7 +28,9 @@ def parse_args(argv: List[str]):
     parser.add_argument('--min_lr', type=float, default=1e-6, help='Minimum learning rate value')
 
     parser.add_argument('--seed', required=False, type=int, default=42, help='Seed')
-    parser.add_argument('--k', required=False, type=int, help='Number of populations/clusters.')
+    parser.add_argument('--k', required=False, type=int, help='Number of populations/clusters (single run).')
+    parser.add_argument('--min_k', required=False, type=int, help='Minimum K for multi-K sweep (inclusive).')
+    parser.add_argument('--max_k', required=False, type=int, help='Maximum K for multi-K sweep (inclusive).')
     
     parser.add_argument('--save_dir', required=True, type=str, help='Save model in this directory')
     parser.add_argument('--data_path', required=True, type=str, help='Path containing the main data')
@@ -37,6 +39,9 @@ def parse_args(argv: List[str]):
     
     parser.add_argument('--max_iter', type=int, default=1500, help='Maximum number of iterations for Adam EM')
     parser.add_argument('--check', type=int, default=5, help='Frequency of log-likelihood checks')
+    parser.add_argument('--cv', type=int, default=0, help='Number of folds for cross-validation (0=disabled)')
+    parser.add_argument('--cv_tole', type=float, default=1e-1, help='Convergence tolerance for cross-validation log-likelihood')
+    parser.add_argument('--no_freqs', action='store_true', default=False, help='Do not save the P (allele frequencies) matrix')
     
     parser.add_argument('--max_als', type=int, default=1000, help='Maximum number of iterations for ALS')
     parser.add_argument('--tole_als', type=float, default=1e-4, help='Convergence tolerance for ALS')
@@ -44,7 +49,17 @@ def parse_args(argv: List[str]):
     parser.add_argument('--power', type=int, default=5, help='Number of power iterations for RSVD')
     parser.add_argument('--tole_svd', type=float, default=1e-1, help='Convergence tolerance for SVD')
     
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+    
+    # Validation: need either --k or both --min_k and --max_k
+    has_single = args.k is not None
+    has_range = args.min_k is not None and args.max_k is not None
+    if not has_single and not has_range:
+        parser.error("Must specify either --k or both --min_k and --max_k.")
+    if has_range and args.min_k > args.max_k:
+        parser.error("--min_k must be <= --max_k.")
+    
+    return args
     
 def print_adamixture_banner(version: str="1.0") -> None:
     """

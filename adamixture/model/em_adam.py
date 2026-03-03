@@ -124,7 +124,7 @@ def optimize_parameters(G: np.ndarray, P: np.ndarray, Q: np.ndarray, lr: float,
                 old_lr = lr
                 lr = max(lr * lr_decay, min_lr)
                 log.info(
-                    f"    No improvement ({no_improve}). "
+                    f"    No improvement. "
                     f"Reducing lr: {old_lr:.3e} → {lr:.3e}"
                 )
 

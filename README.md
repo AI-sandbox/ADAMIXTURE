@@ -62,6 +62,59 @@ Logs are printed to the `stdout` channel by default. If you want to save them to
 $ adamixture --k 8 ... | tee run.log
 ```
 
+## Multi-K Sweep
+
+Instead of running ADAMIXTURE for a single K, you can automatically sweep over a range of K values using `--min_k` and `--max_k`. The data is loaded once, and each K is trained sequentially:
+
+```console
+$ adamixture --min_k 2 --max_k 10 --data_path snps_data.bed --save_dir SAVE_PATH --name snps_data --threads 8
+```
+
+This will produce `snps_data.2.P`, `snps_data.2.Q`, `snps_data.3.P`, `snps_data.3.Q`, ..., `snps_data.10.P`, `snps_data.10.Q`.
+
+You can combine `--min_k`/`--max_k` with `--cv` (see below) to run cross-validation for each K automatically.
+
+## Cross-Validation
+
+ADAMIXTURE supports K-fold cross-validation to help select the optimal number of ancestral populations. Enable it with `--cv`:
+
+```console
+$ adamixture --k 7 --data_path snps_data.bed --save_dir SAVE_PATH --name snps_data --cv 5 --threads 8
+```
+
+This performs 5-fold cross-validation **after** the standard training completes. For each fold:
+
+1. Samples are randomly split into training and test sets.
+2. P and Q are refined on the training set using Adam-EM.
+3. Q is projected onto the test set (P fixed) using Adam-EM.
+4. A deviance residual is computed on the test set.
+
+The output is the mean ± standard deviation of the deviance across folds, saved to a single `.cv` file (e.g. `snps_data.cv`) with one row per K:
+
+```
+K	avg	std
+7	0.171560	0.000950
+```
+
+**Multi-K + Cross-Validation** — to sweep K=2..10 with 5-fold CV at each K:
+
+```console
+$ adamixture --min_k 2 --max_k 10 --cv 5 --data_path snps_data.bed --save_dir SAVE_PATH --name snps_data --threads 8
+```
+
+All K results are collected into a single `snps_data.cv` file:
+
+```
+K	avg	std
+2	0.185432	0.001234
+3	0.172345	0.000987
+...
+10	0.169876	0.001456
+```
+
+The optimal K is typically the one with the **lowest** cross-validation error.
+
+When running with `--cv`, a plot is automatically saved as `name.cv.png` showing the cross-validation error as a function of K, with error bars (± SD) and the optimal K highlighted in red.
 ## Other options
 
 - `--lr` (float, default: `0.005`):  
@@ -85,8 +138,23 @@ $ adamixture --k 8 ... | tee run.log
 - `--seed` (int, default: `42`):  
   Random number generator seed for reproducibility.
 
-- `--k` (int, required):  
-  Number of ancestral populations (clusters) to infer.
+- `--k` (int):  
+  Number of ancestral populations (clusters) to infer. Required if `--min_k`/`--max_k` are not specified.
+
+- `--min_k` (int):  
+  Minimum K for a multi-K sweep (inclusive). Must be used together with `--max_k`.
+
+- `--max_k` (int):  
+  Maximum K for a multi-K sweep (inclusive). Must be used together with `--min_k`.
+
+- `--cv` (int, default: `0`):  
+  Number of folds for cross-validation. Set to 0 to disable (default). Common values: 5 or 10.
+
+- `--cv_tole` (float, default: `0.1`):  
+  Convergence tolerance for cross-validation log-likelihood. Convergence is reached when the absolute change in log-likelihood is below this threshold.
+
+- `--no_freqs` (flag):  
+  If set, the P (allele frequencies) matrix is not saved to disk. Only the Q (admixture proportions) file will be written.
 
 - `--max_iter` (int, default: `1500`):  
   Maximum number of Adam-EM iterations.

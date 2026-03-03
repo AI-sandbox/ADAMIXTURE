@@ -11,18 +11,15 @@
         ],
         "depends": [],
         "extra_compile_args": [
-            "-fopenmp",
             "-O3",
             "-ffast-math",
-            "-march=native",
             "-fno-wrapv"
         ],
         "extra_link_args": [
-            "-fopenmp",
             "-lm"
         ],
         "include_dirs": [
-            "/tmp/pip-build-env-87i2sq73/overlay/lib64/python3.9/site-packages/numpy/_core/include"
+            "/Users/ricos/.cache/uv/builds-v0/.tmpKomisN/lib/python3.12/site-packages/numpy/_core/include"
         ],
         "name": "adamixture.src.utils_c.em",
         "sources": [
@@ -1154,6 +1151,7 @@ static int __Pyx_init_co_variables(void) {
 #include <math.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include "pythread.h"
 #ifdef _OPENMP
 #include <omp.h>
@@ -2748,6 +2746,9 @@ static CYTHON_INLINE __Pyx_memviewslice __Pyx_PyObject_to_MemoryviewSlice_d_dc_u
 /* ObjectToMemviewSlice.proto */
 static CYTHON_INLINE __Pyx_memviewslice __Pyx_PyObject_to_MemoryviewSlice_dc_double(PyObject *, int writable_flag);
 
+/* ObjectToMemviewSlice.proto */
+static CYTHON_INLINE __Pyx_memviewslice __Pyx_PyObject_to_MemoryviewSlice_dc_nn_uint32_t(PyObject *, int writable_flag);
+
 /* MemviewSliceCopy.proto */
 static __Pyx_memviewslice
 __pyx_memoryview_copy_new_contig(const __Pyx_memviewslice *from_mvs,
@@ -2903,6 +2904,8 @@ static PyObject *__pyx_memoryviewslice__get_base(struct __pyx_memoryviewslice_ob
 
 /* Module declarations from "libc.stdlib" */
 
+/* Module declarations from "libc.stdint" */
+
 /* Module declarations from "adamixture.src.utils_c.em" */
 static PyObject *__pyx_collections_abc_Sequence = 0;
 static PyObject *generic = 0;
@@ -2921,6 +2924,9 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_P_step(__Pyx_memviewslice, __
 static void __pyx_f_10adamixture_3src_7utils_c_2em_Q_step(__Pyx_memviewslice, __Pyx_memviewslice, __Pyx_memviewslice, __Pyx_memviewslice, int const , int const , int __pyx_skip_dispatch); /*proto*/
 static CYTHON_INLINE double __pyx_f_10adamixture_3src_7utils_c_2em__clip_to_domain(double const ); /*proto*/
 static CYTHON_INLINE double __pyx_f_10adamixture_3src_7utils_c_2em__reconstruct(double const *, double const *, size_t const ); /*proto*/
+static void __pyx_f_10adamixture_3src_7utils_c_2em_P_step_cross(__Pyx_memviewslice, __Pyx_memviewslice, __Pyx_memviewslice, __Pyx_memviewslice, __Pyx_memviewslice, __Pyx_memviewslice, int const , int const , __Pyx_memviewslice, int __pyx_skip_dispatch); /*proto*/
+static void __pyx_f_10adamixture_3src_7utils_c_2em_Q_step_cross(__Pyx_memviewslice, __Pyx_memviewslice, __Pyx_memviewslice, __Pyx_memviewslice, int const , __Pyx_memviewslice, int __pyx_skip_dispatch); /*proto*/
+static void __pyx_f_10adamixture_3src_7utils_c_2em_Q_proj_step(__Pyx_memviewslice, __Pyx_memviewslice, __Pyx_memviewslice, __Pyx_memviewslice, __Pyx_memviewslice, __Pyx_memviewslice, int const , int const , __Pyx_memviewslice, int __pyx_skip_dispatch); /*proto*/
 static int __pyx_array_allocate_buffer(struct __pyx_array_obj *); /*proto*/
 static struct __pyx_array_obj *__pyx_array_new(PyObject *, Py_ssize_t, char *, char const *, char *); /*proto*/
 static PyObject *__pyx_memoryview_new(PyObject *, int, int, __Pyx_TypeInfo const *); /*proto*/
@@ -2959,6 +2965,7 @@ static PyObject *__pyx_unpickle_Enum__set_state(struct __pyx_MemviewEnum_obj *, 
 static const __Pyx_TypeInfo __Pyx_TypeInfo_double = { "double", NULL, sizeof(double), { 0 }, 0, 'R', 0, 0 };
 static const __Pyx_TypeInfo __Pyx_TypeInfo_double__const__ = { "const double", NULL, sizeof(double const ), { 0 }, 0, 'R', 0, 0 };
 static const __Pyx_TypeInfo __Pyx_TypeInfo_unsigned_char__const__ = { "const unsigned char", NULL, sizeof(unsigned char const ), { 0 }, 0, __PYX_IS_UNSIGNED(unsigned char const ) ? 'U' : 'I', __PYX_IS_UNSIGNED(unsigned char const ), 0 };
+static const __Pyx_TypeInfo __Pyx_TypeInfo_nn_uint32_t = { "uint32_t", NULL, sizeof(uint32_t), { 0 }, 0, __PYX_IS_UNSIGNED(uint32_t) ? 'U' : 'I', __PYX_IS_UNSIGNED(uint32_t), 0 };
 /* #### Code section: before_global_var ### */
 #define __Pyx_MODULE_NAME "adamixture.src.utils_c.em"
 extern int __pyx_module_is_main_adamixture__src__utils_c__em;
@@ -3020,6 +3027,9 @@ static PyObject *__pyx_pf_10adamixture_3src_7utils_c_2em_adamUpdateP(CYTHON_UNUS
 static PyObject *__pyx_pf_10adamixture_3src_7utils_c_2em_2adamUpdateQ(CYTHON_UNUSED PyObject *__pyx_self, __Pyx_memviewslice __pyx_v_Q0, __Pyx_memviewslice __pyx_v_Q1, __Pyx_memviewslice __pyx_v_m_Q, __Pyx_memviewslice __pyx_v_v_Q, double __pyx_v_alpha, double __pyx_v_beta1, double __pyx_v_beta2, double __pyx_v_epsilon, int __pyx_v_t, int __pyx_v_N, int __pyx_v_K); /* proto */
 static PyObject *__pyx_pf_10adamixture_3src_7utils_c_2em_4P_step(CYTHON_UNUSED PyObject *__pyx_self, __Pyx_memviewslice __pyx_v_G, __Pyx_memviewslice __pyx_v_P, __Pyx_memviewslice __pyx_v_P_EM, __Pyx_memviewslice __pyx_v_Q, __Pyx_memviewslice __pyx_v_Q_T, __Pyx_memviewslice __pyx_v_q_bat, int __pyx_v_K, int __pyx_v_M, int __pyx_v_N); /* proto */
 static PyObject *__pyx_pf_10adamixture_3src_7utils_c_2em_6Q_step(CYTHON_UNUSED PyObject *__pyx_self, __Pyx_memviewslice __pyx_v_Q, __Pyx_memviewslice __pyx_v_Q_EM, __Pyx_memviewslice __pyx_v_T, __Pyx_memviewslice __pyx_v_q_bat, int __pyx_v_K, int __pyx_v_N); /* proto */
+static PyObject *__pyx_pf_10adamixture_3src_7utils_c_2em_8P_step_cross(CYTHON_UNUSED PyObject *__pyx_self, __Pyx_memviewslice __pyx_v_G, __Pyx_memviewslice __pyx_v_P, __Pyx_memviewslice __pyx_v_P_EM, __Pyx_memviewslice __pyx_v_Q, __Pyx_memviewslice __pyx_v_Q_T, __Pyx_memviewslice __pyx_v_q_bat, int __pyx_v_K, int __pyx_v_M, __Pyx_memviewslice __pyx_v_s_ind); /* proto */
+static PyObject *__pyx_pf_10adamixture_3src_7utils_c_2em_10Q_step_cross(CYTHON_UNUSED PyObject *__pyx_self, __Pyx_memviewslice __pyx_v_Q, __Pyx_memviewslice __pyx_v_Q_EM, __Pyx_memviewslice __pyx_v_Q_T, __Pyx_memviewslice __pyx_v_q_bat, int __pyx_v_K, __Pyx_memviewslice __pyx_v_s_ind); /* proto */
+static PyObject *__pyx_pf_10adamixture_3src_7utils_c_2em_12Q_proj_step(CYTHON_UNUSED PyObject *__pyx_self, __Pyx_memviewslice __pyx_v_G, __Pyx_memviewslice __pyx_v_P, __Pyx_memviewslice __pyx_v_Q, __Pyx_memviewslice __pyx_v_Q_EM, __Pyx_memviewslice __pyx_v_Q_T, __Pyx_memviewslice __pyx_v_q_bat, int __pyx_v_K, int __pyx_v_M, __Pyx_memviewslice __pyx_v_s_ind); /* proto */
 static PyObject *__pyx_tp_new_array(PyTypeObject *t, PyObject *a, PyObject *k); /*proto*/
 static PyObject *__pyx_tp_new_Enum(PyTypeObject *t, PyObject *a, PyObject *k); /*proto*/
 static PyObject *__pyx_tp_new_memoryview(PyTypeObject *t, PyObject *a, PyObject *k); /*proto*/
@@ -3057,8 +3067,8 @@ typedef struct {
   __Pyx_CachedCFunction __pyx_umethod_PyDict_Type_values;
   PyObject *__pyx_slice[1];
   PyObject *__pyx_tuple[1];
-  PyObject *__pyx_codeobj_tab[4];
-  PyObject *__pyx_string_tab[145];
+  PyObject *__pyx_codeobj_tab[7];
+  PyObject *__pyx_string_tab[152];
   PyObject *__pyx_number_tab[4];
 /* #### Code section: module_state_contents ### */
 /* CommonTypesMetaclass.module_state_decls */
@@ -3156,95 +3166,102 @@ static __pyx_mstatetype * const __pyx_mstate_global = &__pyx_mstate_global_stati
 #define __pyx_n_u_P1 __pyx_string_tab[53]
 #define __pyx_n_u_P_EM __pyx_string_tab[54]
 #define __pyx_n_u_P_step __pyx_string_tab[55]
-#define __pyx_n_u_Pyx_PyDict_NextRef __pyx_string_tab[56]
-#define __pyx_n_u_Q __pyx_string_tab[57]
-#define __pyx_n_u_Q0 __pyx_string_tab[58]
-#define __pyx_n_u_Q1 __pyx_string_tab[59]
-#define __pyx_n_u_Q_EM __pyx_string_tab[60]
-#define __pyx_n_u_Q_T __pyx_string_tab[61]
-#define __pyx_n_u_Q_step __pyx_string_tab[62]
-#define __pyx_n_u_Sequence __pyx_string_tab[63]
-#define __pyx_n_u_T __pyx_string_tab[64]
-#define __pyx_n_u_View_MemoryView __pyx_string_tab[65]
-#define __pyx_n_u_abc __pyx_string_tab[66]
-#define __pyx_n_u_adamUpdateP __pyx_string_tab[67]
-#define __pyx_n_u_adamUpdateQ __pyx_string_tab[68]
-#define __pyx_n_u_adamixture_src_utils_c_em __pyx_string_tab[69]
-#define __pyx_n_u_allocate_buffer __pyx_string_tab[70]
-#define __pyx_n_u_alpha __pyx_string_tab[71]
-#define __pyx_n_u_asyncio_coroutines __pyx_string_tab[72]
-#define __pyx_n_u_base __pyx_string_tab[73]
-#define __pyx_n_u_beta1 __pyx_string_tab[74]
-#define __pyx_n_u_beta2 __pyx_string_tab[75]
-#define __pyx_n_u_c __pyx_string_tab[76]
-#define __pyx_n_u_class __pyx_string_tab[77]
-#define __pyx_n_u_class_getitem __pyx_string_tab[78]
-#define __pyx_n_u_cline_in_traceback __pyx_string_tab[79]
-#define __pyx_n_u_count __pyx_string_tab[80]
-#define __pyx_n_u_dict __pyx_string_tab[81]
-#define __pyx_n_u_dtype_is_object __pyx_string_tab[82]
-#define __pyx_n_u_encode __pyx_string_tab[83]
-#define __pyx_n_u_enumerate __pyx_string_tab[84]
-#define __pyx_n_u_epsilon __pyx_string_tab[85]
-#define __pyx_n_u_error __pyx_string_tab[86]
-#define __pyx_n_u_flags __pyx_string_tab[87]
-#define __pyx_n_u_format __pyx_string_tab[88]
-#define __pyx_n_u_fortran __pyx_string_tab[89]
-#define __pyx_n_u_func __pyx_string_tab[90]
-#define __pyx_n_u_getstate __pyx_string_tab[91]
-#define __pyx_n_u_id __pyx_string_tab[92]
-#define __pyx_n_u_import __pyx_string_tab[93]
-#define __pyx_n_u_index __pyx_string_tab[94]
-#define __pyx_n_u_is_coroutine __pyx_string_tab[95]
-#define __pyx_n_u_items __pyx_string_tab[96]
-#define __pyx_n_u_itemsize __pyx_string_tab[97]
-#define __pyx_n_u_m_P __pyx_string_tab[98]
-#define __pyx_n_u_m_Q __pyx_string_tab[99]
-#define __pyx_n_u_main __pyx_string_tab[100]
-#define __pyx_n_u_memview __pyx_string_tab[101]
-#define __pyx_n_u_mode __pyx_string_tab[102]
-#define __pyx_n_u_module __pyx_string_tab[103]
-#define __pyx_n_u_name __pyx_string_tab[104]
-#define __pyx_n_u_name_2 __pyx_string_tab[105]
-#define __pyx_n_u_ndim __pyx_string_tab[106]
-#define __pyx_n_u_new __pyx_string_tab[107]
-#define __pyx_n_u_obj __pyx_string_tab[108]
-#define __pyx_n_u_pack __pyx_string_tab[109]
-#define __pyx_n_u_pop __pyx_string_tab[110]
-#define __pyx_n_u_pyx_checksum __pyx_string_tab[111]
-#define __pyx_n_u_pyx_state __pyx_string_tab[112]
-#define __pyx_n_u_pyx_type __pyx_string_tab[113]
-#define __pyx_n_u_pyx_unpickle_Enum __pyx_string_tab[114]
-#define __pyx_n_u_pyx_vtable __pyx_string_tab[115]
-#define __pyx_n_u_q_bat __pyx_string_tab[116]
-#define __pyx_n_u_qualname __pyx_string_tab[117]
-#define __pyx_n_u_reduce __pyx_string_tab[118]
-#define __pyx_n_u_reduce_cython __pyx_string_tab[119]
-#define __pyx_n_u_reduce_ex __pyx_string_tab[120]
-#define __pyx_n_u_register __pyx_string_tab[121]
-#define __pyx_n_u_set_name __pyx_string_tab[122]
-#define __pyx_n_u_setdefault __pyx_string_tab[123]
-#define __pyx_n_u_setstate __pyx_string_tab[124]
-#define __pyx_n_u_setstate_cython __pyx_string_tab[125]
-#define __pyx_n_u_shape __pyx_string_tab[126]
-#define __pyx_n_u_size __pyx_string_tab[127]
-#define __pyx_n_u_start __pyx_string_tab[128]
-#define __pyx_n_u_step __pyx_string_tab[129]
-#define __pyx_n_u_stop __pyx_string_tab[130]
-#define __pyx_n_u_struct __pyx_string_tab[131]
-#define __pyx_n_u_t __pyx_string_tab[132]
-#define __pyx_n_u_test __pyx_string_tab[133]
-#define __pyx_n_u_unpack __pyx_string_tab[134]
-#define __pyx_n_u_update __pyx_string_tab[135]
-#define __pyx_n_u_v_P __pyx_string_tab[136]
-#define __pyx_n_u_v_Q __pyx_string_tab[137]
-#define __pyx_n_u_values __pyx_string_tab[138]
-#define __pyx_n_u_x __pyx_string_tab[139]
-#define __pyx_kp_b_iso88591_6_F_1_AWA_AWA_S_Bl_Ya_S_Bl_Ya_T __pyx_string_tab[140]
-#define __pyx_kp_b_iso88591_AWA_AWA_S_Bl_Ya_S_Bl_Ya_T_1_T_1 __pyx_string_tab[141]
-#define __pyx_kp_b_iso88591_Qaq_IV1Cq_IV1Cq_IV1Bb_1_q_1_AQa __pyx_string_tab[142]
-#define __pyx_kp_b_iso88591_U_1_D_q_1AQas_aq_D_Qc_S_Qe1 __pyx_string_tab[143]
-#define __pyx_n_b_O __pyx_string_tab[144]
+#define __pyx_n_u_P_step_cross __pyx_string_tab[56]
+#define __pyx_n_u_Pyx_PyDict_NextRef __pyx_string_tab[57]
+#define __pyx_n_u_Q __pyx_string_tab[58]
+#define __pyx_n_u_Q0 __pyx_string_tab[59]
+#define __pyx_n_u_Q1 __pyx_string_tab[60]
+#define __pyx_n_u_Q_EM __pyx_string_tab[61]
+#define __pyx_n_u_Q_T __pyx_string_tab[62]
+#define __pyx_n_u_Q_proj_step __pyx_string_tab[63]
+#define __pyx_n_u_Q_step __pyx_string_tab[64]
+#define __pyx_n_u_Q_step_cross __pyx_string_tab[65]
+#define __pyx_n_u_Sequence __pyx_string_tab[66]
+#define __pyx_n_u_T __pyx_string_tab[67]
+#define __pyx_n_u_View_MemoryView __pyx_string_tab[68]
+#define __pyx_n_u_abc __pyx_string_tab[69]
+#define __pyx_n_u_adamUpdateP __pyx_string_tab[70]
+#define __pyx_n_u_adamUpdateQ __pyx_string_tab[71]
+#define __pyx_n_u_adamixture_src_utils_c_em __pyx_string_tab[72]
+#define __pyx_n_u_allocate_buffer __pyx_string_tab[73]
+#define __pyx_n_u_alpha __pyx_string_tab[74]
+#define __pyx_n_u_asyncio_coroutines __pyx_string_tab[75]
+#define __pyx_n_u_base __pyx_string_tab[76]
+#define __pyx_n_u_beta1 __pyx_string_tab[77]
+#define __pyx_n_u_beta2 __pyx_string_tab[78]
+#define __pyx_n_u_c __pyx_string_tab[79]
+#define __pyx_n_u_class __pyx_string_tab[80]
+#define __pyx_n_u_class_getitem __pyx_string_tab[81]
+#define __pyx_n_u_cline_in_traceback __pyx_string_tab[82]
+#define __pyx_n_u_count __pyx_string_tab[83]
+#define __pyx_n_u_dict __pyx_string_tab[84]
+#define __pyx_n_u_dtype_is_object __pyx_string_tab[85]
+#define __pyx_n_u_encode __pyx_string_tab[86]
+#define __pyx_n_u_enumerate __pyx_string_tab[87]
+#define __pyx_n_u_epsilon __pyx_string_tab[88]
+#define __pyx_n_u_error __pyx_string_tab[89]
+#define __pyx_n_u_flags __pyx_string_tab[90]
+#define __pyx_n_u_format __pyx_string_tab[91]
+#define __pyx_n_u_fortran __pyx_string_tab[92]
+#define __pyx_n_u_func __pyx_string_tab[93]
+#define __pyx_n_u_getstate __pyx_string_tab[94]
+#define __pyx_n_u_id __pyx_string_tab[95]
+#define __pyx_n_u_import __pyx_string_tab[96]
+#define __pyx_n_u_index __pyx_string_tab[97]
+#define __pyx_n_u_is_coroutine __pyx_string_tab[98]
+#define __pyx_n_u_items __pyx_string_tab[99]
+#define __pyx_n_u_itemsize __pyx_string_tab[100]
+#define __pyx_n_u_m_P __pyx_string_tab[101]
+#define __pyx_n_u_m_Q __pyx_string_tab[102]
+#define __pyx_n_u_main __pyx_string_tab[103]
+#define __pyx_n_u_memview __pyx_string_tab[104]
+#define __pyx_n_u_mode __pyx_string_tab[105]
+#define __pyx_n_u_module __pyx_string_tab[106]
+#define __pyx_n_u_name __pyx_string_tab[107]
+#define __pyx_n_u_name_2 __pyx_string_tab[108]
+#define __pyx_n_u_ndim __pyx_string_tab[109]
+#define __pyx_n_u_new __pyx_string_tab[110]
+#define __pyx_n_u_obj __pyx_string_tab[111]
+#define __pyx_n_u_pack __pyx_string_tab[112]
+#define __pyx_n_u_pop __pyx_string_tab[113]
+#define __pyx_n_u_pyx_checksum __pyx_string_tab[114]
+#define __pyx_n_u_pyx_state __pyx_string_tab[115]
+#define __pyx_n_u_pyx_type __pyx_string_tab[116]
+#define __pyx_n_u_pyx_unpickle_Enum __pyx_string_tab[117]
+#define __pyx_n_u_pyx_vtable __pyx_string_tab[118]
+#define __pyx_n_u_q_bat __pyx_string_tab[119]
+#define __pyx_n_u_qualname __pyx_string_tab[120]
+#define __pyx_n_u_reduce __pyx_string_tab[121]
+#define __pyx_n_u_reduce_cython __pyx_string_tab[122]
+#define __pyx_n_u_reduce_ex __pyx_string_tab[123]
+#define __pyx_n_u_register __pyx_string_tab[124]
+#define __pyx_n_u_s_ind __pyx_string_tab[125]
+#define __pyx_n_u_set_name __pyx_string_tab[126]
+#define __pyx_n_u_setdefault __pyx_string_tab[127]
+#define __pyx_n_u_setstate __pyx_string_tab[128]
+#define __pyx_n_u_setstate_cython __pyx_string_tab[129]
+#define __pyx_n_u_shape __pyx_string_tab[130]
+#define __pyx_n_u_size __pyx_string_tab[131]
+#define __pyx_n_u_start __pyx_string_tab[132]
+#define __pyx_n_u_step __pyx_string_tab[133]
+#define __pyx_n_u_stop __pyx_string_tab[134]
+#define __pyx_n_u_struct __pyx_string_tab[135]
+#define __pyx_n_u_t __pyx_string_tab[136]
+#define __pyx_n_u_test __pyx_string_tab[137]
+#define __pyx_n_u_unpack __pyx_string_tab[138]
+#define __pyx_n_u_update __pyx_string_tab[139]
+#define __pyx_n_u_v_P __pyx_string_tab[140]
+#define __pyx_n_u_v_Q __pyx_string_tab[141]
+#define __pyx_n_u_values __pyx_string_tab[142]
+#define __pyx_n_u_x __pyx_string_tab[143]
+#define __pyx_kp_b_iso88591_5_aq_Qaq_IV1Cq_IV1Cq_IV1F_Cq_q __pyx_string_tab[144]
+#define __pyx_kp_b_iso88591_5_aq_Qaq_IV1F_Cq_q_q_AQauA_AQau __pyx_string_tab[145]
+#define __pyx_kp_b_iso88591_5_aq_U_1_E_D_q_1AS_D_3d_4q_4s_Q __pyx_string_tab[146]
+#define __pyx_kp_b_iso88591_6_F_1_AWA_AWA_S_Bl_Ya_S_Bl_Ya_T __pyx_string_tab[147]
+#define __pyx_kp_b_iso88591_AWA_AWA_S_Bl_Ya_S_Bl_Ya_T_1_T_1 __pyx_string_tab[148]
+#define __pyx_kp_b_iso88591_Qaq_IV1Cq_IV1Cq_IV1Bb_1_q_1_AQa __pyx_string_tab[149]
+#define __pyx_kp_b_iso88591_U_1_D_q_1AQas_aq_D_Qc_S_Qe1 __pyx_string_tab[150]
+#define __pyx_n_b_O __pyx_string_tab[151]
 #define __pyx_int_0 __pyx_number_tab[0]
 #define __pyx_int_neg_1 __pyx_number_tab[1]
 #define __pyx_int_1 __pyx_number_tab[2]
@@ -3273,8 +3290,8 @@ static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_type___pyx_memoryviewslice);
   for (int i=0; i<1; ++i) { Py_CLEAR(clear_module_state->__pyx_slice[i]); }
   for (int i=0; i<1; ++i) { Py_CLEAR(clear_module_state->__pyx_tuple[i]); }
-  for (int i=0; i<4; ++i) { Py_CLEAR(clear_module_state->__pyx_codeobj_tab[i]); }
-  for (int i=0; i<145; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<7; ++i) { Py_CLEAR(clear_module_state->__pyx_codeobj_tab[i]); }
+  for (int i=0; i<152; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
   for (int i=0; i<4; ++i) { Py_CLEAR(clear_module_state->__pyx_number_tab[i]); }
 /* #### Code section: module_state_clear_contents ### */
 /* CommonTypesMetaclass.module_state_clear */
@@ -3308,8 +3325,8 @@ static CYTHON_SMALL_CODE int __pyx_m_traverse(PyObject *m, visitproc visit, void
   Py_VISIT(traverse_module_state->__pyx_type___pyx_memoryviewslice);
   for (int i=0; i<1; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_slice[i]); }
   for (int i=0; i<1; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_tuple[i]); }
-  for (int i=0; i<4; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_codeobj_tab[i]); }
-  for (int i=0; i<145; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<7; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_codeobj_tab[i]); }
+  for (int i=0; i<152; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
   for (int i=0; i<4; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_number_tab[i]); }
 /* #### Code section: module_state_traverse_contents ### */
 /* CommonTypesMetaclass.module_state_traverse */
@@ -16591,7 +16608,7 @@ static PyObject *__pyx_unpickle_Enum__set_state(struct __pyx_MemviewEnum_obj *__
   return __pyx_r;
 }
 
-/* "adamixture/src/utils_c/em.pyx":8
+/* "adamixture/src/utils_c/em.pyx":9
  * 
  * # Update temporary accumulators for P and Q
  * cdef inline void _update_temp_factors(double* A, double* B, double* t, const double* p,             # <<<<<<<<<<<<<<
@@ -16609,7 +16626,7 @@ static CYTHON_INLINE void __pyx_f_10adamixture_3src_7utils_c_2em__update_temp_fa
   size_t __pyx_t_3;
   size_t __pyx_t_4;
 
-  /* "adamixture/src/utils_c/em.pyx":13
+  /* "adamixture/src/utils_c/em.pyx":14
  *     cdef:
  *         size_t k
  *         double g_f = <double>g             # <<<<<<<<<<<<<<
@@ -16618,7 +16635,7 @@ static CYTHON_INLINE void __pyx_f_10adamixture_3src_7utils_c_2em__update_temp_fa
 */
   __pyx_v_g_f = ((double)__pyx_v_g);
 
-  /* "adamixture/src/utils_c/em.pyx":14
+  /* "adamixture/src/utils_c/em.pyx":15
  *         size_t k
  *         double g_f = <double>g
  *         double a = g_f/rec             # <<<<<<<<<<<<<<
@@ -16627,7 +16644,7 @@ static CYTHON_INLINE void __pyx_f_10adamixture_3src_7utils_c_2em__update_temp_fa
 */
   __pyx_v_a = (__pyx_v_g_f / ((double)__pyx_v_rec));
 
-  /* "adamixture/src/utils_c/em.pyx":15
+  /* "adamixture/src/utils_c/em.pyx":16
  *         double g_f = <double>g
  *         double a = g_f/rec
  *         double b = (2.0-g_f)/(1.0-rec)             # <<<<<<<<<<<<<<
@@ -16636,7 +16653,7 @@ static CYTHON_INLINE void __pyx_f_10adamixture_3src_7utils_c_2em__update_temp_fa
 */
   __pyx_v_b = ((2.0 - __pyx_v_g_f) / (1.0 - __pyx_v_rec));
 
-  /* "adamixture/src/utils_c/em.pyx":16
+  /* "adamixture/src/utils_c/em.pyx":17
  *         double a = g_f/rec
  *         double b = (2.0-g_f)/(1.0-rec)
  *     for k in range(K):             # <<<<<<<<<<<<<<
@@ -16648,7 +16665,7 @@ static CYTHON_INLINE void __pyx_f_10adamixture_3src_7utils_c_2em__update_temp_fa
   for (__pyx_t_3 = 0; __pyx_t_3 < __pyx_t_2; __pyx_t_3+=1) {
     __pyx_v_k = __pyx_t_3;
 
-    /* "adamixture/src/utils_c/em.pyx":17
+    /* "adamixture/src/utils_c/em.pyx":18
  *         double b = (2.0-g_f)/(1.0-rec)
  *     for k in range(K):
  *         A[k] += q[k]*a             # <<<<<<<<<<<<<<
@@ -16658,7 +16675,7 @@ static CYTHON_INLINE void __pyx_f_10adamixture_3src_7utils_c_2em__update_temp_fa
     __pyx_t_4 = __pyx_v_k;
     (__pyx_v_A[__pyx_t_4]) = ((__pyx_v_A[__pyx_t_4]) + ((__pyx_v_q[__pyx_v_k]) * __pyx_v_a));
 
-    /* "adamixture/src/utils_c/em.pyx":18
+    /* "adamixture/src/utils_c/em.pyx":19
  *     for k in range(K):
  *         A[k] += q[k]*a
  *         B[k] += q[k]*b             # <<<<<<<<<<<<<<
@@ -16668,7 +16685,7 @@ static CYTHON_INLINE void __pyx_f_10adamixture_3src_7utils_c_2em__update_temp_fa
     __pyx_t_4 = __pyx_v_k;
     (__pyx_v_B[__pyx_t_4]) = ((__pyx_v_B[__pyx_t_4]) + ((__pyx_v_q[__pyx_v_k]) * __pyx_v_b));
 
-    /* "adamixture/src/utils_c/em.pyx":19
+    /* "adamixture/src/utils_c/em.pyx":20
  *         A[k] += q[k]*a
  *         B[k] += q[k]*b
  *         t[k] += p[k]*(a - b) + b             # <<<<<<<<<<<<<<
@@ -16679,7 +16696,7 @@ static CYTHON_INLINE void __pyx_f_10adamixture_3src_7utils_c_2em__update_temp_fa
     (__pyx_v_t[__pyx_t_4]) = ((__pyx_v_t[__pyx_t_4]) + (((__pyx_v_p[__pyx_v_k]) * (__pyx_v_a - __pyx_v_b)) + __pyx_v_b));
   }
 
-  /* "adamixture/src/utils_c/em.pyx":8
+  /* "adamixture/src/utils_c/em.pyx":9
  * 
  * # Update temporary accumulators for P and Q
  * cdef inline void _update_temp_factors(double* A, double* B, double* t, const double* p,             # <<<<<<<<<<<<<<
@@ -16690,7 +16707,7 @@ static CYTHON_INLINE void __pyx_f_10adamixture_3src_7utils_c_2em__update_temp_fa
   /* function exit code */
 }
 
-/* "adamixture/src/utils_c/em.pyx":22
+/* "adamixture/src/utils_c/em.pyx":23
  * 
  * # EM : Update P
  * cdef inline void _updateEM_P(double* A, double* B, const double* p, double* P_EM, const size_t K) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -16704,7 +16721,7 @@ static CYTHON_INLINE void __pyx_f_10adamixture_3src_7utils_c_2em__updateEM_P(dou
   size_t __pyx_t_2;
   size_t __pyx_t_3;
 
-  /* "adamixture/src/utils_c/em.pyx":25
+  /* "adamixture/src/utils_c/em.pyx":26
  *     cdef:
  *         size_t k
  *     for k in range(K):             # <<<<<<<<<<<<<<
@@ -16716,7 +16733,7 @@ static CYTHON_INLINE void __pyx_f_10adamixture_3src_7utils_c_2em__updateEM_P(dou
   for (__pyx_t_3 = 0; __pyx_t_3 < __pyx_t_2; __pyx_t_3+=1) {
     __pyx_v_k = __pyx_t_3;
 
-    /* "adamixture/src/utils_c/em.pyx":26
+    /* "adamixture/src/utils_c/em.pyx":27
  *         size_t k
  *     for k in range(K):
  *         P_EM[k] = _clip_to_domain((A[k]*p[k])/(p[k]*(A[k] - B[k]) + B[k]))             # <<<<<<<<<<<<<<
@@ -16725,7 +16742,7 @@ static CYTHON_INLINE void __pyx_f_10adamixture_3src_7utils_c_2em__updateEM_P(dou
 */
     (__pyx_v_P_EM[__pyx_v_k]) = __pyx_f_10adamixture_3src_7utils_c_2em__clip_to_domain((((__pyx_v_A[__pyx_v_k]) * (__pyx_v_p[__pyx_v_k])) / (((__pyx_v_p[__pyx_v_k]) * ((__pyx_v_A[__pyx_v_k]) - (__pyx_v_B[__pyx_v_k]))) + (__pyx_v_B[__pyx_v_k]))));
 
-    /* "adamixture/src/utils_c/em.pyx":27
+    /* "adamixture/src/utils_c/em.pyx":28
  *     for k in range(K):
  *         P_EM[k] = _clip_to_domain((A[k]*p[k])/(p[k]*(A[k] - B[k]) + B[k]))
  *         A[k] = 0.0             # <<<<<<<<<<<<<<
@@ -16734,7 +16751,7 @@ static CYTHON_INLINE void __pyx_f_10adamixture_3src_7utils_c_2em__updateEM_P(dou
 */
     (__pyx_v_A[__pyx_v_k]) = 0.0;
 
-    /* "adamixture/src/utils_c/em.pyx":28
+    /* "adamixture/src/utils_c/em.pyx":29
  *         P_EM[k] = _clip_to_domain((A[k]*p[k])/(p[k]*(A[k] - B[k]) + B[k]))
  *         A[k] = 0.0
  *         B[k] = 0.0             # <<<<<<<<<<<<<<
@@ -16744,7 +16761,7 @@ static CYTHON_INLINE void __pyx_f_10adamixture_3src_7utils_c_2em__updateEM_P(dou
     (__pyx_v_B[__pyx_v_k]) = 0.0;
   }
 
-  /* "adamixture/src/utils_c/em.pyx":22
+  /* "adamixture/src/utils_c/em.pyx":23
  * 
  * # EM : Update P
  * cdef inline void _updateEM_P(double* A, double* B, const double* p, double* P_EM, const size_t K) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -16755,7 +16772,7 @@ static CYTHON_INLINE void __pyx_f_10adamixture_3src_7utils_c_2em__updateEM_P(dou
   /* function exit code */
 }
 
-/* "adamixture/src/utils_c/em.pyx":31
+/* "adamixture/src/utils_c/em.pyx":32
  * 
  * # EM : Update Q
  * cdef inline void _updateEM_Q(double* T, const double* q, double* Q_EM, const double a, const size_t K) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -16771,7 +16788,7 @@ static CYTHON_INLINE void __pyx_f_10adamixture_3src_7utils_c_2em__updateEM_Q(dou
   size_t __pyx_t_3;
   size_t __pyx_t_4;
 
-  /* "adamixture/src/utils_c/em.pyx":34
+  /* "adamixture/src/utils_c/em.pyx":35
  *     cdef:
  *         size_t k
  *         double totalQ = 0.0             # <<<<<<<<<<<<<<
@@ -16780,7 +16797,7 @@ static CYTHON_INLINE void __pyx_f_10adamixture_3src_7utils_c_2em__updateEM_Q(dou
 */
   __pyx_v_totalQ = 0.0;
 
-  /* "adamixture/src/utils_c/em.pyx":35
+  /* "adamixture/src/utils_c/em.pyx":36
  *         size_t k
  *         double totalQ = 0.0
  *     for k in range(K):             # <<<<<<<<<<<<<<
@@ -16792,7 +16809,7 @@ static CYTHON_INLINE void __pyx_f_10adamixture_3src_7utils_c_2em__updateEM_Q(dou
   for (__pyx_t_3 = 0; __pyx_t_3 < __pyx_t_2; __pyx_t_3+=1) {
     __pyx_v_k = __pyx_t_3;
 
-    /* "adamixture/src/utils_c/em.pyx":36
+    /* "adamixture/src/utils_c/em.pyx":37
  *         double totalQ = 0.0
  *     for k in range(K):
  *         Q_EM[k] = _clip_to_domain(q[k] * T[k] * a)             # <<<<<<<<<<<<<<
@@ -16801,7 +16818,7 @@ static CYTHON_INLINE void __pyx_f_10adamixture_3src_7utils_c_2em__updateEM_Q(dou
 */
     (__pyx_v_Q_EM[__pyx_v_k]) = __pyx_f_10adamixture_3src_7utils_c_2em__clip_to_domain((((__pyx_v_q[__pyx_v_k]) * (__pyx_v_T[__pyx_v_k])) * __pyx_v_a));
 
-    /* "adamixture/src/utils_c/em.pyx":37
+    /* "adamixture/src/utils_c/em.pyx":38
  *     for k in range(K):
  *         Q_EM[k] = _clip_to_domain(q[k] * T[k] * a)
  *         totalQ += Q_EM[k]             # <<<<<<<<<<<<<<
@@ -16811,7 +16828,7 @@ static CYTHON_INLINE void __pyx_f_10adamixture_3src_7utils_c_2em__updateEM_Q(dou
     __pyx_v_totalQ = (__pyx_v_totalQ + (__pyx_v_Q_EM[__pyx_v_k]));
   }
 
-  /* "adamixture/src/utils_c/em.pyx":38
+  /* "adamixture/src/utils_c/em.pyx":39
  *         Q_EM[k] = _clip_to_domain(q[k] * T[k] * a)
  *         totalQ += Q_EM[k]
  *     for k in range(K):             # <<<<<<<<<<<<<<
@@ -16823,7 +16840,7 @@ static CYTHON_INLINE void __pyx_f_10adamixture_3src_7utils_c_2em__updateEM_Q(dou
   for (__pyx_t_3 = 0; __pyx_t_3 < __pyx_t_2; __pyx_t_3+=1) {
     __pyx_v_k = __pyx_t_3;
 
-    /* "adamixture/src/utils_c/em.pyx":39
+    /* "adamixture/src/utils_c/em.pyx":40
  *         totalQ += Q_EM[k]
  *     for k in range(K):
  *         Q_EM[k] /= totalQ             # <<<<<<<<<<<<<<
@@ -16833,7 +16850,7 @@ static CYTHON_INLINE void __pyx_f_10adamixture_3src_7utils_c_2em__updateEM_Q(dou
     __pyx_t_4 = __pyx_v_k;
     (__pyx_v_Q_EM[__pyx_t_4]) = ((__pyx_v_Q_EM[__pyx_t_4]) / __pyx_v_totalQ);
 
-    /* "adamixture/src/utils_c/em.pyx":40
+    /* "adamixture/src/utils_c/em.pyx":41
  *     for k in range(K):
  *         Q_EM[k] /= totalQ
  *         T[k] = 0.0             # <<<<<<<<<<<<<<
@@ -16843,7 +16860,7 @@ static CYTHON_INLINE void __pyx_f_10adamixture_3src_7utils_c_2em__updateEM_Q(dou
     (__pyx_v_T[__pyx_v_k]) = 0.0;
   }
 
-  /* "adamixture/src/utils_c/em.pyx":31
+  /* "adamixture/src/utils_c/em.pyx":32
  * 
  * # EM : Update Q
  * cdef inline void _updateEM_Q(double* T, const double* q, double* Q_EM, const double a, const size_t K) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -16854,7 +16871,7 @@ static CYTHON_INLINE void __pyx_f_10adamixture_3src_7utils_c_2em__updateEM_Q(dou
   /* function exit code */
 }
 
-/* "adamixture/src/utils_c/em.pyx":43
+/* "adamixture/src/utils_c/em.pyx":44
  * 
  * # ADAM: Update P
  * cpdef void adamUpdateP(double[:,::1] P0, const double[:,::1] P1,             # <<<<<<<<<<<<<<
@@ -16897,7 +16914,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_adamUpdateP(__Pyx_memviewslic
   size_t __pyx_t_11;
   size_t __pyx_t_12;
 
-  /* "adamixture/src/utils_c/em.pyx":52
+  /* "adamixture/src/utils_c/em.pyx":53
  *         double* m_p
  *         double* v_p
  *         size_t i, j, I = P0.shape[0], J = P0.shape[1]             # <<<<<<<<<<<<<<
@@ -16907,7 +16924,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_adamUpdateP(__Pyx_memviewslic
   __pyx_v_I = (__pyx_v_P0.shape[0]);
   __pyx_v_J = (__pyx_v_P0.shape[1]);
 
-  /* "adamixture/src/utils_c/em.pyx":54
+  /* "adamixture/src/utils_c/em.pyx":55
  *         size_t i, j, I = P0.shape[0], J = P0.shape[1]
  *         double delta, m_hat, v_hat, step
  *         double beta1_t = pow(beta1, t)             # <<<<<<<<<<<<<<
@@ -16916,7 +16933,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_adamUpdateP(__Pyx_memviewslic
 */
   __pyx_v_beta1_t = pow(__pyx_v_beta1, __pyx_v_t);
 
-  /* "adamixture/src/utils_c/em.pyx":55
+  /* "adamixture/src/utils_c/em.pyx":56
  *         double delta, m_hat, v_hat, step
  *         double beta1_t = pow(beta1, t)
  *         double beta2_t = pow(beta2, t)             # <<<<<<<<<<<<<<
@@ -16925,7 +16942,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_adamUpdateP(__Pyx_memviewslic
 */
   __pyx_v_beta2_t = pow(__pyx_v_beta2, __pyx_v_t);
 
-  /* "adamixture/src/utils_c/em.pyx":56
+  /* "adamixture/src/utils_c/em.pyx":57
  *         double beta1_t = pow(beta1, t)
  *         double beta2_t = pow(beta2, t)
  *         double m_scale = 1.0 / (1.0 - beta1_t) if beta1_t != 1.0 else 1.0             # <<<<<<<<<<<<<<
@@ -16940,7 +16957,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_adamUpdateP(__Pyx_memviewslic
   }
   __pyx_v_m_scale = __pyx_t_1;
 
-  /* "adamixture/src/utils_c/em.pyx":57
+  /* "adamixture/src/utils_c/em.pyx":58
  *         double beta2_t = pow(beta2, t)
  *         double m_scale = 1.0 / (1.0 - beta1_t) if beta1_t != 1.0 else 1.0
  *         double v_scale = 1.0 / (1.0 - beta2_t) if beta2_t != 1.0 else 1.0             # <<<<<<<<<<<<<<
@@ -16955,7 +16972,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_adamUpdateP(__Pyx_memviewslic
   }
   __pyx_v_v_scale = __pyx_t_1;
 
-  /* "adamixture/src/utils_c/em.pyx":58
+  /* "adamixture/src/utils_c/em.pyx":59
  *         double m_scale = 1.0 / (1.0 - beta1_t) if beta1_t != 1.0 else 1.0
  *         double v_scale = 1.0 / (1.0 - beta2_t) if beta2_t != 1.0 else 1.0
  *         double one_m_beta1 = 1.0 - beta1             # <<<<<<<<<<<<<<
@@ -16964,7 +16981,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_adamUpdateP(__Pyx_memviewslic
 */
   __pyx_v_one_m_beta1 = (1.0 - __pyx_v_beta1);
 
-  /* "adamixture/src/utils_c/em.pyx":59
+  /* "adamixture/src/utils_c/em.pyx":60
  *         double v_scale = 1.0 / (1.0 - beta2_t) if beta2_t != 1.0 else 1.0
  *         double one_m_beta1 = 1.0 - beta1
  *         double one_m_beta2 = 1.0 - beta2             # <<<<<<<<<<<<<<
@@ -16973,7 +16990,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_adamUpdateP(__Pyx_memviewslic
 */
   __pyx_v_one_m_beta2 = (1.0 - __pyx_v_beta2);
 
-  /* "adamixture/src/utils_c/em.pyx":61
+  /* "adamixture/src/utils_c/em.pyx":62
  *         double one_m_beta2 = 1.0 - beta2
  * 
  *     for i in prange(M, schedule='guided'):             # <<<<<<<<<<<<<<
@@ -17007,7 +17024,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_adamUpdateP(__Pyx_memviewslic
                         {
                             __pyx_v_i = (size_t)(0 + 1 * __pyx_t_4);
 
-                            /* "adamixture/src/utils_c/em.pyx":62
+                            /* "adamixture/src/utils_c/em.pyx":63
  * 
  *     for i in prange(M, schedule='guided'):
  *         for j in range(K):             # <<<<<<<<<<<<<<
@@ -17019,7 +17036,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_adamUpdateP(__Pyx_memviewslic
                             for (__pyx_t_8 = 0; __pyx_t_8 < __pyx_t_7; __pyx_t_8+=1) {
                               __pyx_v_j = __pyx_t_8;
 
-                              /* "adamixture/src/utils_c/em.pyx":64
+                              /* "adamixture/src/utils_c/em.pyx":65
  *         for j in range(K):
  *             # Update moments
  *             delta = P1[i,j] - P0[i,j]             # <<<<<<<<<<<<<<
@@ -17032,7 +17049,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_adamUpdateP(__Pyx_memviewslic
                               __pyx_t_12 = __pyx_v_j;
                               __pyx_v_delta = ((*((double const  *) ( /* dim=1 */ ((char *) (((double const  *) ( /* dim=0 */ (__pyx_v_P1.data + __pyx_t_9 * __pyx_v_P1.strides[0]) )) + __pyx_t_10)) ))) - (*((double *) ( /* dim=1 */ ((char *) (((double *) ( /* dim=0 */ (__pyx_v_P0.data + __pyx_t_11 * __pyx_v_P0.strides[0]) )) + __pyx_t_12)) ))));
 
-                              /* "adamixture/src/utils_c/em.pyx":65
+                              /* "adamixture/src/utils_c/em.pyx":66
  *             # Update moments
  *             delta = P1[i,j] - P0[i,j]
  *             m_P[i,j] = beta1 * m_P[i,j] + one_m_beta1 * delta             # <<<<<<<<<<<<<<
@@ -17045,7 +17062,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_adamUpdateP(__Pyx_memviewslic
                               __pyx_t_9 = __pyx_v_j;
                               *((double *) ( /* dim=1 */ ((char *) (((double *) ( /* dim=0 */ (__pyx_v_m_P.data + __pyx_t_10 * __pyx_v_m_P.strides[0]) )) + __pyx_t_9)) )) = ((__pyx_v_beta1 * (*((double *) ( /* dim=1 */ ((char *) (((double *) ( /* dim=0 */ (__pyx_v_m_P.data + __pyx_t_12 * __pyx_v_m_P.strides[0]) )) + __pyx_t_11)) )))) + (__pyx_v_one_m_beta1 * __pyx_v_delta));
 
-                              /* "adamixture/src/utils_c/em.pyx":66
+                              /* "adamixture/src/utils_c/em.pyx":67
  *             delta = P1[i,j] - P0[i,j]
  *             m_P[i,j] = beta1 * m_P[i,j] + one_m_beta1 * delta
  *             v_P[i,j] = beta2 * v_P[i,j] + one_m_beta2 * delta * delta             # <<<<<<<<<<<<<<
@@ -17058,7 +17075,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_adamUpdateP(__Pyx_memviewslic
                               __pyx_t_10 = __pyx_v_j;
                               *((double *) ( /* dim=1 */ ((char *) (((double *) ( /* dim=0 */ (__pyx_v_v_P.data + __pyx_t_9 * __pyx_v_v_P.strides[0]) )) + __pyx_t_10)) )) = ((__pyx_v_beta2 * (*((double *) ( /* dim=1 */ ((char *) (((double *) ( /* dim=0 */ (__pyx_v_v_P.data + __pyx_t_11 * __pyx_v_v_P.strides[0]) )) + __pyx_t_12)) )))) + ((__pyx_v_one_m_beta2 * __pyx_v_delta) * __pyx_v_delta));
 
-                              /* "adamixture/src/utils_c/em.pyx":69
+                              /* "adamixture/src/utils_c/em.pyx":70
  * 
  *             # Apply updates
  *             m_hat = m_P[i,j] * m_scale             # <<<<<<<<<<<<<<
@@ -17069,7 +17086,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_adamUpdateP(__Pyx_memviewslic
                               __pyx_t_11 = __pyx_v_j;
                               __pyx_v_m_hat = ((*((double *) ( /* dim=1 */ ((char *) (((double *) ( /* dim=0 */ (__pyx_v_m_P.data + __pyx_t_12 * __pyx_v_m_P.strides[0]) )) + __pyx_t_11)) ))) * __pyx_v_m_scale);
 
-                              /* "adamixture/src/utils_c/em.pyx":70
+                              /* "adamixture/src/utils_c/em.pyx":71
  *             # Apply updates
  *             m_hat = m_P[i,j] * m_scale
  *             v_hat = v_P[i,j] * v_scale             # <<<<<<<<<<<<<<
@@ -17080,7 +17097,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_adamUpdateP(__Pyx_memviewslic
                               __pyx_t_12 = __pyx_v_j;
                               __pyx_v_v_hat = ((*((double *) ( /* dim=1 */ ((char *) (((double *) ( /* dim=0 */ (__pyx_v_v_P.data + __pyx_t_11 * __pyx_v_v_P.strides[0]) )) + __pyx_t_12)) ))) * __pyx_v_v_scale);
 
-                              /* "adamixture/src/utils_c/em.pyx":71
+                              /* "adamixture/src/utils_c/em.pyx":72
  *             m_hat = m_P[i,j] * m_scale
  *             v_hat = v_P[i,j] * v_scale
  *             step = alpha * m_hat / (sqrt(v_hat) + epsilon)             # <<<<<<<<<<<<<<
@@ -17089,7 +17106,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_adamUpdateP(__Pyx_memviewslic
 */
                               __pyx_v_step = ((__pyx_v_alpha * __pyx_v_m_hat) / (sqrt(__pyx_v_v_hat) + __pyx_v_epsilon));
 
-                              /* "adamixture/src/utils_c/em.pyx":72
+                              /* "adamixture/src/utils_c/em.pyx":73
  *             v_hat = v_P[i,j] * v_scale
  *             step = alpha * m_hat / (sqrt(v_hat) + epsilon)
  *             P0[i,j] = _clip_to_domain(P0[i,j] + step)             # <<<<<<<<<<<<<<
@@ -17115,7 +17132,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_adamUpdateP(__Pyx_memviewslic
         #endif
       }
 
-      /* "adamixture/src/utils_c/em.pyx":61
+      /* "adamixture/src/utils_c/em.pyx":62
  *         double one_m_beta2 = 1.0 - beta2
  * 
  *     for i in prange(M, schedule='guided'):             # <<<<<<<<<<<<<<
@@ -17132,7 +17149,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_adamUpdateP(__Pyx_memviewslic
       }
   }
 
-  /* "adamixture/src/utils_c/em.pyx":43
+  /* "adamixture/src/utils_c/em.pyx":44
  * 
  * # ADAM: Update P
  * cpdef void adamUpdateP(double[:,::1] P0, const double[:,::1] P1,             # <<<<<<<<<<<<<<
@@ -17192,102 +17209,102 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_P0,&__pyx_mstate_global->__pyx_n_u_P1,&__pyx_mstate_global->__pyx_n_u_m_P,&__pyx_mstate_global->__pyx_n_u_v_P,&__pyx_mstate_global->__pyx_n_u_alpha,&__pyx_mstate_global->__pyx_n_u_beta1,&__pyx_mstate_global->__pyx_n_u_beta2,&__pyx_mstate_global->__pyx_n_u_epsilon,&__pyx_mstate_global->__pyx_n_u_t,&__pyx_mstate_global->__pyx_n_u_M,&__pyx_mstate_global->__pyx_n_u_K,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 43, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 44, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case 11:
         values[10] = __Pyx_ArgRef_FASTCALL(__pyx_args, 10);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[10])) __PYX_ERR(0, 43, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[10])) __PYX_ERR(0, 44, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case 10:
         values[9] = __Pyx_ArgRef_FASTCALL(__pyx_args, 9);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[9])) __PYX_ERR(0, 43, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[9])) __PYX_ERR(0, 44, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  9:
         values[8] = __Pyx_ArgRef_FASTCALL(__pyx_args, 8);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[8])) __PYX_ERR(0, 43, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[8])) __PYX_ERR(0, 44, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  8:
         values[7] = __Pyx_ArgRef_FASTCALL(__pyx_args, 7);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[7])) __PYX_ERR(0, 43, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[7])) __PYX_ERR(0, 44, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  7:
         values[6] = __Pyx_ArgRef_FASTCALL(__pyx_args, 6);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[6])) __PYX_ERR(0, 43, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[6])) __PYX_ERR(0, 44, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  6:
         values[5] = __Pyx_ArgRef_FASTCALL(__pyx_args, 5);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 43, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 44, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  5:
         values[4] = __Pyx_ArgRef_FASTCALL(__pyx_args, 4);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 43, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 44, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  4:
         values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 43, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 44, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 43, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 44, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 43, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 44, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 43, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 44, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "adamUpdateP", 0) < (0)) __PYX_ERR(0, 43, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "adamUpdateP", 0) < (0)) __PYX_ERR(0, 44, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 11; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("adamUpdateP", 1, 11, 11, i); __PYX_ERR(0, 43, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("adamUpdateP", 1, 11, 11, i); __PYX_ERR(0, 44, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 11)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 43, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 44, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 43, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 44, __pyx_L3_error)
       values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 43, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 44, __pyx_L3_error)
       values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 43, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 44, __pyx_L3_error)
       values[4] = __Pyx_ArgRef_FASTCALL(__pyx_args, 4);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 43, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 44, __pyx_L3_error)
       values[5] = __Pyx_ArgRef_FASTCALL(__pyx_args, 5);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 43, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 44, __pyx_L3_error)
       values[6] = __Pyx_ArgRef_FASTCALL(__pyx_args, 6);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[6])) __PYX_ERR(0, 43, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[6])) __PYX_ERR(0, 44, __pyx_L3_error)
       values[7] = __Pyx_ArgRef_FASTCALL(__pyx_args, 7);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[7])) __PYX_ERR(0, 43, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[7])) __PYX_ERR(0, 44, __pyx_L3_error)
       values[8] = __Pyx_ArgRef_FASTCALL(__pyx_args, 8);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[8])) __PYX_ERR(0, 43, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[8])) __PYX_ERR(0, 44, __pyx_L3_error)
       values[9] = __Pyx_ArgRef_FASTCALL(__pyx_args, 9);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[9])) __PYX_ERR(0, 43, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[9])) __PYX_ERR(0, 44, __pyx_L3_error)
       values[10] = __Pyx_ArgRef_FASTCALL(__pyx_args, 10);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[10])) __PYX_ERR(0, 43, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[10])) __PYX_ERR(0, 44, __pyx_L3_error)
     }
-    __pyx_v_P0 = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double(values[0], PyBUF_WRITABLE); if (unlikely(!__pyx_v_P0.memview)) __PYX_ERR(0, 43, __pyx_L3_error)
-    __pyx_v_P1 = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double__const__(values[1], 0); if (unlikely(!__pyx_v_P1.memview)) __PYX_ERR(0, 43, __pyx_L3_error)
-    __pyx_v_m_P = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double(values[2], PyBUF_WRITABLE); if (unlikely(!__pyx_v_m_P.memview)) __PYX_ERR(0, 44, __pyx_L3_error)
-    __pyx_v_v_P = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double(values[3], PyBUF_WRITABLE); if (unlikely(!__pyx_v_v_P.memview)) __PYX_ERR(0, 44, __pyx_L3_error)
-    __pyx_v_alpha = __Pyx_PyFloat_AsDouble(values[4]); if (unlikely((__pyx_v_alpha == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 45, __pyx_L3_error)
-    __pyx_v_beta1 = __Pyx_PyFloat_AsDouble(values[5]); if (unlikely((__pyx_v_beta1 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 45, __pyx_L3_error)
-    __pyx_v_beta2 = __Pyx_PyFloat_AsDouble(values[6]); if (unlikely((__pyx_v_beta2 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 45, __pyx_L3_error)
-    __pyx_v_epsilon = __Pyx_PyFloat_AsDouble(values[7]); if (unlikely((__pyx_v_epsilon == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 46, __pyx_L3_error)
-    __pyx_v_t = __Pyx_PyLong_As_int(values[8]); if (unlikely((__pyx_v_t == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 46, __pyx_L3_error)
-    __pyx_v_M = __Pyx_PyLong_As_int(values[9]); if (unlikely((__pyx_v_M == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 46, __pyx_L3_error)
-    __pyx_v_K = __Pyx_PyLong_As_int(values[10]); if (unlikely((__pyx_v_K == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 46, __pyx_L3_error)
+    __pyx_v_P0 = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double(values[0], PyBUF_WRITABLE); if (unlikely(!__pyx_v_P0.memview)) __PYX_ERR(0, 44, __pyx_L3_error)
+    __pyx_v_P1 = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double__const__(values[1], 0); if (unlikely(!__pyx_v_P1.memview)) __PYX_ERR(0, 44, __pyx_L3_error)
+    __pyx_v_m_P = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double(values[2], PyBUF_WRITABLE); if (unlikely(!__pyx_v_m_P.memview)) __PYX_ERR(0, 45, __pyx_L3_error)
+    __pyx_v_v_P = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double(values[3], PyBUF_WRITABLE); if (unlikely(!__pyx_v_v_P.memview)) __PYX_ERR(0, 45, __pyx_L3_error)
+    __pyx_v_alpha = __Pyx_PyFloat_AsDouble(values[4]); if (unlikely((__pyx_v_alpha == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 46, __pyx_L3_error)
+    __pyx_v_beta1 = __Pyx_PyFloat_AsDouble(values[5]); if (unlikely((__pyx_v_beta1 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 46, __pyx_L3_error)
+    __pyx_v_beta2 = __Pyx_PyFloat_AsDouble(values[6]); if (unlikely((__pyx_v_beta2 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 46, __pyx_L3_error)
+    __pyx_v_epsilon = __Pyx_PyFloat_AsDouble(values[7]); if (unlikely((__pyx_v_epsilon == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 47, __pyx_L3_error)
+    __pyx_v_t = __Pyx_PyLong_As_int(values[8]); if (unlikely((__pyx_v_t == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 47, __pyx_L3_error)
+    __pyx_v_M = __Pyx_PyLong_As_int(values[9]); if (unlikely((__pyx_v_M == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 47, __pyx_L3_error)
+    __pyx_v_K = __Pyx_PyLong_As_int(values[10]); if (unlikely((__pyx_v_K == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 47, __pyx_L3_error)
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("adamUpdateP", 1, 11, 11, __pyx_nargs); __PYX_ERR(0, 43, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("adamUpdateP", 1, 11, 11, __pyx_nargs); __PYX_ERR(0, 44, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -17325,7 +17342,7 @@ static PyObject *__pyx_pf_10adamixture_3src_7utils_c_2em_adamUpdateP(CYTHON_UNUS
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("adamUpdateP", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_void_to_None(__pyx_f_10adamixture_3src_7utils_c_2em_adamUpdateP(__pyx_v_P0, __pyx_v_P1, __pyx_v_m_P, __pyx_v_v_P, __pyx_v_alpha, __pyx_v_beta1, __pyx_v_beta2, __pyx_v_epsilon, __pyx_v_t, __pyx_v_M, __pyx_v_K, 1)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 43, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_void_to_None(__pyx_f_10adamixture_3src_7utils_c_2em_adamUpdateP(__pyx_v_P0, __pyx_v_P1, __pyx_v_m_P, __pyx_v_v_P, __pyx_v_alpha, __pyx_v_beta1, __pyx_v_beta2, __pyx_v_epsilon, __pyx_v_t, __pyx_v_M, __pyx_v_K, 1)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 44, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -17342,7 +17359,7 @@ static PyObject *__pyx_pf_10adamixture_3src_7utils_c_2em_adamUpdateP(CYTHON_UNUS
   return __pyx_r;
 }
 
-/* "adamixture/src/utils_c/em.pyx":75
+/* "adamixture/src/utils_c/em.pyx":76
  * 
  * # ADAM: Update Q
  * cpdef void adamUpdateQ(double[:,::1] Q0, const double[:,::1] Q1,             # <<<<<<<<<<<<<<
@@ -17386,7 +17403,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_adamUpdateQ(__Pyx_memviewslic
   int __pyx_t_9;
   size_t __pyx_t_10;
 
-  /* "adamixture/src/utils_c/em.pyx":82
+  /* "adamixture/src/utils_c/em.pyx":83
  *         size_t i, j
  *         double delta, m_hat, v_hat, step, sumQ
  *         double beta1_t = pow(beta1, t)             # <<<<<<<<<<<<<<
@@ -17395,7 +17412,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_adamUpdateQ(__Pyx_memviewslic
 */
   __pyx_v_beta1_t = pow(__pyx_v_beta1, __pyx_v_t);
 
-  /* "adamixture/src/utils_c/em.pyx":83
+  /* "adamixture/src/utils_c/em.pyx":84
  *         double delta, m_hat, v_hat, step, sumQ
  *         double beta1_t = pow(beta1, t)
  *         double beta2_t = pow(beta2, t)             # <<<<<<<<<<<<<<
@@ -17404,7 +17421,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_adamUpdateQ(__Pyx_memviewslic
 */
   __pyx_v_beta2_t = pow(__pyx_v_beta2, __pyx_v_t);
 
-  /* "adamixture/src/utils_c/em.pyx":84
+  /* "adamixture/src/utils_c/em.pyx":85
  *         double beta1_t = pow(beta1, t)
  *         double beta2_t = pow(beta2, t)
  *         double m_scale = 1.0 / (1.0 - beta1_t) if beta1_t != 1.0 else 1.0             # <<<<<<<<<<<<<<
@@ -17419,7 +17436,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_adamUpdateQ(__Pyx_memviewslic
   }
   __pyx_v_m_scale = __pyx_t_1;
 
-  /* "adamixture/src/utils_c/em.pyx":85
+  /* "adamixture/src/utils_c/em.pyx":86
  *         double beta2_t = pow(beta2, t)
  *         double m_scale = 1.0 / (1.0 - beta1_t) if beta1_t != 1.0 else 1.0
  *         double v_scale = 1.0 / (1.0 - beta2_t) if beta2_t != 1.0 else 1.0             # <<<<<<<<<<<<<<
@@ -17434,7 +17451,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_adamUpdateQ(__Pyx_memviewslic
   }
   __pyx_v_v_scale = __pyx_t_1;
 
-  /* "adamixture/src/utils_c/em.pyx":86
+  /* "adamixture/src/utils_c/em.pyx":87
  *         double m_scale = 1.0 / (1.0 - beta1_t) if beta1_t != 1.0 else 1.0
  *         double v_scale = 1.0 / (1.0 - beta2_t) if beta2_t != 1.0 else 1.0
  *         double one_m_beta1 = 1.0 - beta1             # <<<<<<<<<<<<<<
@@ -17443,7 +17460,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_adamUpdateQ(__Pyx_memviewslic
 */
   __pyx_v_one_m_beta1 = (1.0 - __pyx_v_beta1);
 
-  /* "adamixture/src/utils_c/em.pyx":87
+  /* "adamixture/src/utils_c/em.pyx":88
  *         double v_scale = 1.0 / (1.0 - beta2_t) if beta2_t != 1.0 else 1.0
  *         double one_m_beta1 = 1.0 - beta1
  *         double one_m_beta2 = 1.0 - beta2             # <<<<<<<<<<<<<<
@@ -17452,7 +17469,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_adamUpdateQ(__Pyx_memviewslic
 */
   __pyx_v_one_m_beta2 = (1.0 - __pyx_v_beta2);
 
-  /* "adamixture/src/utils_c/em.pyx":93
+  /* "adamixture/src/utils_c/em.pyx":94
  *         double* v_q
  * 
  *     for i in prange(N, schedule='guided'):             # <<<<<<<<<<<<<<
@@ -17486,7 +17503,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_adamUpdateQ(__Pyx_memviewslic
                         {
                             __pyx_v_i = (size_t)(0 + 1 * __pyx_t_4);
 
-                            /* "adamixture/src/utils_c/em.pyx":94
+                            /* "adamixture/src/utils_c/em.pyx":95
  * 
  *     for i in prange(N, schedule='guided'):
  *         q0 = &Q0[i, 0]             # <<<<<<<<<<<<<<
@@ -17497,7 +17514,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_adamUpdateQ(__Pyx_memviewslic
                             __pyx_t_7 = 0;
                             __pyx_v_q0 = (&(*((double *) ( /* dim=1 */ ((char *) (((double *) ( /* dim=0 */ (__pyx_v_Q0.data + __pyx_t_6 * __pyx_v_Q0.strides[0]) )) + __pyx_t_7)) ))));
 
-                            /* "adamixture/src/utils_c/em.pyx":95
+                            /* "adamixture/src/utils_c/em.pyx":96
  *     for i in prange(N, schedule='guided'):
  *         q0 = &Q0[i, 0]
  *         q1 = &Q1[i, 0]             # <<<<<<<<<<<<<<
@@ -17508,7 +17525,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_adamUpdateQ(__Pyx_memviewslic
                             __pyx_t_7 = 0;
                             __pyx_v_q1 = (&(*((double const  *) ( /* dim=1 */ ((char *) (((double const  *) ( /* dim=0 */ (__pyx_v_Q1.data + __pyx_t_6 * __pyx_v_Q1.strides[0]) )) + __pyx_t_7)) ))));
 
-                            /* "adamixture/src/utils_c/em.pyx":96
+                            /* "adamixture/src/utils_c/em.pyx":97
  *         q0 = &Q0[i, 0]
  *         q1 = &Q1[i, 0]
  *         m_q = &m_Q[i, 0]             # <<<<<<<<<<<<<<
@@ -17519,7 +17536,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_adamUpdateQ(__Pyx_memviewslic
                             __pyx_t_7 = 0;
                             __pyx_v_m_q = (&(*((double *) ( /* dim=1 */ ((char *) (((double *) ( /* dim=0 */ (__pyx_v_m_Q.data + __pyx_t_6 * __pyx_v_m_Q.strides[0]) )) + __pyx_t_7)) ))));
 
-                            /* "adamixture/src/utils_c/em.pyx":97
+                            /* "adamixture/src/utils_c/em.pyx":98
  *         q1 = &Q1[i, 0]
  *         m_q = &m_Q[i, 0]
  *         v_q = &v_Q[i, 0]             # <<<<<<<<<<<<<<
@@ -17530,7 +17547,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_adamUpdateQ(__Pyx_memviewslic
                             __pyx_t_7 = 0;
                             __pyx_v_v_q = (&(*((double *) ( /* dim=1 */ ((char *) (((double *) ( /* dim=0 */ (__pyx_v_v_Q.data + __pyx_t_6 * __pyx_v_v_Q.strides[0]) )) + __pyx_t_7)) ))));
 
-                            /* "adamixture/src/utils_c/em.pyx":98
+                            /* "adamixture/src/utils_c/em.pyx":99
  *         m_q = &m_Q[i, 0]
  *         v_q = &v_Q[i, 0]
  *         sumQ = 0.0             # <<<<<<<<<<<<<<
@@ -17539,7 +17556,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_adamUpdateQ(__Pyx_memviewslic
 */
                             __pyx_v_sumQ = 0.0;
 
-                            /* "adamixture/src/utils_c/em.pyx":99
+                            /* "adamixture/src/utils_c/em.pyx":100
  *         v_q = &v_Q[i, 0]
  *         sumQ = 0.0
  *         for j in range(K):             # <<<<<<<<<<<<<<
@@ -17551,7 +17568,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_adamUpdateQ(__Pyx_memviewslic
                             for (__pyx_t_6 = 0; __pyx_t_6 < __pyx_t_9; __pyx_t_6+=1) {
                               __pyx_v_j = __pyx_t_6;
 
-                              /* "adamixture/src/utils_c/em.pyx":101
+                              /* "adamixture/src/utils_c/em.pyx":102
  *         for j in range(K):
  *             # Update moments
  *             delta = q1[j] - q0[j]             # <<<<<<<<<<<<<<
@@ -17560,7 +17577,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_adamUpdateQ(__Pyx_memviewslic
 */
                               __pyx_v_delta = ((__pyx_v_q1[__pyx_v_j]) - (__pyx_v_q0[__pyx_v_j]));
 
-                              /* "adamixture/src/utils_c/em.pyx":102
+                              /* "adamixture/src/utils_c/em.pyx":103
  *             # Update moments
  *             delta = q1[j] - q0[j]
  *             m_q[j] = beta1 * m_q[j] + one_m_beta1 * delta             # <<<<<<<<<<<<<<
@@ -17569,7 +17586,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_adamUpdateQ(__Pyx_memviewslic
 */
                               (__pyx_v_m_q[__pyx_v_j]) = ((__pyx_v_beta1 * (__pyx_v_m_q[__pyx_v_j])) + (__pyx_v_one_m_beta1 * __pyx_v_delta));
 
-                              /* "adamixture/src/utils_c/em.pyx":103
+                              /* "adamixture/src/utils_c/em.pyx":104
  *             delta = q1[j] - q0[j]
  *             m_q[j] = beta1 * m_q[j] + one_m_beta1 * delta
  *             v_q[j] = beta2 * v_q[j] + one_m_beta2 * delta * delta             # <<<<<<<<<<<<<<
@@ -17578,7 +17595,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_adamUpdateQ(__Pyx_memviewslic
 */
                               (__pyx_v_v_q[__pyx_v_j]) = ((__pyx_v_beta2 * (__pyx_v_v_q[__pyx_v_j])) + ((__pyx_v_one_m_beta2 * __pyx_v_delta) * __pyx_v_delta));
 
-                              /* "adamixture/src/utils_c/em.pyx":106
+                              /* "adamixture/src/utils_c/em.pyx":107
  * 
  *             # Apply updates
  *             m_hat = m_q[j] * m_scale             # <<<<<<<<<<<<<<
@@ -17587,7 +17604,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_adamUpdateQ(__Pyx_memviewslic
 */
                               __pyx_v_m_hat = ((__pyx_v_m_q[__pyx_v_j]) * __pyx_v_m_scale);
 
-                              /* "adamixture/src/utils_c/em.pyx":107
+                              /* "adamixture/src/utils_c/em.pyx":108
  *             # Apply updates
  *             m_hat = m_q[j] * m_scale
  *             v_hat = v_q[j] * v_scale             # <<<<<<<<<<<<<<
@@ -17596,7 +17613,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_adamUpdateQ(__Pyx_memviewslic
 */
                               __pyx_v_v_hat = ((__pyx_v_v_q[__pyx_v_j]) * __pyx_v_v_scale);
 
-                              /* "adamixture/src/utils_c/em.pyx":108
+                              /* "adamixture/src/utils_c/em.pyx":109
  *             m_hat = m_q[j] * m_scale
  *             v_hat = v_q[j] * v_scale
  *             step = alpha * m_hat / (sqrt(v_hat) + epsilon)             # <<<<<<<<<<<<<<
@@ -17605,7 +17622,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_adamUpdateQ(__Pyx_memviewslic
 */
                               __pyx_v_step = ((__pyx_v_alpha * __pyx_v_m_hat) / (sqrt(__pyx_v_v_hat) + __pyx_v_epsilon));
 
-                              /* "adamixture/src/utils_c/em.pyx":109
+                              /* "adamixture/src/utils_c/em.pyx":110
  *             v_hat = v_q[j] * v_scale
  *             step = alpha * m_hat / (sqrt(v_hat) + epsilon)
  *             q0[j] = _clip_to_domain(q0[j] + step)             # <<<<<<<<<<<<<<
@@ -17614,7 +17631,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_adamUpdateQ(__Pyx_memviewslic
 */
                               (__pyx_v_q0[__pyx_v_j]) = __pyx_f_10adamixture_3src_7utils_c_2em__clip_to_domain(((__pyx_v_q0[__pyx_v_j]) + __pyx_v_step));
 
-                              /* "adamixture/src/utils_c/em.pyx":112
+                              /* "adamixture/src/utils_c/em.pyx":113
  * 
  *             # Accumulate for normalization
  *             sumQ += q0[j]             # <<<<<<<<<<<<<<
@@ -17624,7 +17641,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_adamUpdateQ(__Pyx_memviewslic
                               __pyx_v_sumQ = (__pyx_v_sumQ + (__pyx_v_q0[__pyx_v_j]));
                             }
 
-                            /* "adamixture/src/utils_c/em.pyx":115
+                            /* "adamixture/src/utils_c/em.pyx":116
  * 
  *         # Normalize row
  *         for j in range(K):             # <<<<<<<<<<<<<<
@@ -17636,7 +17653,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_adamUpdateQ(__Pyx_memviewslic
                             for (__pyx_t_6 = 0; __pyx_t_6 < __pyx_t_9; __pyx_t_6+=1) {
                               __pyx_v_j = __pyx_t_6;
 
-                              /* "adamixture/src/utils_c/em.pyx":116
+                              /* "adamixture/src/utils_c/em.pyx":117
  *         # Normalize row
  *         for j in range(K):
  *             q0[j] /= sumQ             # <<<<<<<<<<<<<<
@@ -17659,7 +17676,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_adamUpdateQ(__Pyx_memviewslic
         #endif
       }
 
-      /* "adamixture/src/utils_c/em.pyx":93
+      /* "adamixture/src/utils_c/em.pyx":94
  *         double* v_q
  * 
  *     for i in prange(N, schedule='guided'):             # <<<<<<<<<<<<<<
@@ -17676,7 +17693,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_adamUpdateQ(__Pyx_memviewslic
       }
   }
 
-  /* "adamixture/src/utils_c/em.pyx":75
+  /* "adamixture/src/utils_c/em.pyx":76
  * 
  * # ADAM: Update Q
  * cpdef void adamUpdateQ(double[:,::1] Q0, const double[:,::1] Q1,             # <<<<<<<<<<<<<<
@@ -17736,102 +17753,102 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_Q0,&__pyx_mstate_global->__pyx_n_u_Q1,&__pyx_mstate_global->__pyx_n_u_m_Q,&__pyx_mstate_global->__pyx_n_u_v_Q,&__pyx_mstate_global->__pyx_n_u_alpha,&__pyx_mstate_global->__pyx_n_u_beta1,&__pyx_mstate_global->__pyx_n_u_beta2,&__pyx_mstate_global->__pyx_n_u_epsilon,&__pyx_mstate_global->__pyx_n_u_t,&__pyx_mstate_global->__pyx_n_u_N,&__pyx_mstate_global->__pyx_n_u_K,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 75, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 76, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case 11:
         values[10] = __Pyx_ArgRef_FASTCALL(__pyx_args, 10);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[10])) __PYX_ERR(0, 75, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[10])) __PYX_ERR(0, 76, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case 10:
         values[9] = __Pyx_ArgRef_FASTCALL(__pyx_args, 9);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[9])) __PYX_ERR(0, 75, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[9])) __PYX_ERR(0, 76, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  9:
         values[8] = __Pyx_ArgRef_FASTCALL(__pyx_args, 8);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[8])) __PYX_ERR(0, 75, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[8])) __PYX_ERR(0, 76, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  8:
         values[7] = __Pyx_ArgRef_FASTCALL(__pyx_args, 7);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[7])) __PYX_ERR(0, 75, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[7])) __PYX_ERR(0, 76, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  7:
         values[6] = __Pyx_ArgRef_FASTCALL(__pyx_args, 6);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[6])) __PYX_ERR(0, 75, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[6])) __PYX_ERR(0, 76, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  6:
         values[5] = __Pyx_ArgRef_FASTCALL(__pyx_args, 5);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 75, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 76, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  5:
         values[4] = __Pyx_ArgRef_FASTCALL(__pyx_args, 4);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 75, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 76, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  4:
         values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 75, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 76, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 75, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 76, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 75, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 76, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 75, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 76, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "adamUpdateQ", 0) < (0)) __PYX_ERR(0, 75, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "adamUpdateQ", 0) < (0)) __PYX_ERR(0, 76, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 11; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("adamUpdateQ", 1, 11, 11, i); __PYX_ERR(0, 75, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("adamUpdateQ", 1, 11, 11, i); __PYX_ERR(0, 76, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 11)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 75, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 76, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 75, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 76, __pyx_L3_error)
       values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 75, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 76, __pyx_L3_error)
       values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 75, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 76, __pyx_L3_error)
       values[4] = __Pyx_ArgRef_FASTCALL(__pyx_args, 4);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 75, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 76, __pyx_L3_error)
       values[5] = __Pyx_ArgRef_FASTCALL(__pyx_args, 5);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 75, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 76, __pyx_L3_error)
       values[6] = __Pyx_ArgRef_FASTCALL(__pyx_args, 6);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[6])) __PYX_ERR(0, 75, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[6])) __PYX_ERR(0, 76, __pyx_L3_error)
       values[7] = __Pyx_ArgRef_FASTCALL(__pyx_args, 7);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[7])) __PYX_ERR(0, 75, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[7])) __PYX_ERR(0, 76, __pyx_L3_error)
       values[8] = __Pyx_ArgRef_FASTCALL(__pyx_args, 8);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[8])) __PYX_ERR(0, 75, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[8])) __PYX_ERR(0, 76, __pyx_L3_error)
       values[9] = __Pyx_ArgRef_FASTCALL(__pyx_args, 9);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[9])) __PYX_ERR(0, 75, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[9])) __PYX_ERR(0, 76, __pyx_L3_error)
       values[10] = __Pyx_ArgRef_FASTCALL(__pyx_args, 10);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[10])) __PYX_ERR(0, 75, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[10])) __PYX_ERR(0, 76, __pyx_L3_error)
     }
-    __pyx_v_Q0 = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double(values[0], PyBUF_WRITABLE); if (unlikely(!__pyx_v_Q0.memview)) __PYX_ERR(0, 75, __pyx_L3_error)
-    __pyx_v_Q1 = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double__const__(values[1], 0); if (unlikely(!__pyx_v_Q1.memview)) __PYX_ERR(0, 75, __pyx_L3_error)
-    __pyx_v_m_Q = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double(values[2], PyBUF_WRITABLE); if (unlikely(!__pyx_v_m_Q.memview)) __PYX_ERR(0, 76, __pyx_L3_error)
-    __pyx_v_v_Q = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double(values[3], PyBUF_WRITABLE); if (unlikely(!__pyx_v_v_Q.memview)) __PYX_ERR(0, 76, __pyx_L3_error)
-    __pyx_v_alpha = __Pyx_PyFloat_AsDouble(values[4]); if (unlikely((__pyx_v_alpha == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 77, __pyx_L3_error)
-    __pyx_v_beta1 = __Pyx_PyFloat_AsDouble(values[5]); if (unlikely((__pyx_v_beta1 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 77, __pyx_L3_error)
-    __pyx_v_beta2 = __Pyx_PyFloat_AsDouble(values[6]); if (unlikely((__pyx_v_beta2 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 77, __pyx_L3_error)
-    __pyx_v_epsilon = __Pyx_PyFloat_AsDouble(values[7]); if (unlikely((__pyx_v_epsilon == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 78, __pyx_L3_error)
-    __pyx_v_t = __Pyx_PyLong_As_int(values[8]); if (unlikely((__pyx_v_t == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 78, __pyx_L3_error)
-    __pyx_v_N = __Pyx_PyLong_As_int(values[9]); if (unlikely((__pyx_v_N == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 78, __pyx_L3_error)
-    __pyx_v_K = __Pyx_PyLong_As_int(values[10]); if (unlikely((__pyx_v_K == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 78, __pyx_L3_error)
+    __pyx_v_Q0 = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double(values[0], PyBUF_WRITABLE); if (unlikely(!__pyx_v_Q0.memview)) __PYX_ERR(0, 76, __pyx_L3_error)
+    __pyx_v_Q1 = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double__const__(values[1], 0); if (unlikely(!__pyx_v_Q1.memview)) __PYX_ERR(0, 76, __pyx_L3_error)
+    __pyx_v_m_Q = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double(values[2], PyBUF_WRITABLE); if (unlikely(!__pyx_v_m_Q.memview)) __PYX_ERR(0, 77, __pyx_L3_error)
+    __pyx_v_v_Q = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double(values[3], PyBUF_WRITABLE); if (unlikely(!__pyx_v_v_Q.memview)) __PYX_ERR(0, 77, __pyx_L3_error)
+    __pyx_v_alpha = __Pyx_PyFloat_AsDouble(values[4]); if (unlikely((__pyx_v_alpha == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 78, __pyx_L3_error)
+    __pyx_v_beta1 = __Pyx_PyFloat_AsDouble(values[5]); if (unlikely((__pyx_v_beta1 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 78, __pyx_L3_error)
+    __pyx_v_beta2 = __Pyx_PyFloat_AsDouble(values[6]); if (unlikely((__pyx_v_beta2 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 78, __pyx_L3_error)
+    __pyx_v_epsilon = __Pyx_PyFloat_AsDouble(values[7]); if (unlikely((__pyx_v_epsilon == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 79, __pyx_L3_error)
+    __pyx_v_t = __Pyx_PyLong_As_int(values[8]); if (unlikely((__pyx_v_t == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 79, __pyx_L3_error)
+    __pyx_v_N = __Pyx_PyLong_As_int(values[9]); if (unlikely((__pyx_v_N == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 79, __pyx_L3_error)
+    __pyx_v_K = __Pyx_PyLong_As_int(values[10]); if (unlikely((__pyx_v_K == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 79, __pyx_L3_error)
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("adamUpdateQ", 1, 11, 11, __pyx_nargs); __PYX_ERR(0, 75, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("adamUpdateQ", 1, 11, 11, __pyx_nargs); __PYX_ERR(0, 76, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -17869,7 +17886,7 @@ static PyObject *__pyx_pf_10adamixture_3src_7utils_c_2em_2adamUpdateQ(CYTHON_UNU
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("adamUpdateQ", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_void_to_None(__pyx_f_10adamixture_3src_7utils_c_2em_adamUpdateQ(__pyx_v_Q0, __pyx_v_Q1, __pyx_v_m_Q, __pyx_v_v_Q, __pyx_v_alpha, __pyx_v_beta1, __pyx_v_beta2, __pyx_v_epsilon, __pyx_v_t, __pyx_v_N, __pyx_v_K, 1)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 75, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_void_to_None(__pyx_f_10adamixture_3src_7utils_c_2em_adamUpdateQ(__pyx_v_Q0, __pyx_v_Q1, __pyx_v_m_Q, __pyx_v_v_Q, __pyx_v_alpha, __pyx_v_beta1, __pyx_v_beta2, __pyx_v_epsilon, __pyx_v_t, __pyx_v_N, __pyx_v_K, 1)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 76, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -17886,7 +17903,7 @@ static PyObject *__pyx_pf_10adamixture_3src_7utils_c_2em_2adamUpdateQ(CYTHON_UNU
   return __pyx_r;
 }
 
-/* "adamixture/src/utils_c/em.pyx":119
+/* "adamixture/src/utils_c/em.pyx":120
  * 
  * # EM: Apply parameter update for P
  * cpdef void P_step(const unsigned char[:,::1] G, double[:,::1] P, double[:,::1] P_EM,             # <<<<<<<<<<<<<<
@@ -17926,7 +17943,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_P_step(__Pyx_memviewslice __p
   size_t __pyx_t_9;
   int __pyx_t_10;
 
-  /* "adamixture/src/utils_c/em.pyx":134
+  /* "adamixture/src/utils_c/em.pyx":135
  *         omp.omp_lock_t sync_lock
  * 
  *     omp.omp_init_lock(&sync_lock)             # <<<<<<<<<<<<<<
@@ -17935,7 +17952,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_P_step(__Pyx_memviewslice __p
 */
   omp_init_lock((&__pyx_v_sync_lock));
 
-  /* "adamixture/src/utils_c/em.pyx":136
+  /* "adamixture/src/utils_c/em.pyx":137
  *     omp.omp_init_lock(&sync_lock)
  * 
  *     with nogil, parallel():             # <<<<<<<<<<<<<<
@@ -17959,7 +17976,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_P_step(__Pyx_memviewslice __p
             #endif /* _OPENMP */
             {
 
-                /* "adamixture/src/utils_c/em.pyx":137
+                /* "adamixture/src/utils_c/em.pyx":138
  * 
  *     with nogil, parallel():
  *         A = <double*>calloc(K, sizeof(double))             # <<<<<<<<<<<<<<
@@ -17968,7 +17985,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_P_step(__Pyx_memviewslice __p
 */
                 __pyx_v_A = ((double *)calloc(__pyx_v_K, (sizeof(double))));
 
-                /* "adamixture/src/utils_c/em.pyx":138
+                /* "adamixture/src/utils_c/em.pyx":139
  *     with nogil, parallel():
  *         A = <double*>calloc(K, sizeof(double))
  *         B = <double*>calloc(K, sizeof(double))             # <<<<<<<<<<<<<<
@@ -17977,7 +17994,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_P_step(__Pyx_memviewslice __p
 */
                 __pyx_v_B = ((double *)calloc(__pyx_v_K, (sizeof(double))));
 
-                /* "adamixture/src/utils_c/em.pyx":139
+                /* "adamixture/src/utils_c/em.pyx":140
  *         A = <double*>calloc(K, sizeof(double))
  *         B = <double*>calloc(K, sizeof(double))
  *         t = <double*>calloc(N * K, sizeof(double))             # <<<<<<<<<<<<<<
@@ -17986,7 +18003,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_P_step(__Pyx_memviewslice __p
 */
                 __pyx_v_t = ((double *)calloc((__pyx_v_N * __pyx_v_K), (sizeof(double))));
 
-                /* "adamixture/src/utils_c/em.pyx":140
+                /* "adamixture/src/utils_c/em.pyx":141
  *         B = <double*>calloc(K, sizeof(double))
  *         t = <double*>calloc(N * K, sizeof(double))
  *         q_len = <double*>calloc(N, sizeof(double))             # <<<<<<<<<<<<<<
@@ -17995,7 +18012,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_P_step(__Pyx_memviewslice __p
 */
                 __pyx_v_q_len = ((double *)calloc(__pyx_v_N, (sizeof(double))));
 
-                /* "adamixture/src/utils_c/em.pyx":142
+                /* "adamixture/src/utils_c/em.pyx":143
  *         q_len = <double*>calloc(N, sizeof(double))
  * 
  *         for row in prange(M, schedule='guided'):             # <<<<<<<<<<<<<<
@@ -18014,7 +18031,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_P_step(__Pyx_memviewslice __p
                             {
                                 __pyx_v_row = (size_t)(0 + 1 * __pyx_t_2);
 
-                                /* "adamixture/src/utils_c/em.pyx":143
+                                /* "adamixture/src/utils_c/em.pyx":144
  * 
  *         for row in prange(M, schedule='guided'):
  *             p_ptr = &P[row, 0]             # <<<<<<<<<<<<<<
@@ -18025,7 +18042,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_P_step(__Pyx_memviewslice __p
                                 __pyx_t_5 = 0;
                                 __pyx_v_p_ptr = (&(*((double *) ( /* dim=1 */ ((char *) (((double *) ( /* dim=0 */ (__pyx_v_P.data + __pyx_t_4 * __pyx_v_P.strides[0]) )) + __pyx_t_5)) ))));
 
-                                /* "adamixture/src/utils_c/em.pyx":144
+                                /* "adamixture/src/utils_c/em.pyx":145
  *         for row in prange(M, schedule='guided'):
  *             p_ptr = &P[row, 0]
  *             g_ptr = &G[row, 0]             # <<<<<<<<<<<<<<
@@ -18036,7 +18053,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_P_step(__Pyx_memviewslice __p
                                 __pyx_t_5 = 0;
                                 __pyx_v_g_ptr = (&(*((unsigned char const  *) ( /* dim=1 */ ((char *) (((unsigned char const  *) ( /* dim=0 */ (__pyx_v_G.data + __pyx_t_4 * __pyx_v_G.strides[0]) )) + __pyx_t_5)) ))));
 
-                                /* "adamixture/src/utils_c/em.pyx":145
+                                /* "adamixture/src/utils_c/em.pyx":146
  *             p_ptr = &P[row, 0]
  *             g_ptr = &G[row, 0]
  *             for col in range(N):             # <<<<<<<<<<<<<<
@@ -18048,7 +18065,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_P_step(__Pyx_memviewslice __p
                                 for (__pyx_t_4 = 0; __pyx_t_4 < __pyx_t_7; __pyx_t_4+=1) {
                                   __pyx_v_col = __pyx_t_4;
 
-                                  /* "adamixture/src/utils_c/em.pyx":146
+                                  /* "adamixture/src/utils_c/em.pyx":147
  *             g_ptr = &G[row, 0]
  *             for col in range(N):
  *                 if g_ptr[col] == 3:             # <<<<<<<<<<<<<<
@@ -18058,7 +18075,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_P_step(__Pyx_memviewslice __p
                                   __pyx_t_8 = ((__pyx_v_g_ptr[__pyx_v_col]) == 3);
                                   if (__pyx_t_8) {
 
-                                    /* "adamixture/src/utils_c/em.pyx":147
+                                    /* "adamixture/src/utils_c/em.pyx":148
  *             for col in range(N):
  *                 if g_ptr[col] == 3:
  *                     continue             # <<<<<<<<<<<<<<
@@ -18067,7 +18084,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_P_step(__Pyx_memviewslice __p
 */
                                     goto __pyx_L14_continue;
 
-                                    /* "adamixture/src/utils_c/em.pyx":146
+                                    /* "adamixture/src/utils_c/em.pyx":147
  *             g_ptr = &G[row, 0]
  *             for col in range(N):
  *                 if g_ptr[col] == 3:             # <<<<<<<<<<<<<<
@@ -18076,7 +18093,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_P_step(__Pyx_memviewslice __p
 */
                                   }
 
-                                  /* "adamixture/src/utils_c/em.pyx":148
+                                  /* "adamixture/src/utils_c/em.pyx":149
  *                 if g_ptr[col] == 3:
  *                     continue
  *                 q_len[col] += 2.0             # <<<<<<<<<<<<<<
@@ -18086,7 +18103,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_P_step(__Pyx_memviewslice __p
                                   __pyx_t_9 = __pyx_v_col;
                                   (__pyx_v_q_len[__pyx_t_9]) = ((__pyx_v_q_len[__pyx_t_9]) + 2.0);
 
-                                  /* "adamixture/src/utils_c/em.pyx":149
+                                  /* "adamixture/src/utils_c/em.pyx":150
  *                     continue
  *                 q_len[col] += 2.0
  *                 rec = _reconstruct(p_ptr, &Q[col, 0], K)             # <<<<<<<<<<<<<<
@@ -18097,7 +18114,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_P_step(__Pyx_memviewslice __p
                                   __pyx_t_5 = 0;
                                   __pyx_v_rec = __pyx_f_10adamixture_3src_7utils_c_2em__reconstruct(__pyx_v_p_ptr, (&(*((double const  *) ( /* dim=1 */ ((char *) (((double const  *) ( /* dim=0 */ (__pyx_v_Q.data + __pyx_t_9 * __pyx_v_Q.strides[0]) )) + __pyx_t_5)) )))), __pyx_v_K);
 
-                                  /* "adamixture/src/utils_c/em.pyx":150
+                                  /* "adamixture/src/utils_c/em.pyx":151
  *                 q_len[col] += 2.0
  *                 rec = _reconstruct(p_ptr, &Q[col, 0], K)
  *                 _update_temp_factors(A, B, &t[col * K], p_ptr, &Q[col, 0], g_ptr[col], rec, K)             # <<<<<<<<<<<<<<
@@ -18110,7 +18127,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_P_step(__Pyx_memviewslice __p
                                   __pyx_L14_continue:;
                                 }
 
-                                /* "adamixture/src/utils_c/em.pyx":151
+                                /* "adamixture/src/utils_c/em.pyx":152
  *                 rec = _reconstruct(p_ptr, &Q[col, 0], K)
  *                 _update_temp_factors(A, B, &t[col * K], p_ptr, &Q[col, 0], g_ptr[col], rec, K)
  *             _updateEM_P(A, B, p_ptr, &P_EM[row, 0], K)             # <<<<<<<<<<<<<<
@@ -18125,7 +18142,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_P_step(__Pyx_memviewslice __p
                     }
                 }
 
-                /* "adamixture/src/utils_c/em.pyx":153
+                /* "adamixture/src/utils_c/em.pyx":154
  *             _updateEM_P(A, B, p_ptr, &P_EM[row, 0], K)
  * 
  *         omp.omp_set_lock(&sync_lock)             # <<<<<<<<<<<<<<
@@ -18134,7 +18151,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_P_step(__Pyx_memviewslice __p
 */
                 omp_set_lock((&__pyx_v_sync_lock));
 
-                /* "adamixture/src/utils_c/em.pyx":154
+                /* "adamixture/src/utils_c/em.pyx":155
  * 
  *         omp.omp_set_lock(&sync_lock)
  *         for idx_n in range(N):             # <<<<<<<<<<<<<<
@@ -18146,7 +18163,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_P_step(__Pyx_memviewslice __p
                 for (__pyx_t_3 = 0; __pyx_t_3 < __pyx_t_6; __pyx_t_3+=1) {
                   __pyx_v_idx_n = __pyx_t_3;
 
-                  /* "adamixture/src/utils_c/em.pyx":155
+                  /* "adamixture/src/utils_c/em.pyx":156
  *         omp.omp_set_lock(&sync_lock)
  *         for idx_n in range(N):
  *             q_bat[idx_n] = q_bat[idx_n] + q_len[idx_n]             # <<<<<<<<<<<<<<
@@ -18157,7 +18174,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_P_step(__Pyx_memviewslice __p
                   __pyx_t_4 = __pyx_v_idx_n;
                   *((double *) ( /* dim=0 */ ((char *) (((double *) __pyx_v_q_bat.data) + __pyx_t_4)) )) = ((*((double *) ( /* dim=0 */ ((char *) (((double *) __pyx_v_q_bat.data) + __pyx_t_2)) ))) + (__pyx_v_q_len[__pyx_v_idx_n]));
 
-                  /* "adamixture/src/utils_c/em.pyx":156
+                  /* "adamixture/src/utils_c/em.pyx":157
  *         for idx_n in range(N):
  *             q_bat[idx_n] = q_bat[idx_n] + q_len[idx_n]
  *             dest_row = &Q_T[idx_n, 0]             # <<<<<<<<<<<<<<
@@ -18168,7 +18185,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_P_step(__Pyx_memviewslice __p
                   __pyx_t_5 = 0;
                   __pyx_v_dest_row = (&(*((double *) ( /* dim=1 */ ((char *) (((double *) ( /* dim=0 */ (__pyx_v_Q_T.data + __pyx_t_2 * __pyx_v_Q_T.strides[0]) )) + __pyx_t_5)) ))));
 
-                  /* "adamixture/src/utils_c/em.pyx":157
+                  /* "adamixture/src/utils_c/em.pyx":158
  *             q_bat[idx_n] = q_bat[idx_n] + q_len[idx_n]
  *             dest_row = &Q_T[idx_n, 0]
  *             for idx_k in range(K):             # <<<<<<<<<<<<<<
@@ -18180,7 +18197,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_P_step(__Pyx_memviewslice __p
                   for (__pyx_t_2 = 0; __pyx_t_2 < __pyx_t_10; __pyx_t_2+=1) {
                     __pyx_v_idx_k = __pyx_t_2;
 
-                    /* "adamixture/src/utils_c/em.pyx":158
+                    /* "adamixture/src/utils_c/em.pyx":159
  *             dest_row = &Q_T[idx_n, 0]
  *             for idx_k in range(K):
  *                 dest_row[idx_k] += t[idx_n * K + idx_k]             # <<<<<<<<<<<<<<
@@ -18192,7 +18209,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_P_step(__Pyx_memviewslice __p
                   }
                 }
 
-                /* "adamixture/src/utils_c/em.pyx":159
+                /* "adamixture/src/utils_c/em.pyx":160
  *             for idx_k in range(K):
  *                 dest_row[idx_k] += t[idx_n * K + idx_k]
  *         omp.omp_unset_lock(&sync_lock)             # <<<<<<<<<<<<<<
@@ -18201,7 +18218,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_P_step(__Pyx_memviewslice __p
 */
                 omp_unset_lock((&__pyx_v_sync_lock));
 
-                /* "adamixture/src/utils_c/em.pyx":161
+                /* "adamixture/src/utils_c/em.pyx":162
  *         omp.omp_unset_lock(&sync_lock)
  * 
  *         free(A)             # <<<<<<<<<<<<<<
@@ -18210,7 +18227,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_P_step(__Pyx_memviewslice __p
 */
                 free(__pyx_v_A);
 
-                /* "adamixture/src/utils_c/em.pyx":162
+                /* "adamixture/src/utils_c/em.pyx":163
  * 
  *         free(A)
  *         free(B)             # <<<<<<<<<<<<<<
@@ -18219,7 +18236,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_P_step(__Pyx_memviewslice __p
 */
                 free(__pyx_v_B);
 
-                /* "adamixture/src/utils_c/em.pyx":163
+                /* "adamixture/src/utils_c/em.pyx":164
  *         free(A)
  *         free(B)
  *         free(t)             # <<<<<<<<<<<<<<
@@ -18228,7 +18245,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_P_step(__Pyx_memviewslice __p
 */
                 free(__pyx_v_t);
 
-                /* "adamixture/src/utils_c/em.pyx":164
+                /* "adamixture/src/utils_c/em.pyx":165
  *         free(B)
  *         free(t)
  *         free(q_len)             # <<<<<<<<<<<<<<
@@ -18246,7 +18263,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_P_step(__Pyx_memviewslice __p
         #endif
       }
 
-      /* "adamixture/src/utils_c/em.pyx":136
+      /* "adamixture/src/utils_c/em.pyx":137
  *     omp.omp_init_lock(&sync_lock)
  * 
  *     with nogil, parallel():             # <<<<<<<<<<<<<<
@@ -18263,7 +18280,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_P_step(__Pyx_memviewslice __p
       }
   }
 
-  /* "adamixture/src/utils_c/em.pyx":166
+  /* "adamixture/src/utils_c/em.pyx":167
  *         free(q_len)
  * 
  *     omp.omp_destroy_lock(&sync_lock)             # <<<<<<<<<<<<<<
@@ -18272,7 +18289,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_P_step(__Pyx_memviewslice __p
 */
   omp_destroy_lock((&__pyx_v_sync_lock));
 
-  /* "adamixture/src/utils_c/em.pyx":119
+  /* "adamixture/src/utils_c/em.pyx":120
  * 
  * # EM: Apply parameter update for P
  * cpdef void P_step(const unsigned char[:,::1] G, double[:,::1] P, double[:,::1] P_EM,             # <<<<<<<<<<<<<<
@@ -18330,88 +18347,88 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_G,&__pyx_mstate_global->__pyx_n_u_P,&__pyx_mstate_global->__pyx_n_u_P_EM,&__pyx_mstate_global->__pyx_n_u_Q,&__pyx_mstate_global->__pyx_n_u_Q_T,&__pyx_mstate_global->__pyx_n_u_q_bat,&__pyx_mstate_global->__pyx_n_u_K,&__pyx_mstate_global->__pyx_n_u_M,&__pyx_mstate_global->__pyx_n_u_N,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 119, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 120, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  9:
         values[8] = __Pyx_ArgRef_FASTCALL(__pyx_args, 8);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[8])) __PYX_ERR(0, 119, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[8])) __PYX_ERR(0, 120, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  8:
         values[7] = __Pyx_ArgRef_FASTCALL(__pyx_args, 7);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[7])) __PYX_ERR(0, 119, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[7])) __PYX_ERR(0, 120, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  7:
         values[6] = __Pyx_ArgRef_FASTCALL(__pyx_args, 6);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[6])) __PYX_ERR(0, 119, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[6])) __PYX_ERR(0, 120, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  6:
         values[5] = __Pyx_ArgRef_FASTCALL(__pyx_args, 5);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 119, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 120, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  5:
         values[4] = __Pyx_ArgRef_FASTCALL(__pyx_args, 4);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 119, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 120, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  4:
         values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 119, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 120, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 119, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 120, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 119, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 120, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 119, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 120, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "P_step", 0) < (0)) __PYX_ERR(0, 119, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "P_step", 0) < (0)) __PYX_ERR(0, 120, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 9; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("P_step", 1, 9, 9, i); __PYX_ERR(0, 119, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("P_step", 1, 9, 9, i); __PYX_ERR(0, 120, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 9)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 119, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 120, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 119, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 120, __pyx_L3_error)
       values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 119, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 120, __pyx_L3_error)
       values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 119, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 120, __pyx_L3_error)
       values[4] = __Pyx_ArgRef_FASTCALL(__pyx_args, 4);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 119, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 120, __pyx_L3_error)
       values[5] = __Pyx_ArgRef_FASTCALL(__pyx_args, 5);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 119, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 120, __pyx_L3_error)
       values[6] = __Pyx_ArgRef_FASTCALL(__pyx_args, 6);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[6])) __PYX_ERR(0, 119, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[6])) __PYX_ERR(0, 120, __pyx_L3_error)
       values[7] = __Pyx_ArgRef_FASTCALL(__pyx_args, 7);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[7])) __PYX_ERR(0, 119, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[7])) __PYX_ERR(0, 120, __pyx_L3_error)
       values[8] = __Pyx_ArgRef_FASTCALL(__pyx_args, 8);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[8])) __PYX_ERR(0, 119, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[8])) __PYX_ERR(0, 120, __pyx_L3_error)
     }
-    __pyx_v_G = __Pyx_PyObject_to_MemoryviewSlice_d_dc_unsigned_char__const__(values[0], 0); if (unlikely(!__pyx_v_G.memview)) __PYX_ERR(0, 119, __pyx_L3_error)
-    __pyx_v_P = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double(values[1], PyBUF_WRITABLE); if (unlikely(!__pyx_v_P.memview)) __PYX_ERR(0, 119, __pyx_L3_error)
-    __pyx_v_P_EM = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double(values[2], PyBUF_WRITABLE); if (unlikely(!__pyx_v_P_EM.memview)) __PYX_ERR(0, 119, __pyx_L3_error)
-    __pyx_v_Q = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double__const__(values[3], 0); if (unlikely(!__pyx_v_Q.memview)) __PYX_ERR(0, 120, __pyx_L3_error)
-    __pyx_v_Q_T = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double(values[4], PyBUF_WRITABLE); if (unlikely(!__pyx_v_Q_T.memview)) __PYX_ERR(0, 120, __pyx_L3_error)
-    __pyx_v_q_bat = __Pyx_PyObject_to_MemoryviewSlice_dc_double(values[5], PyBUF_WRITABLE); if (unlikely(!__pyx_v_q_bat.memview)) __PYX_ERR(0, 120, __pyx_L3_error)
-    __pyx_v_K = __Pyx_PyLong_As_int(values[6]); if (unlikely((__pyx_v_K == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 121, __pyx_L3_error)
-    __pyx_v_M = __Pyx_PyLong_As_int(values[7]); if (unlikely((__pyx_v_M == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 121, __pyx_L3_error)
-    __pyx_v_N = __Pyx_PyLong_As_int(values[8]); if (unlikely((__pyx_v_N == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 121, __pyx_L3_error)
+    __pyx_v_G = __Pyx_PyObject_to_MemoryviewSlice_d_dc_unsigned_char__const__(values[0], 0); if (unlikely(!__pyx_v_G.memview)) __PYX_ERR(0, 120, __pyx_L3_error)
+    __pyx_v_P = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double(values[1], PyBUF_WRITABLE); if (unlikely(!__pyx_v_P.memview)) __PYX_ERR(0, 120, __pyx_L3_error)
+    __pyx_v_P_EM = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double(values[2], PyBUF_WRITABLE); if (unlikely(!__pyx_v_P_EM.memview)) __PYX_ERR(0, 120, __pyx_L3_error)
+    __pyx_v_Q = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double__const__(values[3], 0); if (unlikely(!__pyx_v_Q.memview)) __PYX_ERR(0, 121, __pyx_L3_error)
+    __pyx_v_Q_T = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double(values[4], PyBUF_WRITABLE); if (unlikely(!__pyx_v_Q_T.memview)) __PYX_ERR(0, 121, __pyx_L3_error)
+    __pyx_v_q_bat = __Pyx_PyObject_to_MemoryviewSlice_dc_double(values[5], PyBUF_WRITABLE); if (unlikely(!__pyx_v_q_bat.memview)) __PYX_ERR(0, 121, __pyx_L3_error)
+    __pyx_v_K = __Pyx_PyLong_As_int(values[6]); if (unlikely((__pyx_v_K == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 122, __pyx_L3_error)
+    __pyx_v_M = __Pyx_PyLong_As_int(values[7]); if (unlikely((__pyx_v_M == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 122, __pyx_L3_error)
+    __pyx_v_N = __Pyx_PyLong_As_int(values[8]); if (unlikely((__pyx_v_N == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 122, __pyx_L3_error)
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("P_step", 1, 9, 9, __pyx_nargs); __PYX_ERR(0, 119, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("P_step", 1, 9, 9, __pyx_nargs); __PYX_ERR(0, 120, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -18453,7 +18470,7 @@ static PyObject *__pyx_pf_10adamixture_3src_7utils_c_2em_4P_step(CYTHON_UNUSED P
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("P_step", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_void_to_None(__pyx_f_10adamixture_3src_7utils_c_2em_P_step(__pyx_v_G, __pyx_v_P, __pyx_v_P_EM, __pyx_v_Q, __pyx_v_Q_T, __pyx_v_q_bat, __pyx_v_K, __pyx_v_M, __pyx_v_N, 1)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 119, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_void_to_None(__pyx_f_10adamixture_3src_7utils_c_2em_P_step(__pyx_v_G, __pyx_v_P, __pyx_v_P_EM, __pyx_v_Q, __pyx_v_Q_T, __pyx_v_q_bat, __pyx_v_K, __pyx_v_M, __pyx_v_N, 1)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 120, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -18470,7 +18487,7 @@ static PyObject *__pyx_pf_10adamixture_3src_7utils_c_2em_4P_step(CYTHON_UNUSED P
   return __pyx_r;
 }
 
-/* "adamixture/src/utils_c/em.pyx":169
+/* "adamixture/src/utils_c/em.pyx":170
  * 
  * # EM: Apply parameter update for Q
  * cpdef void Q_step(const double[:,::1] Q, double[:,::1] Q_EM, double[:,::1] T,             # <<<<<<<<<<<<<<
@@ -18498,7 +18515,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_Q_step(__Pyx_memviewslice __p
   size_t __pyx_t_8;
   Py_ssize_t __pyx_t_9;
 
-  /* "adamixture/src/utils_c/em.pyx":174
+  /* "adamixture/src/utils_c/em.pyx":175
  *         size_t i, k
  *         double a
  *     for i in range(N):             # <<<<<<<<<<<<<<
@@ -18510,7 +18527,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_Q_step(__Pyx_memviewslice __p
   for (__pyx_t_3 = 0; __pyx_t_3 < __pyx_t_2; __pyx_t_3+=1) {
     __pyx_v_i = __pyx_t_3;
 
-    /* "adamixture/src/utils_c/em.pyx":175
+    /* "adamixture/src/utils_c/em.pyx":176
  *         double a
  *     for i in range(N):
  *         a = 1.0 / q_bat[i]             # <<<<<<<<<<<<<<
@@ -18520,7 +18537,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_Q_step(__Pyx_memviewslice __p
     __pyx_t_4 = __pyx_v_i;
     __pyx_v_a = (1.0 / (*((double *) ( /* dim=0 */ ((char *) (((double *) __pyx_v_q_bat.data) + __pyx_t_4)) ))));
 
-    /* "adamixture/src/utils_c/em.pyx":176
+    /* "adamixture/src/utils_c/em.pyx":177
  *     for i in range(N):
  *         a = 1.0 / q_bat[i]
  *         _updateEM_Q(&T[i, 0], &Q[i, 0], &Q_EM[i, 0], a, K)             # <<<<<<<<<<<<<<
@@ -18535,7 +18552,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_Q_step(__Pyx_memviewslice __p
     __pyx_t_9 = 0;
     __pyx_f_10adamixture_3src_7utils_c_2em__updateEM_Q((&(*((double *) ( /* dim=1 */ ((char *) (((double *) ( /* dim=0 */ (__pyx_v_T.data + __pyx_t_4 * __pyx_v_T.strides[0]) )) + __pyx_t_5)) )))), (&(*((double const  *) ( /* dim=1 */ ((char *) (((double const  *) ( /* dim=0 */ (__pyx_v_Q.data + __pyx_t_6 * __pyx_v_Q.strides[0]) )) + __pyx_t_7)) )))), (&(*((double *) ( /* dim=1 */ ((char *) (((double *) ( /* dim=0 */ (__pyx_v_Q_EM.data + __pyx_t_8 * __pyx_v_Q_EM.strides[0]) )) + __pyx_t_9)) )))), __pyx_v_a, __pyx_v_K);
 
-    /* "adamixture/src/utils_c/em.pyx":177
+    /* "adamixture/src/utils_c/em.pyx":178
  *         a = 1.0 / q_bat[i]
  *         _updateEM_Q(&T[i, 0], &Q[i, 0], &Q_EM[i, 0], a, K)
  *         q_bat[i] = 0.0             # <<<<<<<<<<<<<<
@@ -18546,7 +18563,7 @@ static void __pyx_f_10adamixture_3src_7utils_c_2em_Q_step(__Pyx_memviewslice __p
     *((double *) ( /* dim=0 */ ((char *) (((double *) __pyx_v_q_bat.data) + __pyx_t_8)) )) = 0.0;
   }
 
-  /* "adamixture/src/utils_c/em.pyx":169
+  /* "adamixture/src/utils_c/em.pyx":170
  * 
  * # EM: Apply parameter update for Q
  * cpdef void Q_step(const double[:,::1] Q, double[:,::1] Q_EM, double[:,::1] T,             # <<<<<<<<<<<<<<
@@ -18601,67 +18618,67 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_Q,&__pyx_mstate_global->__pyx_n_u_Q_EM,&__pyx_mstate_global->__pyx_n_u_T,&__pyx_mstate_global->__pyx_n_u_q_bat,&__pyx_mstate_global->__pyx_n_u_K,&__pyx_mstate_global->__pyx_n_u_N,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 169, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 170, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  6:
         values[5] = __Pyx_ArgRef_FASTCALL(__pyx_args, 5);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 169, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 170, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  5:
         values[4] = __Pyx_ArgRef_FASTCALL(__pyx_args, 4);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 169, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 170, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  4:
         values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 169, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 170, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 169, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 170, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 169, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 170, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 169, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 170, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "Q_step", 0) < (0)) __PYX_ERR(0, 169, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "Q_step", 0) < (0)) __PYX_ERR(0, 170, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 6; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("Q_step", 1, 6, 6, i); __PYX_ERR(0, 169, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("Q_step", 1, 6, 6, i); __PYX_ERR(0, 170, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 6)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 169, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 170, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 169, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 170, __pyx_L3_error)
       values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 169, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 170, __pyx_L3_error)
       values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 169, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 170, __pyx_L3_error)
       values[4] = __Pyx_ArgRef_FASTCALL(__pyx_args, 4);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 169, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 170, __pyx_L3_error)
       values[5] = __Pyx_ArgRef_FASTCALL(__pyx_args, 5);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 169, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 170, __pyx_L3_error)
     }
-    __pyx_v_Q = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double__const__(values[0], 0); if (unlikely(!__pyx_v_Q.memview)) __PYX_ERR(0, 169, __pyx_L3_error)
-    __pyx_v_Q_EM = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double(values[1], PyBUF_WRITABLE); if (unlikely(!__pyx_v_Q_EM.memview)) __PYX_ERR(0, 169, __pyx_L3_error)
-    __pyx_v_T = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double(values[2], PyBUF_WRITABLE); if (unlikely(!__pyx_v_T.memview)) __PYX_ERR(0, 169, __pyx_L3_error)
-    __pyx_v_q_bat = __Pyx_PyObject_to_MemoryviewSlice_dc_double(values[3], PyBUF_WRITABLE); if (unlikely(!__pyx_v_q_bat.memview)) __PYX_ERR(0, 170, __pyx_L3_error)
-    __pyx_v_K = __Pyx_PyLong_As_int(values[4]); if (unlikely((__pyx_v_K == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 170, __pyx_L3_error)
-    __pyx_v_N = __Pyx_PyLong_As_int(values[5]); if (unlikely((__pyx_v_N == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 170, __pyx_L3_error)
+    __pyx_v_Q = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double__const__(values[0], 0); if (unlikely(!__pyx_v_Q.memview)) __PYX_ERR(0, 170, __pyx_L3_error)
+    __pyx_v_Q_EM = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double(values[1], PyBUF_WRITABLE); if (unlikely(!__pyx_v_Q_EM.memview)) __PYX_ERR(0, 170, __pyx_L3_error)
+    __pyx_v_T = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double(values[2], PyBUF_WRITABLE); if (unlikely(!__pyx_v_T.memview)) __PYX_ERR(0, 170, __pyx_L3_error)
+    __pyx_v_q_bat = __Pyx_PyObject_to_MemoryviewSlice_dc_double(values[3], PyBUF_WRITABLE); if (unlikely(!__pyx_v_q_bat.memview)) __PYX_ERR(0, 171, __pyx_L3_error)
+    __pyx_v_K = __Pyx_PyLong_As_int(values[4]); if (unlikely((__pyx_v_K == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 171, __pyx_L3_error)
+    __pyx_v_N = __Pyx_PyLong_As_int(values[5]); if (unlikely((__pyx_v_N == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 171, __pyx_L3_error)
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("Q_step", 1, 6, 6, __pyx_nargs); __PYX_ERR(0, 169, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("Q_step", 1, 6, 6, __pyx_nargs); __PYX_ERR(0, 170, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -18699,7 +18716,7 @@ static PyObject *__pyx_pf_10adamixture_3src_7utils_c_2em_6Q_step(CYTHON_UNUSED P
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("Q_step", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_void_to_None(__pyx_f_10adamixture_3src_7utils_c_2em_Q_step(__pyx_v_Q, __pyx_v_Q_EM, __pyx_v_T, __pyx_v_q_bat, __pyx_v_K, __pyx_v_N, 1)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 169, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_void_to_None(__pyx_f_10adamixture_3src_7utils_c_2em_Q_step(__pyx_v_Q, __pyx_v_Q_EM, __pyx_v_T, __pyx_v_q_bat, __pyx_v_K, __pyx_v_N, 1)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 170, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -18716,7 +18733,7 @@ static PyObject *__pyx_pf_10adamixture_3src_7utils_c_2em_6Q_step(CYTHON_UNUSED P
   return __pyx_r;
 }
 
-/* "adamixture/src/utils_c/em.pyx":180
+/* "adamixture/src/utils_c/em.pyx":181
  * 
  * # Clip parameters to domain
  * cdef inline double _clip_to_domain(const double value) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -18727,7 +18744,7 @@ static PyObject *__pyx_pf_10adamixture_3src_7utils_c_2em_6Q_step(CYTHON_UNUSED P
 static CYTHON_INLINE double __pyx_f_10adamixture_3src_7utils_c_2em__clip_to_domain(double const __pyx_v_value) {
   double __pyx_r;
 
-  /* "adamixture/src/utils_c/em.pyx":181
+  /* "adamixture/src/utils_c/em.pyx":182
  * # Clip parameters to domain
  * cdef inline double _clip_to_domain(const double value) noexcept nogil:
  *     return fmin(fmax(value, 1e-5), 1.0 - 1e-5)             # <<<<<<<<<<<<<<
@@ -18737,7 +18754,7 @@ static CYTHON_INLINE double __pyx_f_10adamixture_3src_7utils_c_2em__clip_to_doma
   __pyx_r = fmin(fmax(__pyx_v_value, 1e-5), (1.0 - 1e-5));
   goto __pyx_L0;
 
-  /* "adamixture/src/utils_c/em.pyx":180
+  /* "adamixture/src/utils_c/em.pyx":181
  * 
  * # Clip parameters to domain
  * cdef inline double _clip_to_domain(const double value) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -18750,7 +18767,7 @@ static CYTHON_INLINE double __pyx_f_10adamixture_3src_7utils_c_2em__clip_to_doma
   return __pyx_r;
 }
 
-/* "adamixture/src/utils_c/em.pyx":184
+/* "adamixture/src/utils_c/em.pyx":185
  * 
  * # Compute reconstruction matrix (P x Q)
  * cdef inline double _reconstruct(const double* p, const double* q, const size_t K) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -18766,7 +18783,7 @@ static CYTHON_INLINE double __pyx_f_10adamixture_3src_7utils_c_2em__reconstruct(
   size_t __pyx_t_2;
   size_t __pyx_t_3;
 
-  /* "adamixture/src/utils_c/em.pyx":187
+  /* "adamixture/src/utils_c/em.pyx":188
  *     cdef:
  *         size_t k
  *         double rec = 0.0             # <<<<<<<<<<<<<<
@@ -18775,7 +18792,7 @@ static CYTHON_INLINE double __pyx_f_10adamixture_3src_7utils_c_2em__reconstruct(
 */
   __pyx_v_rec = 0.0;
 
-  /* "adamixture/src/utils_c/em.pyx":188
+  /* "adamixture/src/utils_c/em.pyx":189
  *         size_t k
  *         double rec = 0.0
  *     for k in range(K):             # <<<<<<<<<<<<<<
@@ -18787,24 +18804,27 @@ static CYTHON_INLINE double __pyx_f_10adamixture_3src_7utils_c_2em__reconstruct(
   for (__pyx_t_3 = 0; __pyx_t_3 < __pyx_t_2; __pyx_t_3+=1) {
     __pyx_v_k = __pyx_t_3;
 
-    /* "adamixture/src/utils_c/em.pyx":189
+    /* "adamixture/src/utils_c/em.pyx":190
  *         double rec = 0.0
  *     for k in range(K):
  *         rec += p[k]*q[k]             # <<<<<<<<<<<<<<
  *     return rec
+ * 
 */
     __pyx_v_rec = (__pyx_v_rec + ((__pyx_v_p[__pyx_v_k]) * (__pyx_v_q[__pyx_v_k])));
   }
 
-  /* "adamixture/src/utils_c/em.pyx":190
+  /* "adamixture/src/utils_c/em.pyx":191
  *     for k in range(K):
  *         rec += p[k]*q[k]
  *     return rec             # <<<<<<<<<<<<<<
+ * 
+ * # Cross-validation EM P step
 */
   __pyx_r = __pyx_v_rec;
   goto __pyx_L0;
 
-  /* "adamixture/src/utils_c/em.pyx":184
+  /* "adamixture/src/utils_c/em.pyx":185
  * 
  * # Compute reconstruction matrix (P x Q)
  * cdef inline double _reconstruct(const double* p, const double* q, const size_t K) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -18814,6 +18834,1534 @@ static CYTHON_INLINE double __pyx_f_10adamixture_3src_7utils_c_2em__reconstruct(
 
   /* function exit code */
   __pyx_L0:;
+  return __pyx_r;
+}
+
+/* "adamixture/src/utils_c/em.pyx":194
+ * 
+ * # Cross-validation EM P step
+ * cpdef void P_step_cross(const unsigned char[:,::1] G, double[:,::1] P, double[:,::1] P_EM,             # <<<<<<<<<<<<<<
+ *                         const double[:,::1] Q, double[:,::1] Q_T, double[::1] q_bat,
+ *                         const int K, const int M, uint32_t[::1] s_ind) noexcept nogil:
+*/
+
+static PyObject *__pyx_pw_10adamixture_3src_7utils_c_2em_9P_step_cross(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+); /*proto*/
+static void __pyx_f_10adamixture_3src_7utils_c_2em_P_step_cross(__Pyx_memviewslice __pyx_v_G, __Pyx_memviewslice __pyx_v_P, __Pyx_memviewslice __pyx_v_P_EM, __Pyx_memviewslice __pyx_v_Q, __Pyx_memviewslice __pyx_v_Q_T, __Pyx_memviewslice __pyx_v_q_bat, int const __pyx_v_K, int const __pyx_v_M, __Pyx_memviewslice __pyx_v_s_ind, CYTHON_UNUSED int __pyx_skip_dispatch) {
+  Py_ssize_t __pyx_v_N_sub;
+  size_t __pyx_v_col;
+  size_t __pyx_v_row;
+  size_t __pyx_v_idx_n;
+  size_t __pyx_v_idx_k;
+  uint32_t __pyx_v_l;
+  double __pyx_v_rec;
+  double *__pyx_v_p_ptr;
+  double *__pyx_v_dest_row;
+  unsigned char *__pyx_v_g_ptr;
+  double *__pyx_v_A;
+  double *__pyx_v_B;
+  double *__pyx_v_t;
+  double *__pyx_v_q_len;
+  omp_lock_t __pyx_v_sync_lock;
+  int __pyx_t_1;
+  size_t __pyx_t_2;
+  size_t __pyx_t_3;
+  size_t __pyx_t_4;
+  Py_ssize_t __pyx_t_5;
+  Py_ssize_t __pyx_t_6;
+  Py_ssize_t __pyx_t_7;
+  size_t __pyx_t_8;
+  int __pyx_t_9;
+  int __pyx_t_10;
+
+  /* "adamixture/src/utils_c/em.pyx":198
+ *                         const int K, const int M, uint32_t[::1] s_ind) noexcept nogil:
+ *     cdef:
+ *         Py_ssize_t N_sub = s_ind.shape[0]             # <<<<<<<<<<<<<<
+ *         size_t col, row, idx_n, idx_k
+ *         uint32_t l
+*/
+  __pyx_v_N_sub = (__pyx_v_s_ind.shape[0]);
+
+  /* "adamixture/src/utils_c/em.pyx":211
+ *         omp.omp_lock_t sync_lock
+ * 
+ *     omp.omp_init_lock(&sync_lock)             # <<<<<<<<<<<<<<
+ * 
+ *     with nogil, parallel():
+*/
+  omp_init_lock((&__pyx_v_sync_lock));
+
+  /* "adamixture/src/utils_c/em.pyx":213
+ *     omp.omp_init_lock(&sync_lock)
+ * 
+ *     with nogil, parallel():             # <<<<<<<<<<<<<<
+ *         A = <double*>calloc(K, sizeof(double))
+ *         B = <double*>calloc(K, sizeof(double))
+*/
+  {
+      __Pyx_UnknownThreadState _save;
+      _save = __Pyx_SaveUnknownThread();
+      __Pyx_FastGIL_Remember();
+      /*try:*/ {
+        {
+            #if ((defined(__APPLE__) || defined(__OSX__)) && (defined(__GNUC__) && (__GNUC__ > 2 || (__GNUC__ == 2 && (__GNUC_MINOR__ > 95)))))
+                #undef likely
+                #undef unlikely
+                #define likely(x)   (x)
+                #define unlikely(x) (x)
+            #endif
+            #ifdef _OPENMP
+            #pragma omp parallel firstprivate(__pyx_v_A, __pyx_v_B, __pyx_v_dest_row, __pyx_v_idx_k, __pyx_v_idx_n, __pyx_v_q_len, __pyx_v_t) private(__pyx_t_1, __pyx_t_10, __pyx_t_2, __pyx_t_3, __pyx_t_4, __pyx_t_5, __pyx_t_6, __pyx_t_7, __pyx_t_8, __pyx_t_9)
+            #endif /* _OPENMP */
+            {
+
+                /* "adamixture/src/utils_c/em.pyx":214
+ * 
+ *     with nogil, parallel():
+ *         A = <double*>calloc(K, sizeof(double))             # <<<<<<<<<<<<<<
+ *         B = <double*>calloc(K, sizeof(double))
+ *         t = <double*>calloc(N_sub * K, sizeof(double))
+*/
+                __pyx_v_A = ((double *)calloc(__pyx_v_K, (sizeof(double))));
+
+                /* "adamixture/src/utils_c/em.pyx":215
+ *     with nogil, parallel():
+ *         A = <double*>calloc(K, sizeof(double))
+ *         B = <double*>calloc(K, sizeof(double))             # <<<<<<<<<<<<<<
+ *         t = <double*>calloc(N_sub * K, sizeof(double))
+ *         q_len = <double*>calloc(N_sub, sizeof(double))
+*/
+                __pyx_v_B = ((double *)calloc(__pyx_v_K, (sizeof(double))));
+
+                /* "adamixture/src/utils_c/em.pyx":216
+ *         A = <double*>calloc(K, sizeof(double))
+ *         B = <double*>calloc(K, sizeof(double))
+ *         t = <double*>calloc(N_sub * K, sizeof(double))             # <<<<<<<<<<<<<<
+ *         q_len = <double*>calloc(N_sub, sizeof(double))
+ * 
+*/
+                __pyx_v_t = ((double *)calloc((__pyx_v_N_sub * __pyx_v_K), (sizeof(double))));
+
+                /* "adamixture/src/utils_c/em.pyx":217
+ *         B = <double*>calloc(K, sizeof(double))
+ *         t = <double*>calloc(N_sub * K, sizeof(double))
+ *         q_len = <double*>calloc(N_sub, sizeof(double))             # <<<<<<<<<<<<<<
+ * 
+ *         for row in prange(M, schedule='guided'):
+*/
+                __pyx_v_q_len = ((double *)calloc(__pyx_v_N_sub, (sizeof(double))));
+
+                /* "adamixture/src/utils_c/em.pyx":219
+ *         q_len = <double*>calloc(N_sub, sizeof(double))
+ * 
+ *         for row in prange(M, schedule='guided'):             # <<<<<<<<<<<<<<
+ *             p_ptr = &P[row, 0]
+ *             g_ptr = &G[row, 0]
+*/
+                __pyx_t_1 = __pyx_v_M;
+                {
+                    __pyx_t_3 = (__pyx_t_1 - 0 + 1 - 1/abs(1)) / 1;
+                    if (__pyx_t_3 > 0)
+                    {
+                        #ifdef _OPENMP
+                        #pragma omp for firstprivate(__pyx_v_col) lastprivate(__pyx_v_col) firstprivate(__pyx_v_g_ptr) lastprivate(__pyx_v_g_ptr) firstprivate(__pyx_v_l) lastprivate(__pyx_v_l) firstprivate(__pyx_v_p_ptr) lastprivate(__pyx_v_p_ptr) firstprivate(__pyx_v_rec) lastprivate(__pyx_v_rec) firstprivate(__pyx_v_row) lastprivate(__pyx_v_row) schedule(guided)
+                        #endif /* _OPENMP */
+                        for (__pyx_t_2 = 0; __pyx_t_2 < __pyx_t_3; __pyx_t_2++){
+                            {
+                                __pyx_v_row = (size_t)(0 + 1 * __pyx_t_2);
+
+                                /* "adamixture/src/utils_c/em.pyx":220
+ * 
+ *         for row in prange(M, schedule='guided'):
+ *             p_ptr = &P[row, 0]             # <<<<<<<<<<<<<<
+ *             g_ptr = &G[row, 0]
+ *             for col in range(N_sub):
+*/
+                                __pyx_t_4 = __pyx_v_row;
+                                __pyx_t_5 = 0;
+                                __pyx_v_p_ptr = (&(*((double *) ( /* dim=1 */ ((char *) (((double *) ( /* dim=0 */ (__pyx_v_P.data + __pyx_t_4 * __pyx_v_P.strides[0]) )) + __pyx_t_5)) ))));
+
+                                /* "adamixture/src/utils_c/em.pyx":221
+ *         for row in prange(M, schedule='guided'):
+ *             p_ptr = &P[row, 0]
+ *             g_ptr = &G[row, 0]             # <<<<<<<<<<<<<<
+ *             for col in range(N_sub):
+ *                 l = s_ind[col]
+*/
+                                __pyx_t_4 = __pyx_v_row;
+                                __pyx_t_5 = 0;
+                                __pyx_v_g_ptr = (&(*((unsigned char const  *) ( /* dim=1 */ ((char *) (((unsigned char const  *) ( /* dim=0 */ (__pyx_v_G.data + __pyx_t_4 * __pyx_v_G.strides[0]) )) + __pyx_t_5)) ))));
+
+                                /* "adamixture/src/utils_c/em.pyx":222
+ *             p_ptr = &P[row, 0]
+ *             g_ptr = &G[row, 0]
+ *             for col in range(N_sub):             # <<<<<<<<<<<<<<
+ *                 l = s_ind[col]
+ *                 if g_ptr[l] == 3:
+*/
+                                __pyx_t_6 = __pyx_v_N_sub;
+                                __pyx_t_7 = __pyx_t_6;
+                                for (__pyx_t_4 = 0; __pyx_t_4 < __pyx_t_7; __pyx_t_4+=1) {
+                                  __pyx_v_col = __pyx_t_4;
+
+                                  /* "adamixture/src/utils_c/em.pyx":223
+ *             g_ptr = &G[row, 0]
+ *             for col in range(N_sub):
+ *                 l = s_ind[col]             # <<<<<<<<<<<<<<
+ *                 if g_ptr[l] == 3:
+ *                     continue
+*/
+                                  __pyx_t_8 = __pyx_v_col;
+                                  __pyx_v_l = (*((uint32_t *) ( /* dim=0 */ ((char *) (((uint32_t *) __pyx_v_s_ind.data) + __pyx_t_8)) )));
+
+                                  /* "adamixture/src/utils_c/em.pyx":224
+ *             for col in range(N_sub):
+ *                 l = s_ind[col]
+ *                 if g_ptr[l] == 3:             # <<<<<<<<<<<<<<
+ *                     continue
+ *                 q_len[col] += 2.0
+*/
+                                  __pyx_t_9 = ((__pyx_v_g_ptr[__pyx_v_l]) == 3);
+                                  if (__pyx_t_9) {
+
+                                    /* "adamixture/src/utils_c/em.pyx":225
+ *                 l = s_ind[col]
+ *                 if g_ptr[l] == 3:
+ *                     continue             # <<<<<<<<<<<<<<
+ *                 q_len[col] += 2.0
+ *                 rec = _reconstruct(p_ptr, &Q[l, 0], K)
+*/
+                                    goto __pyx_L14_continue;
+
+                                    /* "adamixture/src/utils_c/em.pyx":224
+ *             for col in range(N_sub):
+ *                 l = s_ind[col]
+ *                 if g_ptr[l] == 3:             # <<<<<<<<<<<<<<
+ *                     continue
+ *                 q_len[col] += 2.0
+*/
+                                  }
+
+                                  /* "adamixture/src/utils_c/em.pyx":226
+ *                 if g_ptr[l] == 3:
+ *                     continue
+ *                 q_len[col] += 2.0             # <<<<<<<<<<<<<<
+ *                 rec = _reconstruct(p_ptr, &Q[l, 0], K)
+ *                 _update_temp_factors(A, B, &t[col * K], p_ptr, &Q[l, 0], g_ptr[l], rec, K)
+*/
+                                  __pyx_t_8 = __pyx_v_col;
+                                  (__pyx_v_q_len[__pyx_t_8]) = ((__pyx_v_q_len[__pyx_t_8]) + 2.0);
+
+                                  /* "adamixture/src/utils_c/em.pyx":227
+ *                     continue
+ *                 q_len[col] += 2.0
+ *                 rec = _reconstruct(p_ptr, &Q[l, 0], K)             # <<<<<<<<<<<<<<
+ *                 _update_temp_factors(A, B, &t[col * K], p_ptr, &Q[l, 0], g_ptr[l], rec, K)
+ *             _updateEM_P(A, B, p_ptr, &P_EM[row, 0], K)
+*/
+                                  __pyx_t_8 = __pyx_v_l;
+                                  __pyx_t_5 = 0;
+                                  __pyx_v_rec = __pyx_f_10adamixture_3src_7utils_c_2em__reconstruct(__pyx_v_p_ptr, (&(*((double const  *) ( /* dim=1 */ ((char *) (((double const  *) ( /* dim=0 */ (__pyx_v_Q.data + __pyx_t_8 * __pyx_v_Q.strides[0]) )) + __pyx_t_5)) )))), __pyx_v_K);
+
+                                  /* "adamixture/src/utils_c/em.pyx":228
+ *                 q_len[col] += 2.0
+ *                 rec = _reconstruct(p_ptr, &Q[l, 0], K)
+ *                 _update_temp_factors(A, B, &t[col * K], p_ptr, &Q[l, 0], g_ptr[l], rec, K)             # <<<<<<<<<<<<<<
+ *             _updateEM_P(A, B, p_ptr, &P_EM[row, 0], K)
+ * 
+*/
+                                  __pyx_t_8 = __pyx_v_l;
+                                  __pyx_t_5 = 0;
+                                  __pyx_f_10adamixture_3src_7utils_c_2em__update_temp_factors(__pyx_v_A, __pyx_v_B, (&(__pyx_v_t[(__pyx_v_col * __pyx_v_K)])), __pyx_v_p_ptr, (&(*((double const  *) ( /* dim=1 */ ((char *) (((double const  *) ( /* dim=0 */ (__pyx_v_Q.data + __pyx_t_8 * __pyx_v_Q.strides[0]) )) + __pyx_t_5)) )))), (__pyx_v_g_ptr[__pyx_v_l]), __pyx_v_rec, __pyx_v_K);
+                                  __pyx_L14_continue:;
+                                }
+
+                                /* "adamixture/src/utils_c/em.pyx":229
+ *                 rec = _reconstruct(p_ptr, &Q[l, 0], K)
+ *                 _update_temp_factors(A, B, &t[col * K], p_ptr, &Q[l, 0], g_ptr[l], rec, K)
+ *             _updateEM_P(A, B, p_ptr, &P_EM[row, 0], K)             # <<<<<<<<<<<<<<
+ * 
+ *         omp.omp_set_lock(&sync_lock)
+*/
+                                __pyx_t_4 = __pyx_v_row;
+                                __pyx_t_5 = 0;
+                                __pyx_f_10adamixture_3src_7utils_c_2em__updateEM_P(__pyx_v_A, __pyx_v_B, __pyx_v_p_ptr, (&(*((double *) ( /* dim=1 */ ((char *) (((double *) ( /* dim=0 */ (__pyx_v_P_EM.data + __pyx_t_4 * __pyx_v_P_EM.strides[0]) )) + __pyx_t_5)) )))), __pyx_v_K);
+                            }
+                        }
+                    }
+                }
+
+                /* "adamixture/src/utils_c/em.pyx":231
+ *             _updateEM_P(A, B, p_ptr, &P_EM[row, 0], K)
+ * 
+ *         omp.omp_set_lock(&sync_lock)             # <<<<<<<<<<<<<<
+ *         for idx_n in range(N_sub):
+ *             q_bat[idx_n] = q_bat[idx_n] + q_len[idx_n]
+*/
+                omp_set_lock((&__pyx_v_sync_lock));
+
+                /* "adamixture/src/utils_c/em.pyx":232
+ * 
+ *         omp.omp_set_lock(&sync_lock)
+ *         for idx_n in range(N_sub):             # <<<<<<<<<<<<<<
+ *             q_bat[idx_n] = q_bat[idx_n] + q_len[idx_n]
+ *             dest_row = &Q_T[idx_n, 0]
+*/
+                __pyx_t_6 = __pyx_v_N_sub;
+                __pyx_t_7 = __pyx_t_6;
+                for (__pyx_t_3 = 0; __pyx_t_3 < __pyx_t_7; __pyx_t_3+=1) {
+                  __pyx_v_idx_n = __pyx_t_3;
+
+                  /* "adamixture/src/utils_c/em.pyx":233
+ *         omp.omp_set_lock(&sync_lock)
+ *         for idx_n in range(N_sub):
+ *             q_bat[idx_n] = q_bat[idx_n] + q_len[idx_n]             # <<<<<<<<<<<<<<
+ *             dest_row = &Q_T[idx_n, 0]
+ *             for idx_k in range(K):
+*/
+                  __pyx_t_2 = __pyx_v_idx_n;
+                  __pyx_t_4 = __pyx_v_idx_n;
+                  *((double *) ( /* dim=0 */ ((char *) (((double *) __pyx_v_q_bat.data) + __pyx_t_4)) )) = ((*((double *) ( /* dim=0 */ ((char *) (((double *) __pyx_v_q_bat.data) + __pyx_t_2)) ))) + (__pyx_v_q_len[__pyx_v_idx_n]));
+
+                  /* "adamixture/src/utils_c/em.pyx":234
+ *         for idx_n in range(N_sub):
+ *             q_bat[idx_n] = q_bat[idx_n] + q_len[idx_n]
+ *             dest_row = &Q_T[idx_n, 0]             # <<<<<<<<<<<<<<
+ *             for idx_k in range(K):
+ *                 dest_row[idx_k] += t[idx_n * K + idx_k]
+*/
+                  __pyx_t_2 = __pyx_v_idx_n;
+                  __pyx_t_5 = 0;
+                  __pyx_v_dest_row = (&(*((double *) ( /* dim=1 */ ((char *) (((double *) ( /* dim=0 */ (__pyx_v_Q_T.data + __pyx_t_2 * __pyx_v_Q_T.strides[0]) )) + __pyx_t_5)) ))));
+
+                  /* "adamixture/src/utils_c/em.pyx":235
+ *             q_bat[idx_n] = q_bat[idx_n] + q_len[idx_n]
+ *             dest_row = &Q_T[idx_n, 0]
+ *             for idx_k in range(K):             # <<<<<<<<<<<<<<
+ *                 dest_row[idx_k] += t[idx_n * K + idx_k]
+ *         omp.omp_unset_lock(&sync_lock)
+*/
+                  __pyx_t_1 = __pyx_v_K;
+                  __pyx_t_10 = __pyx_t_1;
+                  for (__pyx_t_2 = 0; __pyx_t_2 < __pyx_t_10; __pyx_t_2+=1) {
+                    __pyx_v_idx_k = __pyx_t_2;
+
+                    /* "adamixture/src/utils_c/em.pyx":236
+ *             dest_row = &Q_T[idx_n, 0]
+ *             for idx_k in range(K):
+ *                 dest_row[idx_k] += t[idx_n * K + idx_k]             # <<<<<<<<<<<<<<
+ *         omp.omp_unset_lock(&sync_lock)
+ * 
+*/
+                    __pyx_t_4 = __pyx_v_idx_k;
+                    (__pyx_v_dest_row[__pyx_t_4]) = ((__pyx_v_dest_row[__pyx_t_4]) + (__pyx_v_t[((__pyx_v_idx_n * __pyx_v_K) + __pyx_v_idx_k)]));
+                  }
+                }
+
+                /* "adamixture/src/utils_c/em.pyx":237
+ *             for idx_k in range(K):
+ *                 dest_row[idx_k] += t[idx_n * K + idx_k]
+ *         omp.omp_unset_lock(&sync_lock)             # <<<<<<<<<<<<<<
+ * 
+ *         free(A)
+*/
+                omp_unset_lock((&__pyx_v_sync_lock));
+
+                /* "adamixture/src/utils_c/em.pyx":239
+ *         omp.omp_unset_lock(&sync_lock)
+ * 
+ *         free(A)             # <<<<<<<<<<<<<<
+ *         free(B)
+ *         free(t)
+*/
+                free(__pyx_v_A);
+
+                /* "adamixture/src/utils_c/em.pyx":240
+ * 
+ *         free(A)
+ *         free(B)             # <<<<<<<<<<<<<<
+ *         free(t)
+ *         free(q_len)
+*/
+                free(__pyx_v_B);
+
+                /* "adamixture/src/utils_c/em.pyx":241
+ *         free(A)
+ *         free(B)
+ *         free(t)             # <<<<<<<<<<<<<<
+ *         free(q_len)
+ * 
+*/
+                free(__pyx_v_t);
+
+                /* "adamixture/src/utils_c/em.pyx":242
+ *         free(B)
+ *         free(t)
+ *         free(q_len)             # <<<<<<<<<<<<<<
+ * 
+ *     omp.omp_destroy_lock(&sync_lock)
+*/
+                free(__pyx_v_q_len);
+            }
+        }
+        #if ((defined(__APPLE__) || defined(__OSX__)) && (defined(__GNUC__) && (__GNUC__ > 2 || (__GNUC__ == 2 && (__GNUC_MINOR__ > 95)))))
+            #undef likely
+            #undef unlikely
+            #define likely(x)   __builtin_expect(!!(x), 1)
+            #define unlikely(x) __builtin_expect(!!(x), 0)
+        #endif
+      }
+
+      /* "adamixture/src/utils_c/em.pyx":213
+ *     omp.omp_init_lock(&sync_lock)
+ * 
+ *     with nogil, parallel():             # <<<<<<<<<<<<<<
+ *         A = <double*>calloc(K, sizeof(double))
+ *         B = <double*>calloc(K, sizeof(double))
+*/
+      /*finally:*/ {
+        /*normal exit:*/{
+          __Pyx_FastGIL_Forget();
+          __Pyx_RestoreUnknownThread(_save);
+          goto __pyx_L5;
+        }
+        __pyx_L5:;
+      }
+  }
+
+  /* "adamixture/src/utils_c/em.pyx":244
+ *         free(q_len)
+ * 
+ *     omp.omp_destroy_lock(&sync_lock)             # <<<<<<<<<<<<<<
+ * 
+ * # Cross-validation EM Q step
+*/
+  omp_destroy_lock((&__pyx_v_sync_lock));
+
+  /* "adamixture/src/utils_c/em.pyx":194
+ * 
+ * # Cross-validation EM P step
+ * cpdef void P_step_cross(const unsigned char[:,::1] G, double[:,::1] P, double[:,::1] P_EM,             # <<<<<<<<<<<<<<
+ *                         const double[:,::1] Q, double[:,::1] Q_T, double[::1] q_bat,
+ *                         const int K, const int M, uint32_t[::1] s_ind) noexcept nogil:
+*/
+
+  /* function exit code */
+}
+
+/* Python wrapper */
+static PyObject *__pyx_pw_10adamixture_3src_7utils_c_2em_9P_step_cross(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+); /*proto*/
+static PyMethodDef __pyx_mdef_10adamixture_3src_7utils_c_2em_9P_step_cross = {"P_step_cross", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_10adamixture_3src_7utils_c_2em_9P_step_cross, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_10adamixture_3src_7utils_c_2em_9P_step_cross(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+) {
+  __Pyx_memviewslice __pyx_v_G = { 0, 0, { 0 }, { 0 }, { 0 } };
+  __Pyx_memviewslice __pyx_v_P = { 0, 0, { 0 }, { 0 }, { 0 } };
+  __Pyx_memviewslice __pyx_v_P_EM = { 0, 0, { 0 }, { 0 }, { 0 } };
+  __Pyx_memviewslice __pyx_v_Q = { 0, 0, { 0 }, { 0 }, { 0 } };
+  __Pyx_memviewslice __pyx_v_Q_T = { 0, 0, { 0 }, { 0 }, { 0 } };
+  __Pyx_memviewslice __pyx_v_q_bat = { 0, 0, { 0 }, { 0 }, { 0 } };
+  int __pyx_v_K;
+  int __pyx_v_M;
+  __Pyx_memviewslice __pyx_v_s_ind = { 0, 0, { 0 }, { 0 }, { 0 } };
+  #if !CYTHON_METH_FASTCALL
+  CYTHON_UNUSED Py_ssize_t __pyx_nargs;
+  #endif
+  CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
+  PyObject* values[9] = {0,0,0,0,0,0,0,0,0};
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  PyObject *__pyx_r = 0;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("P_step_cross (wrapper)", 0);
+  #if !CYTHON_METH_FASTCALL
+  #if CYTHON_ASSUME_SAFE_SIZE
+  __pyx_nargs = PyTuple_GET_SIZE(__pyx_args);
+  #else
+  __pyx_nargs = PyTuple_Size(__pyx_args); if (unlikely(__pyx_nargs < 0)) return NULL;
+  #endif
+  #endif
+  __pyx_kwvalues = __Pyx_KwValues_FASTCALL(__pyx_args, __pyx_nargs);
+  {
+    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_G,&__pyx_mstate_global->__pyx_n_u_P,&__pyx_mstate_global->__pyx_n_u_P_EM,&__pyx_mstate_global->__pyx_n_u_Q,&__pyx_mstate_global->__pyx_n_u_Q_T,&__pyx_mstate_global->__pyx_n_u_q_bat,&__pyx_mstate_global->__pyx_n_u_K,&__pyx_mstate_global->__pyx_n_u_M,&__pyx_mstate_global->__pyx_n_u_s_ind,0};
+    const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 194, __pyx_L3_error)
+    if (__pyx_kwds_len > 0) {
+      switch (__pyx_nargs) {
+        case  9:
+        values[8] = __Pyx_ArgRef_FASTCALL(__pyx_args, 8);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[8])) __PYX_ERR(0, 194, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  8:
+        values[7] = __Pyx_ArgRef_FASTCALL(__pyx_args, 7);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[7])) __PYX_ERR(0, 194, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  7:
+        values[6] = __Pyx_ArgRef_FASTCALL(__pyx_args, 6);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[6])) __PYX_ERR(0, 194, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  6:
+        values[5] = __Pyx_ArgRef_FASTCALL(__pyx_args, 5);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 194, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  5:
+        values[4] = __Pyx_ArgRef_FASTCALL(__pyx_args, 4);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 194, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  4:
+        values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 194, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  3:
+        values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 194, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  2:
+        values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 194, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  1:
+        values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 194, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  0: break;
+        default: goto __pyx_L5_argtuple_error;
+      }
+      const Py_ssize_t kwd_pos_args = __pyx_nargs;
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "P_step_cross", 0) < (0)) __PYX_ERR(0, 194, __pyx_L3_error)
+      for (Py_ssize_t i = __pyx_nargs; i < 9; i++) {
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("P_step_cross", 1, 9, 9, i); __PYX_ERR(0, 194, __pyx_L3_error) }
+      }
+    } else if (unlikely(__pyx_nargs != 9)) {
+      goto __pyx_L5_argtuple_error;
+    } else {
+      values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 194, __pyx_L3_error)
+      values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 194, __pyx_L3_error)
+      values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 194, __pyx_L3_error)
+      values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 194, __pyx_L3_error)
+      values[4] = __Pyx_ArgRef_FASTCALL(__pyx_args, 4);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 194, __pyx_L3_error)
+      values[5] = __Pyx_ArgRef_FASTCALL(__pyx_args, 5);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 194, __pyx_L3_error)
+      values[6] = __Pyx_ArgRef_FASTCALL(__pyx_args, 6);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[6])) __PYX_ERR(0, 194, __pyx_L3_error)
+      values[7] = __Pyx_ArgRef_FASTCALL(__pyx_args, 7);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[7])) __PYX_ERR(0, 194, __pyx_L3_error)
+      values[8] = __Pyx_ArgRef_FASTCALL(__pyx_args, 8);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[8])) __PYX_ERR(0, 194, __pyx_L3_error)
+    }
+    __pyx_v_G = __Pyx_PyObject_to_MemoryviewSlice_d_dc_unsigned_char__const__(values[0], 0); if (unlikely(!__pyx_v_G.memview)) __PYX_ERR(0, 194, __pyx_L3_error)
+    __pyx_v_P = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double(values[1], PyBUF_WRITABLE); if (unlikely(!__pyx_v_P.memview)) __PYX_ERR(0, 194, __pyx_L3_error)
+    __pyx_v_P_EM = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double(values[2], PyBUF_WRITABLE); if (unlikely(!__pyx_v_P_EM.memview)) __PYX_ERR(0, 194, __pyx_L3_error)
+    __pyx_v_Q = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double__const__(values[3], 0); if (unlikely(!__pyx_v_Q.memview)) __PYX_ERR(0, 195, __pyx_L3_error)
+    __pyx_v_Q_T = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double(values[4], PyBUF_WRITABLE); if (unlikely(!__pyx_v_Q_T.memview)) __PYX_ERR(0, 195, __pyx_L3_error)
+    __pyx_v_q_bat = __Pyx_PyObject_to_MemoryviewSlice_dc_double(values[5], PyBUF_WRITABLE); if (unlikely(!__pyx_v_q_bat.memview)) __PYX_ERR(0, 195, __pyx_L3_error)
+    __pyx_v_K = __Pyx_PyLong_As_int(values[6]); if (unlikely((__pyx_v_K == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 196, __pyx_L3_error)
+    __pyx_v_M = __Pyx_PyLong_As_int(values[7]); if (unlikely((__pyx_v_M == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 196, __pyx_L3_error)
+    __pyx_v_s_ind = __Pyx_PyObject_to_MemoryviewSlice_dc_nn_uint32_t(values[8], PyBUF_WRITABLE); if (unlikely(!__pyx_v_s_ind.memview)) __PYX_ERR(0, 196, __pyx_L3_error)
+  }
+  goto __pyx_L6_skip;
+  __pyx_L5_argtuple_error:;
+  __Pyx_RaiseArgtupleInvalid("P_step_cross", 1, 9, 9, __pyx_nargs); __PYX_ERR(0, 194, __pyx_L3_error)
+  __pyx_L6_skip:;
+  goto __pyx_L4_argument_unpacking_done;
+  __pyx_L3_error:;
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_G, 1);
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_P, 1);
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_P_EM, 1);
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_Q, 1);
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_Q_T, 1);
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_q_bat, 1);
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_s_ind, 1);
+  __Pyx_AddTraceback("adamixture.src.utils_c.em.P_step_cross", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_RefNannyFinishContext();
+  return NULL;
+  __pyx_L4_argument_unpacking_done:;
+  __pyx_r = __pyx_pf_10adamixture_3src_7utils_c_2em_8P_step_cross(__pyx_self, __pyx_v_G, __pyx_v_P, __pyx_v_P_EM, __pyx_v_Q, __pyx_v_Q_T, __pyx_v_q_bat, __pyx_v_K, __pyx_v_M, __pyx_v_s_ind);
+
+  /* function exit code */
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_G, 1);
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_P, 1);
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_P_EM, 1);
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_Q, 1);
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_Q_T, 1);
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_q_bat, 1);
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_s_ind, 1);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_pf_10adamixture_3src_7utils_c_2em_8P_step_cross(CYTHON_UNUSED PyObject *__pyx_self, __Pyx_memviewslice __pyx_v_G, __Pyx_memviewslice __pyx_v_P, __Pyx_memviewslice __pyx_v_P_EM, __Pyx_memviewslice __pyx_v_Q, __Pyx_memviewslice __pyx_v_Q_T, __Pyx_memviewslice __pyx_v_q_bat, int __pyx_v_K, int __pyx_v_M, __Pyx_memviewslice __pyx_v_s_ind) {
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("P_step_cross", 0);
+  __Pyx_XDECREF(__pyx_r);
+  __pyx_t_1 = __Pyx_void_to_None(__pyx_f_10adamixture_3src_7utils_c_2em_P_step_cross(__pyx_v_G, __pyx_v_P, __pyx_v_P_EM, __pyx_v_Q, __pyx_v_Q_T, __pyx_v_q_bat, __pyx_v_K, __pyx_v_M, __pyx_v_s_ind, 1)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 194, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_r = __pyx_t_1;
+  __pyx_t_1 = 0;
+  goto __pyx_L0;
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_AddTraceback("adamixture.src.utils_c.em.P_step_cross", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = NULL;
+  __pyx_L0:;
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "adamixture/src/utils_c/em.pyx":247
+ * 
+ * # Cross-validation EM Q step
+ * cpdef void Q_step_cross(const double[:,::1] Q, double[:,::1] Q_EM, double[:,::1] Q_T,             # <<<<<<<<<<<<<<
+ *                         double[::1] q_bat, const int K, uint32_t[::1] s_ind) noexcept nogil:
+ *     cdef:
+*/
+
+static PyObject *__pyx_pw_10adamixture_3src_7utils_c_2em_11Q_step_cross(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+); /*proto*/
+static void __pyx_f_10adamixture_3src_7utils_c_2em_Q_step_cross(__Pyx_memviewslice __pyx_v_Q, __Pyx_memviewslice __pyx_v_Q_EM, __Pyx_memviewslice __pyx_v_Q_T, __Pyx_memviewslice __pyx_v_q_bat, int const __pyx_v_K, __Pyx_memviewslice __pyx_v_s_ind, CYTHON_UNUSED int __pyx_skip_dispatch) {
+  Py_ssize_t __pyx_v_N_sub;
+  size_t __pyx_v_i;
+  uint32_t __pyx_v_l;
+  double __pyx_v_a;
+  Py_ssize_t __pyx_t_1;
+  Py_ssize_t __pyx_t_2;
+  size_t __pyx_t_3;
+  size_t __pyx_t_4;
+  Py_ssize_t __pyx_t_5;
+  size_t __pyx_t_6;
+  Py_ssize_t __pyx_t_7;
+  size_t __pyx_t_8;
+  Py_ssize_t __pyx_t_9;
+
+  /* "adamixture/src/utils_c/em.pyx":250
+ *                         double[::1] q_bat, const int K, uint32_t[::1] s_ind) noexcept nogil:
+ *     cdef:
+ *         Py_ssize_t N_sub = s_ind.shape[0]             # <<<<<<<<<<<<<<
+ *         size_t i, k
+ *         uint32_t l
+*/
+  __pyx_v_N_sub = (__pyx_v_s_ind.shape[0]);
+
+  /* "adamixture/src/utils_c/em.pyx":254
+ *         uint32_t l
+ *         double a
+ *     for i in range(N_sub):             # <<<<<<<<<<<<<<
+ *         l = s_ind[i]
+ *         a = 1.0 / q_bat[i]
+*/
+  __pyx_t_1 = __pyx_v_N_sub;
+  __pyx_t_2 = __pyx_t_1;
+  for (__pyx_t_3 = 0; __pyx_t_3 < __pyx_t_2; __pyx_t_3+=1) {
+    __pyx_v_i = __pyx_t_3;
+
+    /* "adamixture/src/utils_c/em.pyx":255
+ *         double a
+ *     for i in range(N_sub):
+ *         l = s_ind[i]             # <<<<<<<<<<<<<<
+ *         a = 1.0 / q_bat[i]
+ *         _updateEM_Q(&Q_T[i, 0], &Q[l, 0], &Q_EM[l, 0], a, K)
+*/
+    __pyx_t_4 = __pyx_v_i;
+    __pyx_v_l = (*((uint32_t *) ( /* dim=0 */ ((char *) (((uint32_t *) __pyx_v_s_ind.data) + __pyx_t_4)) )));
+
+    /* "adamixture/src/utils_c/em.pyx":256
+ *     for i in range(N_sub):
+ *         l = s_ind[i]
+ *         a = 1.0 / q_bat[i]             # <<<<<<<<<<<<<<
+ *         _updateEM_Q(&Q_T[i, 0], &Q[l, 0], &Q_EM[l, 0], a, K)
+ *         q_bat[i] = 0.0
+*/
+    __pyx_t_4 = __pyx_v_i;
+    __pyx_v_a = (1.0 / (*((double *) ( /* dim=0 */ ((char *) (((double *) __pyx_v_q_bat.data) + __pyx_t_4)) ))));
+
+    /* "adamixture/src/utils_c/em.pyx":257
+ *         l = s_ind[i]
+ *         a = 1.0 / q_bat[i]
+ *         _updateEM_Q(&Q_T[i, 0], &Q[l, 0], &Q_EM[l, 0], a, K)             # <<<<<<<<<<<<<<
+ *         q_bat[i] = 0.0
+ * 
+*/
+    __pyx_t_4 = __pyx_v_i;
+    __pyx_t_5 = 0;
+    __pyx_t_6 = __pyx_v_l;
+    __pyx_t_7 = 0;
+    __pyx_t_8 = __pyx_v_l;
+    __pyx_t_9 = 0;
+    __pyx_f_10adamixture_3src_7utils_c_2em__updateEM_Q((&(*((double *) ( /* dim=1 */ ((char *) (((double *) ( /* dim=0 */ (__pyx_v_Q_T.data + __pyx_t_4 * __pyx_v_Q_T.strides[0]) )) + __pyx_t_5)) )))), (&(*((double const  *) ( /* dim=1 */ ((char *) (((double const  *) ( /* dim=0 */ (__pyx_v_Q.data + __pyx_t_6 * __pyx_v_Q.strides[0]) )) + __pyx_t_7)) )))), (&(*((double *) ( /* dim=1 */ ((char *) (((double *) ( /* dim=0 */ (__pyx_v_Q_EM.data + __pyx_t_8 * __pyx_v_Q_EM.strides[0]) )) + __pyx_t_9)) )))), __pyx_v_a, __pyx_v_K);
+
+    /* "adamixture/src/utils_c/em.pyx":258
+ *         a = 1.0 / q_bat[i]
+ *         _updateEM_Q(&Q_T[i, 0], &Q[l, 0], &Q_EM[l, 0], a, K)
+ *         q_bat[i] = 0.0             # <<<<<<<<<<<<<<
+ * 
+ * # Cross-validation EM Q-only projection step
+*/
+    __pyx_t_8 = __pyx_v_i;
+    *((double *) ( /* dim=0 */ ((char *) (((double *) __pyx_v_q_bat.data) + __pyx_t_8)) )) = 0.0;
+  }
+
+  /* "adamixture/src/utils_c/em.pyx":247
+ * 
+ * # Cross-validation EM Q step
+ * cpdef void Q_step_cross(const double[:,::1] Q, double[:,::1] Q_EM, double[:,::1] Q_T,             # <<<<<<<<<<<<<<
+ *                         double[::1] q_bat, const int K, uint32_t[::1] s_ind) noexcept nogil:
+ *     cdef:
+*/
+
+  /* function exit code */
+}
+
+/* Python wrapper */
+static PyObject *__pyx_pw_10adamixture_3src_7utils_c_2em_11Q_step_cross(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+); /*proto*/
+static PyMethodDef __pyx_mdef_10adamixture_3src_7utils_c_2em_11Q_step_cross = {"Q_step_cross", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_10adamixture_3src_7utils_c_2em_11Q_step_cross, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_10adamixture_3src_7utils_c_2em_11Q_step_cross(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+) {
+  __Pyx_memviewslice __pyx_v_Q = { 0, 0, { 0 }, { 0 }, { 0 } };
+  __Pyx_memviewslice __pyx_v_Q_EM = { 0, 0, { 0 }, { 0 }, { 0 } };
+  __Pyx_memviewslice __pyx_v_Q_T = { 0, 0, { 0 }, { 0 }, { 0 } };
+  __Pyx_memviewslice __pyx_v_q_bat = { 0, 0, { 0 }, { 0 }, { 0 } };
+  int __pyx_v_K;
+  __Pyx_memviewslice __pyx_v_s_ind = { 0, 0, { 0 }, { 0 }, { 0 } };
+  #if !CYTHON_METH_FASTCALL
+  CYTHON_UNUSED Py_ssize_t __pyx_nargs;
+  #endif
+  CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
+  PyObject* values[6] = {0,0,0,0,0,0};
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  PyObject *__pyx_r = 0;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("Q_step_cross (wrapper)", 0);
+  #if !CYTHON_METH_FASTCALL
+  #if CYTHON_ASSUME_SAFE_SIZE
+  __pyx_nargs = PyTuple_GET_SIZE(__pyx_args);
+  #else
+  __pyx_nargs = PyTuple_Size(__pyx_args); if (unlikely(__pyx_nargs < 0)) return NULL;
+  #endif
+  #endif
+  __pyx_kwvalues = __Pyx_KwValues_FASTCALL(__pyx_args, __pyx_nargs);
+  {
+    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_Q,&__pyx_mstate_global->__pyx_n_u_Q_EM,&__pyx_mstate_global->__pyx_n_u_Q_T,&__pyx_mstate_global->__pyx_n_u_q_bat,&__pyx_mstate_global->__pyx_n_u_K,&__pyx_mstate_global->__pyx_n_u_s_ind,0};
+    const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 247, __pyx_L3_error)
+    if (__pyx_kwds_len > 0) {
+      switch (__pyx_nargs) {
+        case  6:
+        values[5] = __Pyx_ArgRef_FASTCALL(__pyx_args, 5);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 247, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  5:
+        values[4] = __Pyx_ArgRef_FASTCALL(__pyx_args, 4);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 247, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  4:
+        values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 247, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  3:
+        values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 247, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  2:
+        values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 247, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  1:
+        values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 247, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  0: break;
+        default: goto __pyx_L5_argtuple_error;
+      }
+      const Py_ssize_t kwd_pos_args = __pyx_nargs;
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "Q_step_cross", 0) < (0)) __PYX_ERR(0, 247, __pyx_L3_error)
+      for (Py_ssize_t i = __pyx_nargs; i < 6; i++) {
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("Q_step_cross", 1, 6, 6, i); __PYX_ERR(0, 247, __pyx_L3_error) }
+      }
+    } else if (unlikely(__pyx_nargs != 6)) {
+      goto __pyx_L5_argtuple_error;
+    } else {
+      values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 247, __pyx_L3_error)
+      values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 247, __pyx_L3_error)
+      values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 247, __pyx_L3_error)
+      values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 247, __pyx_L3_error)
+      values[4] = __Pyx_ArgRef_FASTCALL(__pyx_args, 4);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 247, __pyx_L3_error)
+      values[5] = __Pyx_ArgRef_FASTCALL(__pyx_args, 5);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 247, __pyx_L3_error)
+    }
+    __pyx_v_Q = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double__const__(values[0], 0); if (unlikely(!__pyx_v_Q.memview)) __PYX_ERR(0, 247, __pyx_L3_error)
+    __pyx_v_Q_EM = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double(values[1], PyBUF_WRITABLE); if (unlikely(!__pyx_v_Q_EM.memview)) __PYX_ERR(0, 247, __pyx_L3_error)
+    __pyx_v_Q_T = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double(values[2], PyBUF_WRITABLE); if (unlikely(!__pyx_v_Q_T.memview)) __PYX_ERR(0, 247, __pyx_L3_error)
+    __pyx_v_q_bat = __Pyx_PyObject_to_MemoryviewSlice_dc_double(values[3], PyBUF_WRITABLE); if (unlikely(!__pyx_v_q_bat.memview)) __PYX_ERR(0, 248, __pyx_L3_error)
+    __pyx_v_K = __Pyx_PyLong_As_int(values[4]); if (unlikely((__pyx_v_K == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 248, __pyx_L3_error)
+    __pyx_v_s_ind = __Pyx_PyObject_to_MemoryviewSlice_dc_nn_uint32_t(values[5], PyBUF_WRITABLE); if (unlikely(!__pyx_v_s_ind.memview)) __PYX_ERR(0, 248, __pyx_L3_error)
+  }
+  goto __pyx_L6_skip;
+  __pyx_L5_argtuple_error:;
+  __Pyx_RaiseArgtupleInvalid("Q_step_cross", 1, 6, 6, __pyx_nargs); __PYX_ERR(0, 247, __pyx_L3_error)
+  __pyx_L6_skip:;
+  goto __pyx_L4_argument_unpacking_done;
+  __pyx_L3_error:;
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_Q, 1);
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_Q_EM, 1);
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_Q_T, 1);
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_q_bat, 1);
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_s_ind, 1);
+  __Pyx_AddTraceback("adamixture.src.utils_c.em.Q_step_cross", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_RefNannyFinishContext();
+  return NULL;
+  __pyx_L4_argument_unpacking_done:;
+  __pyx_r = __pyx_pf_10adamixture_3src_7utils_c_2em_10Q_step_cross(__pyx_self, __pyx_v_Q, __pyx_v_Q_EM, __pyx_v_Q_T, __pyx_v_q_bat, __pyx_v_K, __pyx_v_s_ind);
+
+  /* function exit code */
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_Q, 1);
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_Q_EM, 1);
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_Q_T, 1);
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_q_bat, 1);
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_s_ind, 1);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_pf_10adamixture_3src_7utils_c_2em_10Q_step_cross(CYTHON_UNUSED PyObject *__pyx_self, __Pyx_memviewslice __pyx_v_Q, __Pyx_memviewslice __pyx_v_Q_EM, __Pyx_memviewslice __pyx_v_Q_T, __Pyx_memviewslice __pyx_v_q_bat, int __pyx_v_K, __Pyx_memviewslice __pyx_v_s_ind) {
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("Q_step_cross", 0);
+  __Pyx_XDECREF(__pyx_r);
+  __pyx_t_1 = __Pyx_void_to_None(__pyx_f_10adamixture_3src_7utils_c_2em_Q_step_cross(__pyx_v_Q, __pyx_v_Q_EM, __pyx_v_Q_T, __pyx_v_q_bat, __pyx_v_K, __pyx_v_s_ind, 1)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 247, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_r = __pyx_t_1;
+  __pyx_t_1 = 0;
+  goto __pyx_L0;
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_AddTraceback("adamixture.src.utils_c.em.Q_step_cross", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = NULL;
+  __pyx_L0:;
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "adamixture/src/utils_c/em.pyx":261
+ * 
+ * # Cross-validation EM Q-only projection step
+ * cpdef void Q_proj_step(const unsigned char[:,::1] G, const double[:,::1] P,             # <<<<<<<<<<<<<<
+ *                        const double[:,::1] Q, double[:,::1] Q_EM, double[:,::1] Q_T,
+ *                        double[::1] q_bat, const int K, const int M,
+*/
+
+static PyObject *__pyx_pw_10adamixture_3src_7utils_c_2em_13Q_proj_step(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+); /*proto*/
+static void __pyx_f_10adamixture_3src_7utils_c_2em_Q_proj_step(__Pyx_memviewslice __pyx_v_G, __Pyx_memviewslice __pyx_v_P, __Pyx_memviewslice __pyx_v_Q, __Pyx_memviewslice __pyx_v_Q_EM, __Pyx_memviewslice __pyx_v_Q_T, __Pyx_memviewslice __pyx_v_q_bat, int const __pyx_v_K, int const __pyx_v_M, __Pyx_memviewslice __pyx_v_s_ind, CYTHON_UNUSED int __pyx_skip_dispatch) {
+  Py_ssize_t __pyx_v_N_sub;
+  size_t __pyx_v_col;
+  size_t __pyx_v_row;
+  size_t __pyx_v_idx_n;
+  size_t __pyx_v_idx_k;
+  size_t __pyx_v_kk;
+  uint32_t __pyx_v_l;
+  uint32_t __pyx_v_l2;
+  double __pyx_v_rec;
+  double __pyx_v_g_f;
+  double __pyx_v_a_val;
+  double __pyx_v_b_val;
+  double const *__pyx_v_p_ptr;
+  unsigned char const *__pyx_v_g_ptr;
+  double *__pyx_v_t;
+  double *__pyx_v_q_len;
+  omp_lock_t __pyx_v_sync_lock;
+  int __pyx_t_1;
+  size_t __pyx_t_2;
+  size_t __pyx_t_3;
+  size_t __pyx_t_4;
+  Py_ssize_t __pyx_t_5;
+  Py_ssize_t __pyx_t_6;
+  Py_ssize_t __pyx_t_7;
+  size_t __pyx_t_8;
+  int __pyx_t_9;
+  int __pyx_t_10;
+  int __pyx_t_11;
+  size_t __pyx_t_12;
+  Py_ssize_t __pyx_t_13;
+  Py_ssize_t __pyx_t_14;
+
+  /* "adamixture/src/utils_c/em.pyx":266
+ *                        uint32_t[::1] s_ind) noexcept nogil:
+ *     cdef:
+ *         Py_ssize_t N_sub = s_ind.shape[0]             # <<<<<<<<<<<<<<
+ *         size_t col, row, idx_n, idx_k, kk
+ *         uint32_t l, l2
+*/
+  __pyx_v_N_sub = (__pyx_v_s_ind.shape[0]);
+
+  /* "adamixture/src/utils_c/em.pyx":276
+ *         omp.omp_lock_t sync_lock
+ * 
+ *     omp.omp_init_lock(&sync_lock)             # <<<<<<<<<<<<<<
+ * 
+ *     with nogil, parallel():
+*/
+  omp_init_lock((&__pyx_v_sync_lock));
+
+  /* "adamixture/src/utils_c/em.pyx":278
+ *     omp.omp_init_lock(&sync_lock)
+ * 
+ *     with nogil, parallel():             # <<<<<<<<<<<<<<
+ *         t = <double*>calloc(N_sub * K, sizeof(double))
+ *         q_len = <double*>calloc(N_sub, sizeof(double))
+*/
+  {
+      __Pyx_UnknownThreadState _save;
+      _save = __Pyx_SaveUnknownThread();
+      __Pyx_FastGIL_Remember();
+      /*try:*/ {
+        {
+            #if ((defined(__APPLE__) || defined(__OSX__)) && (defined(__GNUC__) && (__GNUC__ > 2 || (__GNUC__ == 2 && (__GNUC_MINOR__ > 95)))))
+                #undef likely
+                #undef unlikely
+                #define likely(x)   (x)
+                #define unlikely(x) (x)
+            #endif
+            #ifdef _OPENMP
+            #pragma omp parallel firstprivate(__pyx_v_idx_k, __pyx_v_idx_n, __pyx_v_q_len, __pyx_v_t) private(__pyx_t_1, __pyx_t_10, __pyx_t_11, __pyx_t_12, __pyx_t_2, __pyx_t_3, __pyx_t_4, __pyx_t_5, __pyx_t_6, __pyx_t_7, __pyx_t_8, __pyx_t_9)
+            #endif /* _OPENMP */
+            {
+
+                /* "adamixture/src/utils_c/em.pyx":279
+ * 
+ *     with nogil, parallel():
+ *         t = <double*>calloc(N_sub * K, sizeof(double))             # <<<<<<<<<<<<<<
+ *         q_len = <double*>calloc(N_sub, sizeof(double))
+ * 
+*/
+                __pyx_v_t = ((double *)calloc((__pyx_v_N_sub * __pyx_v_K), (sizeof(double))));
+
+                /* "adamixture/src/utils_c/em.pyx":280
+ *     with nogil, parallel():
+ *         t = <double*>calloc(N_sub * K, sizeof(double))
+ *         q_len = <double*>calloc(N_sub, sizeof(double))             # <<<<<<<<<<<<<<
+ * 
+ *         for row in prange(M, schedule='guided'):
+*/
+                __pyx_v_q_len = ((double *)calloc(__pyx_v_N_sub, (sizeof(double))));
+
+                /* "adamixture/src/utils_c/em.pyx":282
+ *         q_len = <double*>calloc(N_sub, sizeof(double))
+ * 
+ *         for row in prange(M, schedule='guided'):             # <<<<<<<<<<<<<<
+ *             p_ptr = &P[row, 0]
+ *             g_ptr = &G[row, 0]
+*/
+                __pyx_t_1 = __pyx_v_M;
+                {
+                    __pyx_t_3 = (__pyx_t_1 - 0 + 1 - 1/abs(1)) / 1;
+                    if (__pyx_t_3 > 0)
+                    {
+                        #ifdef _OPENMP
+                        #pragma omp for firstprivate(__pyx_v_a_val) lastprivate(__pyx_v_a_val) firstprivate(__pyx_v_b_val) lastprivate(__pyx_v_b_val) firstprivate(__pyx_v_col) lastprivate(__pyx_v_col) firstprivate(__pyx_v_g_f) lastprivate(__pyx_v_g_f) firstprivate(__pyx_v_g_ptr) lastprivate(__pyx_v_g_ptr) firstprivate(__pyx_v_kk) lastprivate(__pyx_v_kk) firstprivate(__pyx_v_l) lastprivate(__pyx_v_l) firstprivate(__pyx_v_p_ptr) lastprivate(__pyx_v_p_ptr) firstprivate(__pyx_v_rec) lastprivate(__pyx_v_rec) firstprivate(__pyx_v_row) lastprivate(__pyx_v_row) schedule(guided)
+                        #endif /* _OPENMP */
+                        for (__pyx_t_2 = 0; __pyx_t_2 < __pyx_t_3; __pyx_t_2++){
+                            {
+                                __pyx_v_row = (size_t)(0 + 1 * __pyx_t_2);
+
+                                /* "adamixture/src/utils_c/em.pyx":283
+ * 
+ *         for row in prange(M, schedule='guided'):
+ *             p_ptr = &P[row, 0]             # <<<<<<<<<<<<<<
+ *             g_ptr = &G[row, 0]
+ *             for col in range(N_sub):
+*/
+                                __pyx_t_4 = __pyx_v_row;
+                                __pyx_t_5 = 0;
+                                __pyx_v_p_ptr = (&(*((double const  *) ( /* dim=1 */ ((char *) (((double const  *) ( /* dim=0 */ (__pyx_v_P.data + __pyx_t_4 * __pyx_v_P.strides[0]) )) + __pyx_t_5)) ))));
+
+                                /* "adamixture/src/utils_c/em.pyx":284
+ *         for row in prange(M, schedule='guided'):
+ *             p_ptr = &P[row, 0]
+ *             g_ptr = &G[row, 0]             # <<<<<<<<<<<<<<
+ *             for col in range(N_sub):
+ *                 l = s_ind[col]
+*/
+                                __pyx_t_4 = __pyx_v_row;
+                                __pyx_t_5 = 0;
+                                __pyx_v_g_ptr = (&(*((unsigned char const  *) ( /* dim=1 */ ((char *) (((unsigned char const  *) ( /* dim=0 */ (__pyx_v_G.data + __pyx_t_4 * __pyx_v_G.strides[0]) )) + __pyx_t_5)) ))));
+
+                                /* "adamixture/src/utils_c/em.pyx":285
+ *             p_ptr = &P[row, 0]
+ *             g_ptr = &G[row, 0]
+ *             for col in range(N_sub):             # <<<<<<<<<<<<<<
+ *                 l = s_ind[col]
+ *                 if g_ptr[l] == 3:
+*/
+                                __pyx_t_6 = __pyx_v_N_sub;
+                                __pyx_t_7 = __pyx_t_6;
+                                for (__pyx_t_4 = 0; __pyx_t_4 < __pyx_t_7; __pyx_t_4+=1) {
+                                  __pyx_v_col = __pyx_t_4;
+
+                                  /* "adamixture/src/utils_c/em.pyx":286
+ *             g_ptr = &G[row, 0]
+ *             for col in range(N_sub):
+ *                 l = s_ind[col]             # <<<<<<<<<<<<<<
+ *                 if g_ptr[l] == 3:
+ *                     continue
+*/
+                                  __pyx_t_8 = __pyx_v_col;
+                                  __pyx_v_l = (*((uint32_t *) ( /* dim=0 */ ((char *) (((uint32_t *) __pyx_v_s_ind.data) + __pyx_t_8)) )));
+
+                                  /* "adamixture/src/utils_c/em.pyx":287
+ *             for col in range(N_sub):
+ *                 l = s_ind[col]
+ *                 if g_ptr[l] == 3:             # <<<<<<<<<<<<<<
+ *                     continue
+ *                 q_len[col] += 2.0
+*/
+                                  __pyx_t_9 = ((__pyx_v_g_ptr[__pyx_v_l]) == 3);
+                                  if (__pyx_t_9) {
+
+                                    /* "adamixture/src/utils_c/em.pyx":288
+ *                 l = s_ind[col]
+ *                 if g_ptr[l] == 3:
+ *                     continue             # <<<<<<<<<<<<<<
+ *                 q_len[col] += 2.0
+ *                 rec = _reconstruct(p_ptr, &Q[l, 0], K)
+*/
+                                    goto __pyx_L14_continue;
+
+                                    /* "adamixture/src/utils_c/em.pyx":287
+ *             for col in range(N_sub):
+ *                 l = s_ind[col]
+ *                 if g_ptr[l] == 3:             # <<<<<<<<<<<<<<
+ *                     continue
+ *                 q_len[col] += 2.0
+*/
+                                  }
+
+                                  /* "adamixture/src/utils_c/em.pyx":289
+ *                 if g_ptr[l] == 3:
+ *                     continue
+ *                 q_len[col] += 2.0             # <<<<<<<<<<<<<<
+ *                 rec = _reconstruct(p_ptr, &Q[l, 0], K)
+ *                 g_f = <double>g_ptr[l]
+*/
+                                  __pyx_t_8 = __pyx_v_col;
+                                  (__pyx_v_q_len[__pyx_t_8]) = ((__pyx_v_q_len[__pyx_t_8]) + 2.0);
+
+                                  /* "adamixture/src/utils_c/em.pyx":290
+ *                     continue
+ *                 q_len[col] += 2.0
+ *                 rec = _reconstruct(p_ptr, &Q[l, 0], K)             # <<<<<<<<<<<<<<
+ *                 g_f = <double>g_ptr[l]
+ *                 a_val = g_f / rec
+*/
+                                  __pyx_t_8 = __pyx_v_l;
+                                  __pyx_t_5 = 0;
+                                  __pyx_v_rec = __pyx_f_10adamixture_3src_7utils_c_2em__reconstruct(__pyx_v_p_ptr, (&(*((double const  *) ( /* dim=1 */ ((char *) (((double const  *) ( /* dim=0 */ (__pyx_v_Q.data + __pyx_t_8 * __pyx_v_Q.strides[0]) )) + __pyx_t_5)) )))), __pyx_v_K);
+
+                                  /* "adamixture/src/utils_c/em.pyx":291
+ *                 q_len[col] += 2.0
+ *                 rec = _reconstruct(p_ptr, &Q[l, 0], K)
+ *                 g_f = <double>g_ptr[l]             # <<<<<<<<<<<<<<
+ *                 a_val = g_f / rec
+ *                 b_val = (2.0 - g_f) / (1.0 - rec)
+*/
+                                  __pyx_v_g_f = ((double)(__pyx_v_g_ptr[__pyx_v_l]));
+
+                                  /* "adamixture/src/utils_c/em.pyx":292
+ *                 rec = _reconstruct(p_ptr, &Q[l, 0], K)
+ *                 g_f = <double>g_ptr[l]
+ *                 a_val = g_f / rec             # <<<<<<<<<<<<<<
+ *                 b_val = (2.0 - g_f) / (1.0 - rec)
+ *                 for kk in range(K):
+*/
+                                  __pyx_v_a_val = (__pyx_v_g_f / __pyx_v_rec);
+
+                                  /* "adamixture/src/utils_c/em.pyx":293
+ *                 g_f = <double>g_ptr[l]
+ *                 a_val = g_f / rec
+ *                 b_val = (2.0 - g_f) / (1.0 - rec)             # <<<<<<<<<<<<<<
+ *                 for kk in range(K):
+ *                     t[col * K + kk] += p_ptr[kk] * (a_val - b_val) + b_val
+*/
+                                  __pyx_v_b_val = ((2.0 - __pyx_v_g_f) / (1.0 - __pyx_v_rec));
+
+                                  /* "adamixture/src/utils_c/em.pyx":294
+ *                 a_val = g_f / rec
+ *                 b_val = (2.0 - g_f) / (1.0 - rec)
+ *                 for kk in range(K):             # <<<<<<<<<<<<<<
+ *                     t[col * K + kk] += p_ptr[kk] * (a_val - b_val) + b_val
+ * 
+*/
+                                  __pyx_t_10 = __pyx_v_K;
+                                  __pyx_t_11 = __pyx_t_10;
+                                  for (__pyx_t_8 = 0; __pyx_t_8 < __pyx_t_11; __pyx_t_8+=1) {
+                                    __pyx_v_kk = __pyx_t_8;
+
+                                    /* "adamixture/src/utils_c/em.pyx":295
+ *                 b_val = (2.0 - g_f) / (1.0 - rec)
+ *                 for kk in range(K):
+ *                     t[col * K + kk] += p_ptr[kk] * (a_val - b_val) + b_val             # <<<<<<<<<<<<<<
+ * 
+ *         omp.omp_set_lock(&sync_lock)
+*/
+                                    __pyx_t_12 = ((__pyx_v_col * __pyx_v_K) + __pyx_v_kk);
+                                    (__pyx_v_t[__pyx_t_12]) = ((__pyx_v_t[__pyx_t_12]) + (((__pyx_v_p_ptr[__pyx_v_kk]) * (__pyx_v_a_val - __pyx_v_b_val)) + __pyx_v_b_val));
+                                  }
+                                  __pyx_L14_continue:;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                /* "adamixture/src/utils_c/em.pyx":297
+ *                     t[col * K + kk] += p_ptr[kk] * (a_val - b_val) + b_val
+ * 
+ *         omp.omp_set_lock(&sync_lock)             # <<<<<<<<<<<<<<
+ *         for idx_n in range(N_sub):
+ *             q_bat[idx_n] = q_bat[idx_n] + q_len[idx_n]
+*/
+                omp_set_lock((&__pyx_v_sync_lock));
+
+                /* "adamixture/src/utils_c/em.pyx":298
+ * 
+ *         omp.omp_set_lock(&sync_lock)
+ *         for idx_n in range(N_sub):             # <<<<<<<<<<<<<<
+ *             q_bat[idx_n] = q_bat[idx_n] + q_len[idx_n]
+ *             for idx_k in range(K):
+*/
+                __pyx_t_6 = __pyx_v_N_sub;
+                __pyx_t_7 = __pyx_t_6;
+                for (__pyx_t_3 = 0; __pyx_t_3 < __pyx_t_7; __pyx_t_3+=1) {
+                  __pyx_v_idx_n = __pyx_t_3;
+
+                  /* "adamixture/src/utils_c/em.pyx":299
+ *         omp.omp_set_lock(&sync_lock)
+ *         for idx_n in range(N_sub):
+ *             q_bat[idx_n] = q_bat[idx_n] + q_len[idx_n]             # <<<<<<<<<<<<<<
+ *             for idx_k in range(K):
+ *                 Q_T[idx_n, idx_k] += t[idx_n * K + idx_k]
+*/
+                  __pyx_t_2 = __pyx_v_idx_n;
+                  __pyx_t_4 = __pyx_v_idx_n;
+                  *((double *) ( /* dim=0 */ ((char *) (((double *) __pyx_v_q_bat.data) + __pyx_t_4)) )) = ((*((double *) ( /* dim=0 */ ((char *) (((double *) __pyx_v_q_bat.data) + __pyx_t_2)) ))) + (__pyx_v_q_len[__pyx_v_idx_n]));
+
+                  /* "adamixture/src/utils_c/em.pyx":300
+ *         for idx_n in range(N_sub):
+ *             q_bat[idx_n] = q_bat[idx_n] + q_len[idx_n]
+ *             for idx_k in range(K):             # <<<<<<<<<<<<<<
+ *                 Q_T[idx_n, idx_k] += t[idx_n * K + idx_k]
+ *         omp.omp_unset_lock(&sync_lock)
+*/
+                  __pyx_t_1 = __pyx_v_K;
+                  __pyx_t_10 = __pyx_t_1;
+                  for (__pyx_t_2 = 0; __pyx_t_2 < __pyx_t_10; __pyx_t_2+=1) {
+                    __pyx_v_idx_k = __pyx_t_2;
+
+                    /* "adamixture/src/utils_c/em.pyx":301
+ *             q_bat[idx_n] = q_bat[idx_n] + q_len[idx_n]
+ *             for idx_k in range(K):
+ *                 Q_T[idx_n, idx_k] += t[idx_n * K + idx_k]             # <<<<<<<<<<<<<<
+ *         omp.omp_unset_lock(&sync_lock)
+ * 
+*/
+                    __pyx_t_4 = __pyx_v_idx_n;
+                    __pyx_t_8 = __pyx_v_idx_k;
+                    *((double *) ( /* dim=1 */ ((char *) (((double *) ( /* dim=0 */ (__pyx_v_Q_T.data + __pyx_t_4 * __pyx_v_Q_T.strides[0]) )) + __pyx_t_8)) )) += (__pyx_v_t[((__pyx_v_idx_n * __pyx_v_K) + __pyx_v_idx_k)]);
+                  }
+                }
+
+                /* "adamixture/src/utils_c/em.pyx":302
+ *             for idx_k in range(K):
+ *                 Q_T[idx_n, idx_k] += t[idx_n * K + idx_k]
+ *         omp.omp_unset_lock(&sync_lock)             # <<<<<<<<<<<<<<
+ * 
+ *         free(t)
+*/
+                omp_unset_lock((&__pyx_v_sync_lock));
+
+                /* "adamixture/src/utils_c/em.pyx":304
+ *         omp.omp_unset_lock(&sync_lock)
+ * 
+ *         free(t)             # <<<<<<<<<<<<<<
+ *         free(q_len)
+ * 
+*/
+                free(__pyx_v_t);
+
+                /* "adamixture/src/utils_c/em.pyx":305
+ * 
+ *         free(t)
+ *         free(q_len)             # <<<<<<<<<<<<<<
+ * 
+ *     omp.omp_destroy_lock(&sync_lock)
+*/
+                free(__pyx_v_q_len);
+            }
+        }
+        #if ((defined(__APPLE__) || defined(__OSX__)) && (defined(__GNUC__) && (__GNUC__ > 2 || (__GNUC__ == 2 && (__GNUC_MINOR__ > 95)))))
+            #undef likely
+            #undef unlikely
+            #define likely(x)   __builtin_expect(!!(x), 1)
+            #define unlikely(x) __builtin_expect(!!(x), 0)
+        #endif
+      }
+
+      /* "adamixture/src/utils_c/em.pyx":278
+ *     omp.omp_init_lock(&sync_lock)
+ * 
+ *     with nogil, parallel():             # <<<<<<<<<<<<<<
+ *         t = <double*>calloc(N_sub * K, sizeof(double))
+ *         q_len = <double*>calloc(N_sub, sizeof(double))
+*/
+      /*finally:*/ {
+        /*normal exit:*/{
+          __Pyx_FastGIL_Forget();
+          __Pyx_RestoreUnknownThread(_save);
+          goto __pyx_L5;
+        }
+        __pyx_L5:;
+      }
+  }
+
+  /* "adamixture/src/utils_c/em.pyx":307
+ *         free(q_len)
+ * 
+ *     omp.omp_destroy_lock(&sync_lock)             # <<<<<<<<<<<<<<
+ * 
+ *     # Apply Q update for the test subset
+*/
+  omp_destroy_lock((&__pyx_v_sync_lock));
+
+  /* "adamixture/src/utils_c/em.pyx":310
+ * 
+ *     # Apply Q update for the test subset
+ *     for idx_n in range(N_sub):             # <<<<<<<<<<<<<<
+ *         l2 = s_ind[idx_n]
+ *         a_val = 1.0 / q_bat[idx_n]
+*/
+  __pyx_t_6 = __pyx_v_N_sub;
+  __pyx_t_7 = __pyx_t_6;
+  for (__pyx_t_3 = 0; __pyx_t_3 < __pyx_t_7; __pyx_t_3+=1) {
+    __pyx_v_idx_n = __pyx_t_3;
+
+    /* "adamixture/src/utils_c/em.pyx":311
+ *     # Apply Q update for the test subset
+ *     for idx_n in range(N_sub):
+ *         l2 = s_ind[idx_n]             # <<<<<<<<<<<<<<
+ *         a_val = 1.0 / q_bat[idx_n]
+ *         _updateEM_Q(&Q_T[idx_n, 0], &Q[l2, 0], &Q_EM[l2, 0], a_val, K)
+*/
+    __pyx_t_2 = __pyx_v_idx_n;
+    __pyx_v_l2 = (*((uint32_t *) ( /* dim=0 */ ((char *) (((uint32_t *) __pyx_v_s_ind.data) + __pyx_t_2)) )));
+
+    /* "adamixture/src/utils_c/em.pyx":312
+ *     for idx_n in range(N_sub):
+ *         l2 = s_ind[idx_n]
+ *         a_val = 1.0 / q_bat[idx_n]             # <<<<<<<<<<<<<<
+ *         _updateEM_Q(&Q_T[idx_n, 0], &Q[l2, 0], &Q_EM[l2, 0], a_val, K)
+ *         q_bat[idx_n] = 0.0
+*/
+    __pyx_t_2 = __pyx_v_idx_n;
+    __pyx_v_a_val = (1.0 / (*((double *) ( /* dim=0 */ ((char *) (((double *) __pyx_v_q_bat.data) + __pyx_t_2)) ))));
+
+    /* "adamixture/src/utils_c/em.pyx":313
+ *         l2 = s_ind[idx_n]
+ *         a_val = 1.0 / q_bat[idx_n]
+ *         _updateEM_Q(&Q_T[idx_n, 0], &Q[l2, 0], &Q_EM[l2, 0], a_val, K)             # <<<<<<<<<<<<<<
+ *         q_bat[idx_n] = 0.0
+ * 
+*/
+    __pyx_t_2 = __pyx_v_idx_n;
+    __pyx_t_5 = 0;
+    __pyx_t_8 = __pyx_v_l2;
+    __pyx_t_13 = 0;
+    __pyx_t_4 = __pyx_v_l2;
+    __pyx_t_14 = 0;
+    __pyx_f_10adamixture_3src_7utils_c_2em__updateEM_Q((&(*((double *) ( /* dim=1 */ ((char *) (((double *) ( /* dim=0 */ (__pyx_v_Q_T.data + __pyx_t_2 * __pyx_v_Q_T.strides[0]) )) + __pyx_t_5)) )))), (&(*((double const  *) ( /* dim=1 */ ((char *) (((double const  *) ( /* dim=0 */ (__pyx_v_Q.data + __pyx_t_8 * __pyx_v_Q.strides[0]) )) + __pyx_t_13)) )))), (&(*((double *) ( /* dim=1 */ ((char *) (((double *) ( /* dim=0 */ (__pyx_v_Q_EM.data + __pyx_t_4 * __pyx_v_Q_EM.strides[0]) )) + __pyx_t_14)) )))), __pyx_v_a_val, __pyx_v_K);
+
+    /* "adamixture/src/utils_c/em.pyx":314
+ *         a_val = 1.0 / q_bat[idx_n]
+ *         _updateEM_Q(&Q_T[idx_n, 0], &Q[l2, 0], &Q_EM[l2, 0], a_val, K)
+ *         q_bat[idx_n] = 0.0             # <<<<<<<<<<<<<<
+ * 
+*/
+    __pyx_t_4 = __pyx_v_idx_n;
+    *((double *) ( /* dim=0 */ ((char *) (((double *) __pyx_v_q_bat.data) + __pyx_t_4)) )) = 0.0;
+  }
+
+  /* "adamixture/src/utils_c/em.pyx":261
+ * 
+ * # Cross-validation EM Q-only projection step
+ * cpdef void Q_proj_step(const unsigned char[:,::1] G, const double[:,::1] P,             # <<<<<<<<<<<<<<
+ *                        const double[:,::1] Q, double[:,::1] Q_EM, double[:,::1] Q_T,
+ *                        double[::1] q_bat, const int K, const int M,
+*/
+
+  /* function exit code */
+}
+
+/* Python wrapper */
+static PyObject *__pyx_pw_10adamixture_3src_7utils_c_2em_13Q_proj_step(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+); /*proto*/
+static PyMethodDef __pyx_mdef_10adamixture_3src_7utils_c_2em_13Q_proj_step = {"Q_proj_step", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_10adamixture_3src_7utils_c_2em_13Q_proj_step, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_10adamixture_3src_7utils_c_2em_13Q_proj_step(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+) {
+  __Pyx_memviewslice __pyx_v_G = { 0, 0, { 0 }, { 0 }, { 0 } };
+  __Pyx_memviewslice __pyx_v_P = { 0, 0, { 0 }, { 0 }, { 0 } };
+  __Pyx_memviewslice __pyx_v_Q = { 0, 0, { 0 }, { 0 }, { 0 } };
+  __Pyx_memviewslice __pyx_v_Q_EM = { 0, 0, { 0 }, { 0 }, { 0 } };
+  __Pyx_memviewslice __pyx_v_Q_T = { 0, 0, { 0 }, { 0 }, { 0 } };
+  __Pyx_memviewslice __pyx_v_q_bat = { 0, 0, { 0 }, { 0 }, { 0 } };
+  int __pyx_v_K;
+  int __pyx_v_M;
+  __Pyx_memviewslice __pyx_v_s_ind = { 0, 0, { 0 }, { 0 }, { 0 } };
+  #if !CYTHON_METH_FASTCALL
+  CYTHON_UNUSED Py_ssize_t __pyx_nargs;
+  #endif
+  CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
+  PyObject* values[9] = {0,0,0,0,0,0,0,0,0};
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  PyObject *__pyx_r = 0;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("Q_proj_step (wrapper)", 0);
+  #if !CYTHON_METH_FASTCALL
+  #if CYTHON_ASSUME_SAFE_SIZE
+  __pyx_nargs = PyTuple_GET_SIZE(__pyx_args);
+  #else
+  __pyx_nargs = PyTuple_Size(__pyx_args); if (unlikely(__pyx_nargs < 0)) return NULL;
+  #endif
+  #endif
+  __pyx_kwvalues = __Pyx_KwValues_FASTCALL(__pyx_args, __pyx_nargs);
+  {
+    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_G,&__pyx_mstate_global->__pyx_n_u_P,&__pyx_mstate_global->__pyx_n_u_Q,&__pyx_mstate_global->__pyx_n_u_Q_EM,&__pyx_mstate_global->__pyx_n_u_Q_T,&__pyx_mstate_global->__pyx_n_u_q_bat,&__pyx_mstate_global->__pyx_n_u_K,&__pyx_mstate_global->__pyx_n_u_M,&__pyx_mstate_global->__pyx_n_u_s_ind,0};
+    const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 261, __pyx_L3_error)
+    if (__pyx_kwds_len > 0) {
+      switch (__pyx_nargs) {
+        case  9:
+        values[8] = __Pyx_ArgRef_FASTCALL(__pyx_args, 8);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[8])) __PYX_ERR(0, 261, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  8:
+        values[7] = __Pyx_ArgRef_FASTCALL(__pyx_args, 7);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[7])) __PYX_ERR(0, 261, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  7:
+        values[6] = __Pyx_ArgRef_FASTCALL(__pyx_args, 6);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[6])) __PYX_ERR(0, 261, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  6:
+        values[5] = __Pyx_ArgRef_FASTCALL(__pyx_args, 5);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 261, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  5:
+        values[4] = __Pyx_ArgRef_FASTCALL(__pyx_args, 4);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 261, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  4:
+        values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 261, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  3:
+        values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 261, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  2:
+        values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 261, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  1:
+        values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 261, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  0: break;
+        default: goto __pyx_L5_argtuple_error;
+      }
+      const Py_ssize_t kwd_pos_args = __pyx_nargs;
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "Q_proj_step", 0) < (0)) __PYX_ERR(0, 261, __pyx_L3_error)
+      for (Py_ssize_t i = __pyx_nargs; i < 9; i++) {
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("Q_proj_step", 1, 9, 9, i); __PYX_ERR(0, 261, __pyx_L3_error) }
+      }
+    } else if (unlikely(__pyx_nargs != 9)) {
+      goto __pyx_L5_argtuple_error;
+    } else {
+      values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 261, __pyx_L3_error)
+      values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 261, __pyx_L3_error)
+      values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 261, __pyx_L3_error)
+      values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 261, __pyx_L3_error)
+      values[4] = __Pyx_ArgRef_FASTCALL(__pyx_args, 4);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 261, __pyx_L3_error)
+      values[5] = __Pyx_ArgRef_FASTCALL(__pyx_args, 5);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 261, __pyx_L3_error)
+      values[6] = __Pyx_ArgRef_FASTCALL(__pyx_args, 6);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[6])) __PYX_ERR(0, 261, __pyx_L3_error)
+      values[7] = __Pyx_ArgRef_FASTCALL(__pyx_args, 7);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[7])) __PYX_ERR(0, 261, __pyx_L3_error)
+      values[8] = __Pyx_ArgRef_FASTCALL(__pyx_args, 8);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[8])) __PYX_ERR(0, 261, __pyx_L3_error)
+    }
+    __pyx_v_G = __Pyx_PyObject_to_MemoryviewSlice_d_dc_unsigned_char__const__(values[0], 0); if (unlikely(!__pyx_v_G.memview)) __PYX_ERR(0, 261, __pyx_L3_error)
+    __pyx_v_P = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double__const__(values[1], 0); if (unlikely(!__pyx_v_P.memview)) __PYX_ERR(0, 261, __pyx_L3_error)
+    __pyx_v_Q = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double__const__(values[2], 0); if (unlikely(!__pyx_v_Q.memview)) __PYX_ERR(0, 262, __pyx_L3_error)
+    __pyx_v_Q_EM = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double(values[3], PyBUF_WRITABLE); if (unlikely(!__pyx_v_Q_EM.memview)) __PYX_ERR(0, 262, __pyx_L3_error)
+    __pyx_v_Q_T = __Pyx_PyObject_to_MemoryviewSlice_d_dc_double(values[4], PyBUF_WRITABLE); if (unlikely(!__pyx_v_Q_T.memview)) __PYX_ERR(0, 262, __pyx_L3_error)
+    __pyx_v_q_bat = __Pyx_PyObject_to_MemoryviewSlice_dc_double(values[5], PyBUF_WRITABLE); if (unlikely(!__pyx_v_q_bat.memview)) __PYX_ERR(0, 263, __pyx_L3_error)
+    __pyx_v_K = __Pyx_PyLong_As_int(values[6]); if (unlikely((__pyx_v_K == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 263, __pyx_L3_error)
+    __pyx_v_M = __Pyx_PyLong_As_int(values[7]); if (unlikely((__pyx_v_M == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 263, __pyx_L3_error)
+    __pyx_v_s_ind = __Pyx_PyObject_to_MemoryviewSlice_dc_nn_uint32_t(values[8], PyBUF_WRITABLE); if (unlikely(!__pyx_v_s_ind.memview)) __PYX_ERR(0, 264, __pyx_L3_error)
+  }
+  goto __pyx_L6_skip;
+  __pyx_L5_argtuple_error:;
+  __Pyx_RaiseArgtupleInvalid("Q_proj_step", 1, 9, 9, __pyx_nargs); __PYX_ERR(0, 261, __pyx_L3_error)
+  __pyx_L6_skip:;
+  goto __pyx_L4_argument_unpacking_done;
+  __pyx_L3_error:;
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_G, 1);
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_P, 1);
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_Q, 1);
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_Q_EM, 1);
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_Q_T, 1);
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_q_bat, 1);
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_s_ind, 1);
+  __Pyx_AddTraceback("adamixture.src.utils_c.em.Q_proj_step", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_RefNannyFinishContext();
+  return NULL;
+  __pyx_L4_argument_unpacking_done:;
+  __pyx_r = __pyx_pf_10adamixture_3src_7utils_c_2em_12Q_proj_step(__pyx_self, __pyx_v_G, __pyx_v_P, __pyx_v_Q, __pyx_v_Q_EM, __pyx_v_Q_T, __pyx_v_q_bat, __pyx_v_K, __pyx_v_M, __pyx_v_s_ind);
+
+  /* function exit code */
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_G, 1);
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_P, 1);
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_Q, 1);
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_Q_EM, 1);
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_Q_T, 1);
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_q_bat, 1);
+  __PYX_XCLEAR_MEMVIEW(&__pyx_v_s_ind, 1);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_pf_10adamixture_3src_7utils_c_2em_12Q_proj_step(CYTHON_UNUSED PyObject *__pyx_self, __Pyx_memviewslice __pyx_v_G, __Pyx_memviewslice __pyx_v_P, __Pyx_memviewslice __pyx_v_Q, __Pyx_memviewslice __pyx_v_Q_EM, __Pyx_memviewslice __pyx_v_Q_T, __Pyx_memviewslice __pyx_v_q_bat, int __pyx_v_K, int __pyx_v_M, __Pyx_memviewslice __pyx_v_s_ind) {
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("Q_proj_step", 0);
+  __Pyx_XDECREF(__pyx_r);
+  __pyx_t_1 = __Pyx_void_to_None(__pyx_f_10adamixture_3src_7utils_c_2em_Q_proj_step(__pyx_v_G, __pyx_v_P, __pyx_v_Q, __pyx_v_Q_EM, __pyx_v_Q_T, __pyx_v_q_bat, __pyx_v_K, __pyx_v_M, __pyx_v_s_ind, 1)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 261, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_r = __pyx_t_1;
+  __pyx_t_1 = 0;
+  goto __pyx_L0;
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_AddTraceback("adamixture.src.utils_c.em.Q_proj_step", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = NULL;
+  __pyx_L0:;
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 /* #### Code section: module_exttypes ### */
@@ -20649,64 +22197,109 @@ __Pyx_RefNannySetupContext("PyInit_em", 0);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_pyx_unpickle_Enum, __pyx_t_4) < (0)) __PYX_ERR(1, 4, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "adamixture/src/utils_c/em.pyx":43
+  /* "adamixture/src/utils_c/em.pyx":44
  * 
  * # ADAM: Update P
  * cpdef void adamUpdateP(double[:,::1] P0, const double[:,::1] P1,             # <<<<<<<<<<<<<<
  *                       double[:,::1] m_P, double[:,::1] v_P,
  *                       const double alpha, const double beta1, const double beta2,
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_10adamixture_3src_7utils_c_2em_1adamUpdateP, 0, __pyx_mstate_global->__pyx_n_u_adamUpdateP, NULL, __pyx_mstate_global->__pyx_n_u_adamixture_src_utils_c_em, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[0])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 43, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_10adamixture_3src_7utils_c_2em_1adamUpdateP, 0, __pyx_mstate_global->__pyx_n_u_adamUpdateP, NULL, __pyx_mstate_global->__pyx_n_u_adamixture_src_utils_c_em, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[0])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 44, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
   #endif
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_adamUpdateP, __pyx_t_4) < (0)) __PYX_ERR(0, 43, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_adamUpdateP, __pyx_t_4) < (0)) __PYX_ERR(0, 44, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "adamixture/src/utils_c/em.pyx":75
+  /* "adamixture/src/utils_c/em.pyx":76
  * 
  * # ADAM: Update Q
  * cpdef void adamUpdateQ(double[:,::1] Q0, const double[:,::1] Q1,             # <<<<<<<<<<<<<<
  *                       double[:,::1] m_Q, double[:,::1] v_Q,
  *                       const double alpha, const double beta1, const double beta2,
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_10adamixture_3src_7utils_c_2em_3adamUpdateQ, 0, __pyx_mstate_global->__pyx_n_u_adamUpdateQ, NULL, __pyx_mstate_global->__pyx_n_u_adamixture_src_utils_c_em, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[1])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 75, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_10adamixture_3src_7utils_c_2em_3adamUpdateQ, 0, __pyx_mstate_global->__pyx_n_u_adamUpdateQ, NULL, __pyx_mstate_global->__pyx_n_u_adamixture_src_utils_c_em, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[1])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 76, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
   #endif
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_adamUpdateQ, __pyx_t_4) < (0)) __PYX_ERR(0, 75, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_adamUpdateQ, __pyx_t_4) < (0)) __PYX_ERR(0, 76, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "adamixture/src/utils_c/em.pyx":119
+  /* "adamixture/src/utils_c/em.pyx":120
  * 
  * # EM: Apply parameter update for P
  * cpdef void P_step(const unsigned char[:,::1] G, double[:,::1] P, double[:,::1] P_EM,             # <<<<<<<<<<<<<<
  *                 const double[:,::1] Q, double[:,::1] Q_T, double[::1] q_bat,
  *                 const int K, const int M, const int N) noexcept nogil:
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_10adamixture_3src_7utils_c_2em_5P_step, 0, __pyx_mstate_global->__pyx_n_u_P_step, NULL, __pyx_mstate_global->__pyx_n_u_adamixture_src_utils_c_em, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[2])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 119, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_10adamixture_3src_7utils_c_2em_5P_step, 0, __pyx_mstate_global->__pyx_n_u_P_step, NULL, __pyx_mstate_global->__pyx_n_u_adamixture_src_utils_c_em, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[2])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 120, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
   #endif
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_P_step, __pyx_t_4) < (0)) __PYX_ERR(0, 119, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_P_step, __pyx_t_4) < (0)) __PYX_ERR(0, 120, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "adamixture/src/utils_c/em.pyx":169
+  /* "adamixture/src/utils_c/em.pyx":170
  * 
  * # EM: Apply parameter update for Q
  * cpdef void Q_step(const double[:,::1] Q, double[:,::1] Q_EM, double[:,::1] T,             # <<<<<<<<<<<<<<
  *                 double[::1] q_bat, const int K, const int N) noexcept nogil:
  *     cdef:
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_10adamixture_3src_7utils_c_2em_7Q_step, 0, __pyx_mstate_global->__pyx_n_u_Q_step, NULL, __pyx_mstate_global->__pyx_n_u_adamixture_src_utils_c_em, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[3])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 169, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_10adamixture_3src_7utils_c_2em_7Q_step, 0, __pyx_mstate_global->__pyx_n_u_Q_step, NULL, __pyx_mstate_global->__pyx_n_u_adamixture_src_utils_c_em, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[3])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 170, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
   #endif
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_Q_step, __pyx_t_4) < (0)) __PYX_ERR(0, 169, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_Q_step, __pyx_t_4) < (0)) __PYX_ERR(0, 170, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+
+  /* "adamixture/src/utils_c/em.pyx":194
+ * 
+ * # Cross-validation EM P step
+ * cpdef void P_step_cross(const unsigned char[:,::1] G, double[:,::1] P, double[:,::1] P_EM,             # <<<<<<<<<<<<<<
+ *                         const double[:,::1] Q, double[:,::1] Q_T, double[::1] q_bat,
+ *                         const int K, const int M, uint32_t[::1] s_ind) noexcept nogil:
+*/
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_10adamixture_3src_7utils_c_2em_9P_step_cross, 0, __pyx_mstate_global->__pyx_n_u_P_step_cross, NULL, __pyx_mstate_global->__pyx_n_u_adamixture_src_utils_c_em, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[4])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 194, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
+  PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
+  #endif
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_P_step_cross, __pyx_t_4) < (0)) __PYX_ERR(0, 194, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+
+  /* "adamixture/src/utils_c/em.pyx":247
+ * 
+ * # Cross-validation EM Q step
+ * cpdef void Q_step_cross(const double[:,::1] Q, double[:,::1] Q_EM, double[:,::1] Q_T,             # <<<<<<<<<<<<<<
+ *                         double[::1] q_bat, const int K, uint32_t[::1] s_ind) noexcept nogil:
+ *     cdef:
+*/
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_10adamixture_3src_7utils_c_2em_11Q_step_cross, 0, __pyx_mstate_global->__pyx_n_u_Q_step_cross, NULL, __pyx_mstate_global->__pyx_n_u_adamixture_src_utils_c_em, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[5])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 247, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
+  PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
+  #endif
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_Q_step_cross, __pyx_t_4) < (0)) __PYX_ERR(0, 247, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+
+  /* "adamixture/src/utils_c/em.pyx":261
+ * 
+ * # Cross-validation EM Q-only projection step
+ * cpdef void Q_proj_step(const unsigned char[:,::1] G, const double[:,::1] P,             # <<<<<<<<<<<<<<
+ *                        const double[:,::1] Q, double[:,::1] Q_EM, double[:,::1] Q_T,
+ *                        double[::1] q_bat, const int K, const int M,
+*/
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_10adamixture_3src_7utils_c_2em_13Q_proj_step, 0, __pyx_mstate_global->__pyx_n_u_Q_proj_step, NULL, __pyx_mstate_global->__pyx_n_u_adamixture_src_utils_c_em, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[6])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 261, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
+  PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
+  #endif
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_Q_proj_step, __pyx_t_4) < (0)) __PYX_ERR(0, 261, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
   /* "adamixture/src/utils_c/em.pyx":1
@@ -20852,31 +22445,31 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
 static int __Pyx_InitConstants(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
   {
-    const struct { const unsigned int length: 9; } index[] = {{2},{68},{35},{54},{37},{60},{24},{52},{26},{34},{29},{33},{45},{22},{15},{179},{37},{30},{32},{1},{1},{1},{1},{1},{29},{8},{5},{6},{15},{23},{25},{7},{6},{2},{6},{35},{9},{30},{50},{8},{20},{32},{22},{30},{37},{5},{8},{1},{1},{1},{1},{1},{2},{2},{4},{6},{20},{1},{2},{2},{4},{3},{6},{8},{1},{15},{3},{11},{11},{25},{15},{5},{18},{4},{5},{5},{1},{9},{17},{18},{5},{8},{15},{6},{9},{7},{5},{5},{6},{7},{8},{12},{2},{10},{5},{13},{5},{8},{3},{3},{8},{7},{4},{10},{4},{8},{4},{7},{3},{4},{3},{14},{11},{10},{19},{14},{5},{12},{10},{17},{13},{8},{12},{10},{12},{19},{5},{4},{5},{4},{4},{6},{1},{8},{6},{6},{3},{3},{6},{1},{284},{337},{366},{76},{1}};
-    #if (CYTHON_COMPRESS_STRINGS) == 2 /* compression: bz2 (1769 bytes) */
-const char* const cstring = "BZh91AY&SY\276SAB\000\001\036\377\377\377\377\377\363~\347\377\327\277\253\377\246\277\377\377\360@@@@@@@@@@@@@\000@\000`\006\177{\312oM\256\334\254e\304\356\2553\325\320A)\251)\224\315G\2503S\3652\237\251\246\365\036\246D\232\031\030\203\324\310d\000\304\001\265\032h=M\003F\236\241\345\0144\322\024cI\264M\036\244\332\230\223A\247\251\210\320\000=C@\000\000\000\000\000\000\006\211\223Bh\022\217\321L\236\223\312\007\251\243M\003@\000h\000\000\000\000\320h44\000\323$#D\3256\231M\036CPd\323M\000\006\232\003@\r\000\000\000\006\201\240d\323\3248\000\000\000\006\200\000\000\0004\032\000\000\000\006@\032\000\002Q4 &\212{T~\224\323d4M\224\321\241\240\000\310\000\000\000\000\000\006\232hh\236\374\266\253\270\311\332\023[\360j\207\345\r`\327muX\267\350$H\021H\016\t\006P|MY\014 U\205\322\302\030\003\"\203\004\021\027\242%\010\242\031\220 \034v`\305\205\304\373\234\014\021\261\007\007\034+*\255\255\321Rq\013\"1\310H1\006!D\336\t@\215\030\212R\001\343g5H\211\310b\306\324\264H\234\026(\005~\2551\250=\2415\037P\374t\277TCI\345\242\264\353\226\244)\256\220\255H\222:\256%\2414*\013MS?\354\253\t\325t\342\352\216\242=\037\326wAcoM\236\365\230s\276\226L-N7~\031\016\320\361\253y(\nieT\005\022\265?py\352\312\024\272q7$\002\326\206\344B\020|\036\266$#L\332\343\305\215\024\304\230\215\006QG\016M\353\n\013\215\260\004\211\035\033\371\336\033\262\001L\301\221aD\0318\365\270K\2078\3062\261\302\312lv\213\002\232\247\366-,e\246&\004\025\212\203\025\003\rjA\201\304 3\274]\267\275\373\0142G\027\306\321V@yt2\004\357:<`\245)B\222\241\201\301u\350\257\303\202)\004\212'\316\375\030\014\273R\204\246\\\225N\225c/\373\353h\245\027a)\307\326\324\335\255J\000\322\367\351\014\254\037\013\321\363\256\010_\320o\217\3724f\314\014\330\356\341\0107\316.\253XE\0061\210A\251b\034j\003}\273\352\332\022D\320|\355\003?TOD\370\351,@\372\345\002;P\023\355\367\260\001}\255\277o\367\203\004F@L\330\020\026L\347\215\003\313J\"\036\374\211B\250\021\316\2558&S\263>\020\244\217\363\330%\260d\341\002Q\010\272L\"E\221A\231""\327)d\255*\241\362'\007J\226[Bf6\250\375T .\321\017\2243^\375\304\\\014\315G\331\330\005@\245\232Q&@po\331\340\375\251z\313.\0048\353!\n/^\025\304\310\313@\327[D\371\023\254`\246\341\014\361\r\272g\270\324\006\335U\231\233Y|\250\301\035\346\230D\010\005\263@x\243V\340\323\343d\226\262l\330|\026\t\006\326\002\327^)\205\2478\270\267\251([[M\370\210\374\355\206'D(\024UKLD\275e\021AP\372J\256\034\254\305\261\303\363X'\230\312\350\213\030e\227\023\002\323\242\302h&,G1\323\2108\017FM\225\346a\264\034\346\255\232\312\2019\316\330\322\204\256\321\200@d\322w%\304\241\000\364\273\274I\273\032\000zU\205\260\220H\021SuMM\203cT\r\024\001Z\242:\310<b^#\361qm-\216H(\3044\325EnpB\302\204\353\355\324\202[}_\010\341x\301Pr\337|\224[\017\007H\222\354\210\222\2210\306F1\230\351\300\r{\351Z\010\0015\222\n6\320e\020I\227*\312\341\255\230\355\2331x\332\000\265\342\033\201\217\267\022\326\277v\003\0250\220\327$\202c]LH\306y\231\010\336'\332\210fBj\037:k\023'\2303f\0042\001\022Y\005L\314\023I_h\360\302\266\304)c(\035d-\263\n\001y\340g\334\3462\214\244\"\376^=\027\200\245\230\343\007@s\256*0\347\202\222\007\203\342\234\"2\322\354\250\000d\025\2012\205\327>\004M[\232&\241DQ \247\276\357\000\nD\314k\310[\251\240\372&\226\003q6\222@H\032\315F$\004\322aLn\022A \211P$\004\303P\356\317a\250>&@\023(SAAi2K\026\374\001\246\220m\007N\340t\257\351\214\022\006\na\224,\356\200pQ:\"\210\316\204\202Be\216A$Q\357\030\242\227\365\237j\301#\354B4J\306\333C\ru\341\232\024Uym\313\222\206\355G\356B\264Lf\227\t\354=ABh\252(`R\204g%\"\002\003\010\273PA\rD.{\302?f\254f\205\306\013\021\241@W*%V\356\3302\256!p\021JUc\231(\312\014\344\305\362\002DB\261\013P\210\267\212\3276\316\314m\347\2048R{M\303\271l\341*QHy \320\371\267\250B\221\214\333\226\"#<eh\214M\342\230\201\001\266]\rhyP\006CTV\334\223V\371\232D\232\215@\366\271HU\002i\234H\203Q\245*2\331\022%haB\332\\.)\031\252Y\000\236{C0\230\226x\310\221tj/:l\247;\213wN\222!:\265\314g\365G\354\211.\034<\314\372J\205\006~V21\032\013\273\215f\"\020i3\270\347^\273\224\205v""\243\217B\201A\202x\222'\244\252\207A\326\002\204\305\335\263\324Z\335|\270\367\020t\361CS\010E$\314\022rE\325\366B\077\077\241\213\250d\3350\333\366\261=\276Ld1h\323\345\207\231\276|c\254\321\334\220\335i\371\177C\327y\223v\034\020\207\321\330\223\237\241\365\276\320\351\001\216\025\3628\354\233T\032!\331\315\037r\016\000/#\020\374\030\021\226\315T\374\337\3029\310\254\202\334\344\252\316{\207\274U\266Z\373\220\341no\263\354\002!\374\211\301t\206\002R\"`\300\023\203\014\320\364\270u\253\023L;lH\316\331,\315\023\242\tn^,\2414By\251\t{\326+\266\352r\225\252>\360+\006\020M\337\330\201\\~\200\206\253'Q\264r\232\240\177|\222ng\265<\234\372\216\3119\3072\227%fFtm\307j2\336\226e\352E\272kE\005,\210\"\224\273\305n@\3725C\027@0\\\217\026\034\337\360I\340\345`\336\374\323e\345Z\276E\247\004\347\010\273\200\3408\262BO% \341P\361w\216\025\2378\231\302\231\210\242\021T\222\345\277\342\356H\247\n\022\027\312h(@";
-    PyObject *data = __Pyx_DecompressString(cstring, 1769, 2);
+    const struct { const unsigned int length: 9; } index[] = {{2},{68},{35},{54},{37},{60},{24},{52},{26},{34},{29},{33},{45},{22},{15},{179},{37},{30},{32},{1},{1},{1},{1},{1},{29},{8},{5},{6},{15},{23},{25},{7},{6},{2},{6},{35},{9},{30},{50},{8},{20},{32},{22},{30},{37},{5},{8},{1},{1},{1},{1},{1},{2},{2},{4},{6},{12},{20},{1},{2},{2},{4},{3},{11},{6},{12},{8},{1},{15},{3},{11},{11},{25},{15},{5},{18},{4},{5},{5},{1},{9},{17},{18},{5},{8},{15},{6},{9},{7},{5},{5},{6},{7},{8},{12},{2},{10},{5},{13},{5},{8},{3},{3},{8},{7},{4},{10},{4},{8},{4},{7},{3},{4},{3},{14},{11},{10},{19},{14},{5},{12},{10},{17},{13},{8},{5},{12},{10},{12},{19},{5},{4},{5},{4},{4},{6},{1},{8},{6},{6},{3},{3},{6},{1},{386},{431},{98},{284},{337},{366},{76},{1}};
+    #if (CYTHON_COMPRESS_STRINGS) == 2 /* compression: bz2 (2036 bytes) */
+const char* const cstring = "BZh91AY&SYc\365z\211\000\001\271\377\377\377\377\377\367~\347\377\327\277\253\377\346\277\377\377\360@@@@@@@@@@@@@\000@\000`\007\337\003\305\3336\333,\031\226)\252\016\332\265\001\332\022HU\032z\217P4\365\003\362\247\222=Od\323MS\364\247\265G\244\323&\200\000\036\240\000\000\320\r4h\364\232\002Q\020\r)\261&\310\322\236\247\251\352i\345=C\324\001\246\200\323\322\000\000\000\000\017(\003@\000\340\000\000\000\000\000\014\200\000\000\000\000\000\000\000\310\0004\320\211\240\206T\375B\032\031\000=@\320\001\35244\000\320\000\000\000\323F\2154=5\003\200\000\000\000\000\0002\000\000\000\000\000\000\000\003 \000\222&\204\010\324a\t\215\rL\232\023\021\352F'\246\232\233\024`\004\007\2420\000\006\232G\251\351\244oT\272\3335omK\0359\245e\216\277\250\274\177\354\361!\177\300<a\344$\274\2145\024\3779\260\252\024*\212\016*\022%\021\010\2223/!3\234SWs\250RR \203\234\031\204\003U3\210q\323#yY`\250MQ;\000\234a2\330@\252\2658\247\245\306\023P\020\316&L\252\031\02206\014\243\331\t\321\214X\032\302\322\322\240U\024\262\340\276\242,UE\325\330\342[\224X\"\241\372\302\312\246\020\256\006\312\2578\215i\250eMUbv\r\210(\255\035@G\323\3415\007\3106\243i\235\014\377\324\317\236\321\316]\032c\246\362\246Aj\211$u\330G\004\352(\013\242\262\237\024i\n\316\372R[\206\342\036\216\256\367\252\362\257\261\030A\351\n\277\213\324\207\270\245\177qcX\200\303cP\034\265\353\224\007\023\326\330\246\201\303<\325-2*\323\007\272\305Y\220M\t\240\367\232ia}47\t\324C\013\224\\\242\353D.\264\207\002d\311\004\0200v\037\246G\000D\017B\220^\332x,\304\004\262\005u\022\244\315\224\316\371\035w\026\252\243k\345\331\356\277\263h\246\312\264\026\266h\262&B\004\264\013\0202*ZQ\320\251\020`\024A2\"\034<|\037\331\313(\250)\034\322$\252\271~\351e1\335\017\213\253\272.\373\323\262#\004\026\245\2022\213\030Y\232s\010q3\263\246'\257\202\2014Q/\303V\034\007\026[\002\301X\230\"\230y\344\260c69\2556\020\220r\306Y\214s\317\026d\364\305b\233M\224C6|\305v\364-\227\251\354\233#\207\037\247\372Tq/\324\005\371\363%)G\3558\235\256\332\200""\204L\264\031I[\242lP\223\256>(D/\273\036-7\224\025\341S^L\263\010\2145v\014U\312\2349\332H0&piV\334M\rv\353\375\264@\271\025\253\226\177\272\220\265\2604H \255\242.\345\343Mv\r\216\021\010n\332wp!\276\313V\004\306{\223\273\310\217\353T#q\026\200\341\201,B\252\273*\010\221(-E\002F\366'\n\364\300\252\212\247L\027\353i\220\232Lpj\326+\026\335\233\3516Z\177\226\315\001\271l}\337\270P\nU\247\001\032\003\003Q\257\003\327\013uU8?\252\265'~\336\330\316Z\244\327\222\315.c\300\\\324\233\035du\020\0354u\005\333\221\345\204\007\231\216\276=\006\243\023\202\237\263\270\024\002aV\304\275c\315\220\354wxm\320\315\275\257\302\370\254c8>|\372\256)9\264\332?\235\243\323\227\264m\021\311\372\310\221rE\343\014\313$\020m\355_D2<63\216\322\221\210\344G\034\005\274\251\363\224M\034\215\"\241\204\235\221k\216\2311\335\223\310\211\004\253\257R\312a\313\317\220\223u\037q\370\341\233\312\222\332\244SEr\203\215\224\216\350\260\213\270i34\t\306\204\3004\226\341N\t\004\201\005\235\226T&V=\016f\230\nVhaP\320\201h\r=b\345\3263AFC]\227m\204\002\026!\t\342n\330\250\365,t\317\325u\305\272\010\031L1X\204p\270\325U\375\222$jH_R\371\225r\0300\320\034\273iJ\024\004\267\244'\334P\331\350I\031\267do\233\334mI\310\312\326PT\255BZ\006N\320G\016\276\327\026*\010\214D\220L)\241\t\030\3559A+\022\025\260bQ|\023\277\014\245\352l3R\202:Ab\213H\226\376\325\362\267M,\354\221N\"\026\255\\*\326\330Fm\235R\014\363\016\276\323\321\225\227\332Y>\365\377\306a\013S\260\327\016\372U\333\353\256+dLn\323V\303vZz\025\006DPT\2027'T\251\225\324\332\342\263v \253d\2638\005T\231\306(\212\350Gl\343$\002[\202\221U\002 \322h0 \352\210\262y\231\230f\030\245J\005\242\254\244\245\221\256%\216\370Z\301\205\345\346E\276m6\251\205\260\325%\325{\234\036\310\366I\005CV\023\340\032\347\2311\314\0220x\252TU\025D\333U|\216\244tE\352\202\2257\216\202\351\023\256\242\232J\312\241k\372\363\347\327l\357\336\313\270\333\026\302;\014Fn0a\0354s#\317\"A\035!\234\006C\005T\222\025EK\352\250\245iA99t\321\262!>DW\334\341\035\211\215lX4/&o*'\007\253\245""\233gB\304\343\314\346a\213\035\356\336j<\351\nL\323\222\337\035\362\271<\t\344\212\031\263\255\032\344\245\0320\023n\254)\033\274\321\206Q\221\232F\311\2032\033\034/\363\223\016\307\003V\335\263l\3377\375\t\230\355\266\226[\303\004t3\221\006\014\340p\266m\267\255\227h\276\350b\316\274\"\370\233\260\314\005\266\271TJ\3776\301I\266\350P\320\216\2121[\006\303\024\267+T\013\256\310JB\351\265\324\252\243\323)\270\366\360\273\351;>\215\216^\330\331\005v~]\343]\210n\214\254\263:\335\332\346\340i\025\273U\230\202\221\272\325\245y$\2101W\177}d\326\302\305\276aI\255K(\347 B*\251\n\252\252\034\366\\\005\t\013W\241\206\322\374\006\31497\272\210\356r\005\025x\305qV\327\311\342>\256\367C\276\275\364/\201\201*\034a\017 \317B\020!\355B\2242\031I\216\342\212\201\255\356I\311\232\226\365R\361\006pe\302~\001\3636\342\031\033\222\023\003\236\t\036\006vfQ\332\355\376+}*\003\036\270\213#\310\323\031\351\311d\031\314\262\202\026\361\223\037q\2068)\032I\205\003P_\241\3523::\"\033Z<KX\377\353\376\220\354q\302tr'd\313Y5\310\235\005\316\214\203\274\222\312\273\311j\216L8c\330\277KUiL\250\t\334&Y8\220{\330\034\230=E\013X\244\301\001\203X6\001\374\246\205\350N\007;\212O>\005H?\3322p\345\2136\222\234\t\236\330`\020O!=<\317\220\366\031<e1\177\236\247\035I\177\034\363)\206sP)\263\tO\20011\000\274N\365&\236>\371|\200dS\362\225\346\034)M\002`s9\255\335WU\320\266\032\3535\\\367\362\021\230Z]|\343\204\367\261\230\026Z\321\307\210\215bpG\032\251i\225(\260\250\206\"*4U\\l1\025Z\033A\2028\254\321\023\003*#\337\323\250o\254oIK\027,\027\003jW\317\n'8\006\322\361\210\252\253\265\277\241&\346\376\014\315\315\367\243\357\244\350\234\r\261\331\3432\021h$\260VV4\210\006\020\016\201\300qhj\024z=\001\344\211V\024\324\2453\237f&L1U\271Lwf\262E\324SJ\003\2430P\304H\305\311UG!A\377\213\271\"\234(H1\372\275D\200";
+    PyObject *data = __Pyx_DecompressString(cstring, 2036, 2);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #elif (CYTHON_COMPRESS_STRINGS) != 0 /* compression: zlib (1613 bytes) */
-const char* const cstring = "x\332\255T\317s\023G\026\266 \004\2741Y\033\333\260\241*\2516\301e\250\002\201 d\267\266X\266\204mR\256-@\2031\324V%\325\3253\323\222;\314tK\323=B\312i\217:\316\261\217s\234\243\216>\372\230#G\035\375'\360'\344\275\236\221e\363#\247=h\364\272\373\365{\337\373\336\367\372\237\244\031E$\0241\227Z(\251I7\341\001\017\205\354\3146\311zH\342T\033\342s\"d\310\007<$L\206D*Ct$\300\375q\332n\363\204\364\005\177KB\305\265;\342\203\256\322\234h\223\210\220\353M&\211\222\321\220\004\tg\206\023F\374\362\222\331g\206\010M\002%\215\350\244*\325\220\204\304<V\311\260\016\2670\024\323Zt$1\212\300\345\360\266\213Sz`\312\312\251\n\3746\021\206\371\021\257\034JP\355D\305\177v\327\225E\336\n\263O\314\260\313\311F\265o\022&\265+cv\245t\203\033\002\2502'\270\333:I\230(I(\235\266\343\256\031\022\275\317 \264I\273\000\256\255\022\022\014\315\276\222u\226$l\270\343\000\250\324\020\325&\276Je\250\311\r6\200(\353\341\315\235\217s\225\344\247\335\256J\014\017wd\237E\002\272\244B~\013\211\007gh\322F\260A \317\006$\303B6n\221\016\334\232:\227p\200k\227\346\341SW\340+,\020 <S@\245k\315\246C\211\365\204<\022>O\200d\240\020\333\nI\\\377$im\267n\377\360\217\037\234,\022\376+\244\327\200\316\017\"\350\034\310\001kJEd \031\322\253\353d\247M\206*%\222\003Lhk\027\374N^0\373\\\022\315\r\032d\303\365\202\031\250\233\302u\320\346F\305\253\350s\274\375\204E\232\327\237\237\"\017 W\002cA\300\365\224\315]\303\273$fC\307\037\350\3717\236\250\031\321{\322)\007B\202\032\373<\001a\030\036\343Z\371XT\375\321\306\315\177\263\220\305b`\322\204\337\321Ip'5\"\3224\270\303\343zw8`aH%r\207L\020\240\357\356 PQ\204X\241ku\346\007\017O\010\035\235\312J\036}\270=\325\327\243Ph\004\305\035\264N@n`\017;NZX\036N*\037\030.\215\233\233\331\320\n]^\t\261\004-~\343\344\341\277\310\335\217\204'\025\364\265\315\322\310\020J\023\036\246\001\247\224\204\251cA*y\033\372\334\027,\202\323@Ha\340\260\344\342\321\303r\262\303SU|\274\207\n<.\346\324\371\361nzL;\213\"\025\270\347\001\261\221\220\031V\377\304i)]\214Q\275.\365\346\356\346\316""\316v\024\211\256\026\372\247\377<}\326j\335m5Zt\373i\213j\3509\245\255\341\000~[ Z\372\014\010{\301\333\236w\327kx\340\342\321\227\236\363\332\345\275\224\313\200\277\3041\250\317&\002\332\206]\337\353\002 \336\232\231\336L\013u\320B\275\322B\235\307S\250\264\024!\213\272\373\214\351\241\014\204\252\007*\201A\027\222k\237i\356s\303\032\370\271\027\000\305\250\177J\247F\207\033\354\036.\301\235\n\320\177\302\002\356\263\340M\0002\207f\204X\017\rq\252\250\320\264l\r\224\000\017\001\227i\354\246\225\003'\221\222<IT\322\216XG\203\006bf\252W\201\322v*\003\314\t\331\264A\314T\204\360\213\361m\201\177|\2310\3661\354RP\225\252b\332\212\251Gi\314\000\035\205W\022\237H|\207`\241\3024\202\177\311\342\331\027\004\n_\376\226\"\326.\024\322U\320\034\230\034\032\354\363\340\215N\343rU!A\323\025\347\254TvE\360\006bn\313\251_\337=\366\224\366\250\317\000m/eQ\231i\246\346c\253\324\375\211\r(\014\314\216\200\336'\224\302{S\241\004\253\032\ngWXN\330\323HN\210H\003l'\006%\244\215\202_\222\006\006\356\032\330\247\210\032\352L\235b\372\264\325\247\036<\300)\327\203\377\325\336_\232\233\277j/\331\037\363\245\374Fq\255x2^\0337\216.|c\227m\323\276\316\233\223\323\346\212\335\315\277\310\037\347\321\370\306\301\367\007\377=d\237\331\374\326\276\314/\345\215c\343\350\302r\326\310 \304\302h;[\315X\326;ZX\311\036\203\221@\370\307\326\317k\316\177\341\257\243^v&[\317\372\366\205\325\371Z~/\337-\316\024\267\306\376A\355\317\016\277<\360\017k\357\277\234\273\270\232mf={\306~\017.\275\t\3448\265\\\316~t\265.\347[E\255\2702>3^\233,|=b\243\004@\251\334\313}\330\276T\334/\374q\r\270\371\032\271\371\377\022\361~an~\245\244\342\342\310\033\371Y-[\376h\201\210t\266\226\335\317\330\007\013`\340\023\034j{\r8dX!Rt.{e\357\001\224\032\324\211`\256\215\233\237;xrp\355\2409\343\355,\034{S\326\252\305g9K\263\347y\003\342\260\\\203p\252(\010\247\007\346\374\305)\310\322\271\237y@\350ws\027.g\236\203>\3777[\303Rv\000S\303n\332\336g\026\250\215\263H\340b6o/\333\036.\216\026\276\261Kv\r\2016]\270\3246?X,f\347\321""\200\002\026\227\263\007\266fWm\220/MVV'\213\253\340\265o\331d\361r\026\201\210\376^\254\025\215\242Y\354\215\257\217a\363z\336\004U\235u[^\021\002G[\007\347\017z\207\265\303\245\303\365C\363\373\203w-\357\235\367\372\335\353\237\337\375\374\313d\341\212#\352\276\355\200xB\210\364`\374\305\270y\364\025\024\347\020\2722\366\354\232\005i/eK\331M\373\000\330\277\002\252]/z\343\332\364~\303\376\204\342\307\022W]\037\0271\300U\240\267\231\277*\356\025/\212d\2744\371\352*\006\262\315#\210\332\034y\223O\375\035\235\257R\003\333\177\231;7?:7\332\003\3614\360x\313\rO\017yw\323\350\330\322\366:ft\232\300\006\257@\325\301xe\274\013\003\347T\311\263\306\363?\000\205R{f";
-    PyObject *data = __Pyx_DecompressString(cstring, 1613, 1);
+    #elif (CYTHON_COMPRESS_STRINGS) != 0 /* compression: zlib (1874 bytes) */
+const char* const cstring = "x\332\315UKo\033\311\021\026%?\244\254\274\321\203\262c#\tZ\262\005\331\200M\233\262\275\t\026\216\003\352e\010\013\333\034S\262w\201\r\032\315\231&5\353y\220\323=4\271\247\034y\234c\037\3478\3079\362\310\243\217:\362\250\237\340\237\220\252\036R\244,\313\200\201\000\311\201\243~TW}\365\325W\245\037I\311q\210e\273\334\023\266\357\t\322\010\270\311-\333\253\217\017\311\272E\334PHR\345\304\366,\336\346\026a\236E<_\022\341\330`\276\025\326j< -\233\177 \226\317\205\276\342\355\206/8\0212\260-.\266\231G|\317\351\0203\340Lr\302H5{$\217\230$\266 \246\357I\273\036\372\241\200 \304\345\256\037t\n\360\n]1!\354\272G\244O\340\261\365@\373\311,0\344\320h\350\370C`KVu\370\320 \003U\013|\367kouZ\344\203-\217\210\35448\331\030\236\313\200yB\2471~\222\231\301\013\033\250\222\023\334\355L\022fg$dF\273nCv\2108b\340Z\206\r\000W\363\003bv\344\221\357\025X\020\260\316\276\006\340\207\222\3705R\365C\317\022\344.k\203\227u\353\336\376\371X\031\371a\243\341\007\222[\373^\21396T\311\267\370}$\036\214\241H\033\346\006\2018\033\020\014\023\331\270O\352\360jd\234\301\001\256u\230g/u\202o1A\200\360\312\007*ui\2665J\314\307\342\216]\345\001\220\014\024bY!\210\256\237G\312\273\345\007O\376\376D\313\"\340\277Ax\001\350\252\246\003\225\0039`N\241\355H\010\206\364\212\002\331\257\221\216\037\022\217\003L(k\003\354&\037\310#\356\021\301%.\310\206\256\005\223\2207\205\347\240\315\215!\257v\213\343\353=\346\010^x}\206<\200<\024\0303M.FlV$o\020\227u4\177\240\347\337y\340\217\211>\364\264r\300%\250\261\305\003\020\206\344.\356\375*&Ux\276q\357\237\314b\256\335\226a\300\037\212\300|\030J\333\021\324|\310\335B\243\323f\226E=\344\016\231 @\337\243\266\351;\016b\205\252\025X\325|6!t4\3122y\376\371\361H_\317-[ (\256\241\325Mr\027kX\327\322\302\364\260Sy[rO\352\276\0317\255-\262'\026\246 \354\3379y\366\017\362\350\234\360<\037\352Zc\241#\t\245\001\267B\223SJ\254P\263\340\371\336\003\250s\313f\016\334\232\266gK\270\314\270x\376,\353l\353L\026\347\317P\201\247\311\234\271?=\rOig\216\343\233z< 6b1\311\n_\270\315""\244\213>\206\323\245P\252l\357\357\357:\216\335\020\266x\361\323\313W\345\362\243r\261Lw_\226\251\200\232g_j\006\276\020\224\226;m\370\355\200\200\351+ \357\r\257\031\306#\243h\200\271A\017\014\332\010\374\337\364\003c\342\233=\256\360f\310=\223\037`\247\024\306M\003\225Ea\0346\0003/\217\227\306X.\005\220Ka(\227\002wG\331\320L\247\314i\0341&:\236i\373\005\323\017`\026\330\036\027U&x\225KV\304\317\246\tU\300\026\241t\264\250s\211\005\306-\230S\033Z$`&\2572\363\275\t\235\000\365\2620Mja\343Q[\320\254z\220\002\314\n\356\205\256nh\016\2649\276\307\203\300\017j\016\253\013\220\211\313\344ppPZ\013=\023cB4!\0213\265-\370\2718~\340/\016/\364}\n;\323\334Px.-\273\324\240\324e\200\216\302 \305)\212\243\n6\276\025:\360\327c\356\370\013\032\206/\377@\021k\003\022i\370\rJ\241\271\250y\304\315\367\"t\263\335\020\t.urz\025z\r\333|\017>w\275\221]K\377?\240\264I\253\014\3206C\346d\221\306\202?]e\2551q\000\211\301\262n\203\002\002\201\231R\nsi\010\025V\303\346\321\353!\240\211\365\310\235\026,r\001\307\201D5\t\351\303/\010M\to%\234S\204\016\311\206Z6-ZnQ\003\006u\310E\373\337\271O\263Ss\177VO\343+1\213\233\237nM\315^\217\214\210E\315\223\271?\251\334`v\276\273\037\275UE\265\255\232\027l\366\342\265x;\206\203\205hN]W\315\370j\334<\231\277\251\026\325\352`>\037\225\264\273P\225>\333,DWq\241\214\301B>\332\325\326\013\313\321S\225S\313\332\177~e\260\260\002\346G\212\r\026\256GN\274\032\377-YM\212I)\251\244\227\322\322`\341N\\\212+\311\214>2\022+]KwzW{\315~\256\277\330\277\335?\370\270\362\221}\224\307\225\237\217\177\376e0\177#j\252\031\365X\325c#\266\300\317S\364q\362\035\344\250C\353l\016\325\252*\016\346\027\243\305\350\0360\222\213o$\323\311z\322Ls\243\367E\365\".\"\3669\265\242\030\240\\@\007\267\342\"@y\233l&o\222 ]\034|w\013\035\251\322\tx-u\215\301\227\376\234\\\035\206\206\n\374a\262\002\371\213*\360?\343\371:\334qL\021\263\275\244\266\320\360\246\312\2537*\004@\022\322\326\276\367\324:\200\312\201C\360f\25150\254\002\306\020\034\035\244\313\351^o\255\367\242\277\3317\276\201""\364\t\236\227\243b\364B\375\010\325cqK\363\274\224\026/`\372\224\333OW\246.\317u\347\242\025\244s0{\255{\030\255FEd\360R\264\025q|9\230E\317\245\250\002/n\304\227\240\216\030A&O\000\001d\237\036\364\362\275w\375\022>6\272v\324\204r]\231,\327,F\270<r<\337\335\205<tf;\321t\264\016\242\311MFXV;\220\341\"p\374X\253\020\243\314\244OR\321[\315\"\360\250\010\021\226\246\346n\251%\365\003X\336M\326\222\275t5-\236\314\336\204\347%\365\016\352pv\231W\025\000\276\025;\351\335\336\355\336/}v\301\341_\324A\274\004\362\035-N2`\031jM\321\tHg\013\026\001\270\307\352\345\264\375\374\037\273M\235L\013J.\000\373&\264\335tr?\255\366r_\273\274\322\253\366\221\255k+\3216\0201\255n\203I\023\345yf\273\034\375\240s]\216w\222\\r#\235NA\317\337wY7\000P>\224\243\n\307K\311\343\244\232\346\200\233\357\221\233\377.\021\237\346\247\346\362\031\025X\203j\224\213\226\317m\020\221\200*?\216\330g\033`\340\013\034\n\335\001\250]M\321e\350\341M\200\222\203<\021\314\032t\326\005\027\330)\2451o3pm\214X\033n.\344,\214^C\247n\2014\005\010g\350\005\3414Q\266\327F 3\343Vd\000\241\177\375\366\221\217\332\230\211\213\343Q\004\233o\033E\331\004ZQf\274\370\265\tt\230\336I\331\327'\375z_~|z\\6\216\215w\307\357~=\376\365_\377\357\263\376\354\27487&\014\255\235;\030Qk\002\013\234\207\254\3154\237V\240\341Fc\342\365\177\000\"C\361\364";
+    PyObject *data = __Pyx_DecompressString(cstring, 1874, 1);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #else /* compression: none (2981 bytes) */
-const char* const bytes = ": All dimensions preceding dimension %d must be indexed and not slicedBuffer view does not expose stridesCan only create a buffer that is contiguous in memory.Cannot assign to read-only memoryviewCannot create writable memory view from read-only memoryviewCannot index with type 'Cannot transpose memoryview with indirect dimensionsDimension %d is not directEmpty shape tuple for cython.arrayIndex out of bounds (axis %d)Indirect dimensions not supportedInvalid mode, expected 'c' or 'fortran', got Invalid shape in axis <MemoryView of Note that Cython is deliberately stricter than PEP-484 and rejects subclasses of builtin types. If you need to pass subclasses then set the 'annotation_typing' directive to False.Out of bounds on buffer access (axis Step may not be zero (axis %d)Unable to convert item to object.>')?adamixture/src/utils_c/em.pyxadd_note and  at 0xcollections.abc<contiguous and direct><contiguous and indirect>disableenablegc (got got differing extents in dimension isenableditemsize <= 0 for cython.arrayno default __reduce__ due to non-trivial __cinit__ object><strided and direct><strided and direct or indirect><strided and indirect>unable to allocate array data.unable to allocate shape and strides.ASCIIEllipsisGKMNPP0P1P_EMP_step__Pyx_PyDict_NextRefQQ0Q1Q_EMQ_TQ_stepSequenceTView.MemoryViewabcadamUpdatePadamUpdateQadamixture.src.utils_c.emallocate_bufferalphaasyncio.coroutinesbasebeta1beta2c__class____class_getitem__cline_in_tracebackcount__dict__dtype_is_objectencodeenumerateepsilonerrorflagsformatfortran__func____getstate__id__import__index_is_coroutineitemsitemsizem_Pm_Q__main__memviewmode__module__name__name__ndim__new__objpackpop__pyx_checksum__pyx_state__pyx_type__pyx_unpickle_Enum__pyx_vtable__q_bat__qualname____reduce____reduce_cython____reduce_ex__register__set_name__setdefault__setstate____setstate_cython__shapesizestartstepstopstructt__test__unpackupdatev_Pv_Qvaluesx\200\001\360\022\000\t\032\230\022\2306\240\021\240(\250\"\250F\260!\2601\340\010""\031\230\023\230A\230W\240A\330\010\031\230\023\230A\230W\240A\330\010\031\230\024\230S\240\004\240B\240l\260(\270#\270Y\300a\330\010\031\230\024\230S\240\004\240B\240l\260(\270#\270Y\300a\330\010\035\230T\240\022\2401\330\010\035\230T\240\022\2401\340\010\023\2201\220A\330\010\014\210E\220\025\220a\220q\340\014\024\220B\220a\220r\230\023\230B\230b\240\001\240\022\2401\330\014\017\210q\220\002\220%\220v\230R\230s\240!\2402\240S\250\002\250,\260b\270\001\330\014\017\210q\220\002\220%\220v\230R\230s\240!\2402\240S\250\002\250,\260b\270\006\270b\300\001\360\006\000\r\025\220C\220q\230\002\230#\230R\230q\330\014\024\220C\220q\230\002\230#\230R\230q\330\014\023\2206\230\022\2306\240\023\240D\250\001\250\027\260\002\260!\330\014\016\210a\210r\220\025\220o\240Q\240b\250\001\250\022\2503\250b\260\001\200\001\360\016\000\t\032\230\023\230A\230W\240A\330\010\031\230\023\230A\230W\240A\330\010\031\230\024\230S\240\004\240B\240l\260(\270#\270Y\300a\330\010\031\230\024\230S\240\004\240B\240l\260(\270#\270Y\300a\330\010\035\230T\240\022\2401\330\010\035\230T\240\022\2401\360\014\000\t\024\2201\220A\330\010\r\210Q\210b\220\001\220\023\220A\330\010\r\210Q\210b\220\001\220\023\220A\330\010\016\210a\210s\220!\2203\220a\330\010\016\210a\210s\220!\2203\220a\330\010\017\210q\330\010\014\210E\220\025\220a\220q\340\014\024\220B\220a\220s\230\"\230B\230a\230q\330\014\017\210q\220\005\220V\2302\230S\240\001\240\023\240B\240l\260\"\260A\330\014\017\210q\220\005\220V\2302\230S\240\001\240\023\240B\240l\260\"\260F\270\"\270A\360\006\000\r\025\220C\220q\230\003\2302\230Q\330\014\024\220C\220q\230\003\2302\230Q\330\014\023\2206\230\022\2306\240\023\240D\250\001\250\027\260\002\260!\330\014\016\210a\210u\220O\2401\240B\240a\240s\250\"\250A\360\006\000\r\025\220B\220a\220q\360\006\000\t\r\210E\220\025\220a\220q\330\014\016\210a\210v\220Q\200\001\360\036\000\010\026\220Q\220a\220q\340\t\030\230\001\330\010\014\210I\220V\2301\230C\230q\330\010\014\210I\220V\2301\230C\230q\330\010\014\210I\220V\2301""\230B\230b\240\003\2401\330\010\020\220\t\230\026\230q\240\003\2401\340\014\031\230\021\230!\330\014\024\220A\220Q\220a\220u\230A\330\014\024\220A\220Q\220a\220u\230A\330\014\020\220\007\220u\230A\230Q\330\020\023\2205\230\001\230\025\230c\240\021\330\024\025\330\020\025\220Q\220h\230a\330\020\026\220l\240!\2407\250!\2501\250A\250U\260$\260a\330\020$\240A\240S\250\003\2501\250A\250Q\250d\260\"\260D\270\007\270q\300\001\300\021\300%\300t\3105\320PQ\320QW\320W\\\320\\]\330\014\027\220q\230\003\2303\230g\240Q\240d\250!\2505\260\004\260A\340\013\030\230\001\230\021\230!\330\010\014\210I\220U\230!\2301\330\014\021\220\021\220)\2305\240\001\240\027\250\002\250%\250q\260\001\330\014\027\220q\230\003\2301\230G\2401\330\014\020\220\t\230\025\230a\230q\330\020\030\230\001\230\032\2401\240A\240V\2502\250R\250r\260\021\330\013\032\230!\2301\230A\340\010\014\210A\210Q\330\010\014\210A\210Q\330\010\014\210A\210Q\330\010\014\210A\210Q\340\007\030\230\001\230\021\230!\200\001\360\n\000\005\t\210\005\210U\220!\2201\330\010\014\210D\220\002\220%\220q\230\001\330\010\023\2201\220A\220Q\220a\220s\230$\230a\230q\240\001\240\023\240D\250\001\250\024\250Q\250c\260\024\260S\270\001\330\010\r\210Q\210e\2201O";
+    #else /* compression: none (3936 bytes) */
+const char* const bytes = ": All dimensions preceding dimension %d must be indexed and not slicedBuffer view does not expose stridesCan only create a buffer that is contiguous in memory.Cannot assign to read-only memoryviewCannot create writable memory view from read-only memoryviewCannot index with type 'Cannot transpose memoryview with indirect dimensionsDimension %d is not directEmpty shape tuple for cython.arrayIndex out of bounds (axis %d)Indirect dimensions not supportedInvalid mode, expected 'c' or 'fortran', got Invalid shape in axis <MemoryView of Note that Cython is deliberately stricter than PEP-484 and rejects subclasses of builtin types. If you need to pass subclasses then set the 'annotation_typing' directive to False.Out of bounds on buffer access (axis Step may not be zero (axis %d)Unable to convert item to object.>')?adamixture/src/utils_c/em.pyxadd_note and  at 0xcollections.abc<contiguous and direct><contiguous and indirect>disableenablegc (got got differing extents in dimension isenableditemsize <= 0 for cython.arrayno default __reduce__ due to non-trivial __cinit__ object><strided and direct><strided and direct or indirect><strided and indirect>unable to allocate array data.unable to allocate shape and strides.ASCIIEllipsisGKMNPP0P1P_EMP_stepP_step_cross__Pyx_PyDict_NextRefQQ0Q1Q_EMQ_TQ_proj_stepQ_stepQ_step_crossSequenceTView.MemoryViewabcadamUpdatePadamUpdateQadamixture.src.utils_c.emallocate_bufferalphaasyncio.coroutinesbasebeta1beta2c__class____class_getitem__cline_in_tracebackcount__dict__dtype_is_objectencodeenumerateepsilonerrorflagsformatfortran__func____getstate__id__import__index_is_coroutineitemsitemsizem_Pm_Q__main__memviewmode__module__name__name__ndim__new__objpackpop__pyx_checksum__pyx_state__pyx_type__pyx_unpickle_Enum__pyx_vtable__q_bat__qualname____reduce____reduce_cython____reduce_ex__registers_ind__set_name__setdefault__setstate____setstate_cython__shapesizestartstepstopstructt__test__unpackupdatev_Pv_Qvaluesx\200\001\360\010\000\t\034\2305\240\006""\240a\240q\360\032\000\010\026\220Q\220a\220q\340\t\030\230\001\330\010\014\210I\220V\2301\230C\230q\330\010\014\210I\220V\2301\230C\230q\330\010\014\210I\220V\2301\230F\240\"\240C\240q\330\010\020\220\t\230\026\230q\240\007\240q\340\014\031\230\021\230!\330\014\024\220A\220Q\220a\220u\230A\330\014\024\220A\220Q\220a\220u\230A\330\014\020\220\007\220u\230A\230Q\330\020\024\220E\230\021\230!\330\020\023\2205\230\001\230\023\230C\230q\330\024\025\330\020\025\220Q\220h\230a\330\020\026\220l\240!\2407\250!\2501\250A\250S\260\004\260A\330\020$\240A\240S\250\003\2501\250A\250Q\250d\260\"\260D\270\007\270q\300\001\300\021\300#\300T\310\025\310a\310t\320SX\320XY\330\014\027\220q\230\003\2303\230g\240Q\240d\250!\2505\260\004\260A\340\013\030\230\001\230\021\230!\330\010\014\210I\220U\230!\2301\330\014\021\220\021\220)\2305\240\001\240\027\250\002\250%\250q\260\001\330\014\027\220q\230\003\2301\230G\2401\330\014\020\220\t\230\025\230a\230q\330\020\030\230\001\230\032\2401\240A\240V\2502\250R\250r\260\021\330\013\032\230!\2301\230A\340\010\014\210A\210Q\330\010\014\210A\210Q\330\010\014\210A\210Q\330\010\014\210A\210Q\340\007\030\230\001\230\021\230!\200\001\360\n\000\t\034\2305\240\006\240a\240q\360\024\000\010\026\220Q\220a\220q\340\t\030\230\001\330\010\014\210I\220V\2301\230F\240\"\240C\240q\330\010\020\220\t\230\026\230q\240\007\240q\340\014\031\230\021\230!\330\014\024\220A\220Q\220a\220u\230A\330\014\024\220A\220Q\220a\220u\230A\330\014\020\220\007\220u\230A\230Q\330\020\024\220E\230\021\230!\330\020\023\2205\230\001\230\023\230C\230q\330\024\025\330\020\025\220Q\220h\230a\330\020\026\220l\240!\2407\250!\2501\250A\250S\260\004\260A\330\020\026\220h\230e\2401\240A\330\020\030\230\004\230B\230a\330\020\031\230\024\230R\230u\240C\240t\2502\250Q\330\020\024\220F\230%\230q\240\001\330\024\025\220Q\220d\230\"\230B\230b\240\007\240u\250A\250T\260\023\260F\270\"\270G\3002\300Q\340\013\030\230\001\230\021\230!\330\010\014\210I\220U\230!\2301\330\014\021\220\021\220)\2305\240""\001\240\027\250\002\250%\250q\260\001\330\014\020\220\t\230\025\230a\230q\330\020\023\2201\220G\230:\240Q\240a\240v\250R\250r\260\022\2601\330\013\032\230!\2301\230A\340\010\014\210A\210Q\330\010\014\210A\210Q\340\007\030\230\001\230\021\230!\360\006\000\005\t\210\t\220\025\220a\220q\330\010\r\210U\220!\2201\330\010\020\220\004\220B\220e\2301\230A\330\010\023\2201\220A\220S\230\001\230\027\240\004\240A\240Q\240a\240t\2504\250q\260\004\260A\260T\270\024\270W\300A\330\010\r\210Q\210i\220q\200\001\360\006\000\t\034\2305\240\006\240a\240q\360\010\000\005\t\210\005\210U\220!\2201\330\010\014\210E\220\021\220!\330\010\014\210D\220\002\220%\220q\230\001\330\010\023\2201\220A\220S\230\001\230\023\230D\240\001\240\021\240!\2403\240d\250!\2504\250q\260\003\2604\260s\270!\330\010\r\210Q\210e\2201\200\001\360\022\000\t\032\230\022\2306\240\021\240(\250\"\250F\260!\2601\340\010\031\230\023\230A\230W\240A\330\010\031\230\023\230A\230W\240A\330\010\031\230\024\230S\240\004\240B\240l\260(\270#\270Y\300a\330\010\031\230\024\230S\240\004\240B\240l\260(\270#\270Y\300a\330\010\035\230T\240\022\2401\330\010\035\230T\240\022\2401\340\010\023\2201\220A\330\010\014\210E\220\025\220a\220q\340\014\024\220B\220a\220r\230\023\230B\230b\240\001\240\022\2401\330\014\017\210q\220\002\220%\220v\230R\230s\240!\2402\240S\250\002\250,\260b\270\001\330\014\017\210q\220\002\220%\220v\230R\230s\240!\2402\240S\250\002\250,\260b\270\006\270b\300\001\360\006\000\r\025\220C\220q\230\002\230#\230R\230q\330\014\024\220C\220q\230\002\230#\230R\230q\330\014\023\2206\230\022\2306\240\023\240D\250\001\250\027\260\002\260!\330\014\016\210a\210r\220\025\220o\240Q\240b\250\001\250\022\2503\250b\260\001\200\001\360\016\000\t\032\230\023\230A\230W\240A\330\010\031\230\023\230A\230W\240A\330\010\031\230\024\230S\240\004\240B\240l\260(\270#\270Y\300a\330\010\031\230\024\230S\240\004\240B\240l\260(\270#\270Y\300a\330\010\035\230T\240\022\2401\330\010\035\230T\240\022\2401\360\014\000\t\024\2201\220A\330\010\r\210Q\210b""\220\001\220\023\220A\330\010\r\210Q\210b\220\001\220\023\220A\330\010\016\210a\210s\220!\2203\220a\330\010\016\210a\210s\220!\2203\220a\330\010\017\210q\330\010\014\210E\220\025\220a\220q\340\014\024\220B\220a\220s\230\"\230B\230a\230q\330\014\017\210q\220\005\220V\2302\230S\240\001\240\023\240B\240l\260\"\260A\330\014\017\210q\220\005\220V\2302\230S\240\001\240\023\240B\240l\260\"\260F\270\"\270A\360\006\000\r\025\220C\220q\230\003\2302\230Q\330\014\024\220C\220q\230\003\2302\230Q\330\014\023\2206\230\022\2306\240\023\240D\250\001\250\027\260\002\260!\330\014\016\210a\210u\220O\2401\240B\240a\240s\250\"\250A\360\006\000\r\025\220B\220a\220q\360\006\000\t\r\210E\220\025\220a\220q\330\014\016\210a\210v\220Q\200\001\360\036\000\010\026\220Q\220a\220q\340\t\030\230\001\330\010\014\210I\220V\2301\230C\230q\330\010\014\210I\220V\2301\230C\230q\330\010\014\210I\220V\2301\230B\230b\240\003\2401\330\010\020\220\t\230\026\230q\240\003\2401\340\014\031\230\021\230!\330\014\024\220A\220Q\220a\220u\230A\330\014\024\220A\220Q\220a\220u\230A\330\014\020\220\007\220u\230A\230Q\330\020\023\2205\230\001\230\025\230c\240\021\330\024\025\330\020\025\220Q\220h\230a\330\020\026\220l\240!\2407\250!\2501\250A\250U\260$\260a\330\020$\240A\240S\250\003\2501\250A\250Q\250d\260\"\260D\270\007\270q\300\001\300\021\300%\300t\3105\320PQ\320QW\320W\\\320\\]\330\014\027\220q\230\003\2303\230g\240Q\240d\250!\2505\260\004\260A\340\013\030\230\001\230\021\230!\330\010\014\210I\220U\230!\2301\330\014\021\220\021\220)\2305\240\001\240\027\250\002\250%\250q\260\001\330\014\027\220q\230\003\2301\230G\2401\330\014\020\220\t\230\025\230a\230q\330\020\030\230\001\230\032\2401\240A\240V\2502\250R\250r\260\021\330\013\032\230!\2301\230A\340\010\014\210A\210Q\330\010\014\210A\210Q\330\010\014\210A\210Q\330\010\014\210A\210Q\340\007\030\230\001\230\021\230!\200\001\360\n\000\005\t\210\005\210U\220!\2201\330\010\014\210D\220\002\220%\220q\230\001\330\010\023\2201\220A\220Q\220a\220s\230$\230a\230q\240\001\240""\023\240D\250\001\250\024\250Q\250c\260\024\260S\270\001\330\010\r\210Q\210e\2201O";
     PyObject *data = NULL;
     CYTHON_UNUSED_VAR(__Pyx_DecompressString);
     #endif
     PyObject **stringtab = __pyx_mstate->__pyx_string_tab;
     Py_ssize_t pos = 0;
-    for (int i = 0; i < 140; i++) {
+    for (int i = 0; i < 144; i++) {
       Py_ssize_t bytes_length = index[i].length;
       PyObject *string = PyUnicode_DecodeUTF8(bytes + pos, bytes_length, NULL);
       if (likely(string) && i >= 45) PyUnicode_InternInPlace(&string);
@@ -20887,7 +22480,7 @@ const char* const bytes = ": All dimensions preceding dimension %d must be index
       stringtab[i] = string;
       pos += bytes_length;
     }
-    for (int i = 140; i < 145; i++) {
+    for (int i = 144; i < 152; i++) {
       Py_ssize_t bytes_length = index[i].length;
       PyObject *string = PyBytes_FromStringAndSize(bytes + pos, bytes_length);
       stringtab[i] = string;
@@ -20898,15 +22491,15 @@ const char* const bytes = ": All dimensions preceding dimension %d must be index
       }
     }
     Py_XDECREF(data);
-    for (Py_ssize_t i = 0; i < 145; i++) {
+    for (Py_ssize_t i = 0; i < 152; i++) {
       if (unlikely(PyObject_Hash(stringtab[i]) == -1)) {
         __PYX_ERR(0, 1, __pyx_L1_error)
       }
     }
     #if CYTHON_IMMORTAL_CONSTANTS
     {
-      PyObject **table = stringtab + 140;
-      for (Py_ssize_t i=0; i<5; ++i) {
+      PyObject **table = stringtab + 144;
+      for (Py_ssize_t i=0; i<8; ++i) {
         #if CYTHON_COMPILING_IN_CPYTHON_FREETHREADING
         #if PY_VERSION_HEX < 0x030E0000
         if (_Py_IsOwnedByCurrentThread(table[i]) && Py_REFCNT(table[i]) == 1)
@@ -20962,7 +22555,7 @@ typedef struct {
     unsigned int num_kwonly_args : 1;
     unsigned int nlocals : 4;
     unsigned int flags : 10;
-    unsigned int first_line : 8;
+    unsigned int first_line : 9;
 } __Pyx_PyCode_New_function_description;
 /* NewCodeObj.proto */
 static PyObject* __Pyx_PyCode_New(
@@ -20979,24 +22572,39 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
   PyObject* tuple_dedup_map = PyDict_New();
   if (unlikely(!tuple_dedup_map)) return -1;
   {
-    const __Pyx_PyCode_New_function_description descr = {11, 0, 0, 11, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 43};
+    const __Pyx_PyCode_New_function_description descr = {11, 0, 0, 11, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 44};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_P0, __pyx_mstate->__pyx_n_u_P1, __pyx_mstate->__pyx_n_u_m_P, __pyx_mstate->__pyx_n_u_v_P, __pyx_mstate->__pyx_n_u_alpha, __pyx_mstate->__pyx_n_u_beta1, __pyx_mstate->__pyx_n_u_beta2, __pyx_mstate->__pyx_n_u_epsilon, __pyx_mstate->__pyx_n_u_t, __pyx_mstate->__pyx_n_u_M, __pyx_mstate->__pyx_n_u_K};
     __pyx_mstate_global->__pyx_codeobj_tab[0] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_adamixture_src_utils_c_em_pyx, __pyx_mstate->__pyx_n_u_adamUpdateP, __pyx_mstate->__pyx_kp_b_iso88591_6_F_1_AWA_AWA_S_Bl_Ya_S_Bl_Ya_T, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[0])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {11, 0, 0, 11, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 75};
+    const __Pyx_PyCode_New_function_description descr = {11, 0, 0, 11, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 76};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_Q0, __pyx_mstate->__pyx_n_u_Q1, __pyx_mstate->__pyx_n_u_m_Q, __pyx_mstate->__pyx_n_u_v_Q, __pyx_mstate->__pyx_n_u_alpha, __pyx_mstate->__pyx_n_u_beta1, __pyx_mstate->__pyx_n_u_beta2, __pyx_mstate->__pyx_n_u_epsilon, __pyx_mstate->__pyx_n_u_t, __pyx_mstate->__pyx_n_u_N, __pyx_mstate->__pyx_n_u_K};
     __pyx_mstate_global->__pyx_codeobj_tab[1] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_adamixture_src_utils_c_em_pyx, __pyx_mstate->__pyx_n_u_adamUpdateQ, __pyx_mstate->__pyx_kp_b_iso88591_AWA_AWA_S_Bl_Ya_S_Bl_Ya_T_1_T_1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[1])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {9, 0, 0, 9, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 119};
+    const __Pyx_PyCode_New_function_description descr = {9, 0, 0, 9, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 120};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_G, __pyx_mstate->__pyx_n_u_P, __pyx_mstate->__pyx_n_u_P_EM, __pyx_mstate->__pyx_n_u_Q, __pyx_mstate->__pyx_n_u_Q_T, __pyx_mstate->__pyx_n_u_q_bat, __pyx_mstate->__pyx_n_u_K, __pyx_mstate->__pyx_n_u_M, __pyx_mstate->__pyx_n_u_N};
     __pyx_mstate_global->__pyx_codeobj_tab[2] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_adamixture_src_utils_c_em_pyx, __pyx_mstate->__pyx_n_u_P_step, __pyx_mstate->__pyx_kp_b_iso88591_Qaq_IV1Cq_IV1Cq_IV1Bb_1_q_1_AQa, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[2])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {6, 0, 0, 6, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 169};
+    const __Pyx_PyCode_New_function_description descr = {6, 0, 0, 6, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 170};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_Q, __pyx_mstate->__pyx_n_u_Q_EM, __pyx_mstate->__pyx_n_u_T, __pyx_mstate->__pyx_n_u_q_bat, __pyx_mstate->__pyx_n_u_K, __pyx_mstate->__pyx_n_u_N};
     __pyx_mstate_global->__pyx_codeobj_tab[3] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_adamixture_src_utils_c_em_pyx, __pyx_mstate->__pyx_n_u_Q_step, __pyx_mstate->__pyx_kp_b_iso88591_U_1_D_q_1AQas_aq_D_Qc_S_Qe1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[3])) goto bad;
+  }
+  {
+    const __Pyx_PyCode_New_function_description descr = {9, 0, 0, 9, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 194};
+    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_G, __pyx_mstate->__pyx_n_u_P, __pyx_mstate->__pyx_n_u_P_EM, __pyx_mstate->__pyx_n_u_Q, __pyx_mstate->__pyx_n_u_Q_T, __pyx_mstate->__pyx_n_u_q_bat, __pyx_mstate->__pyx_n_u_K, __pyx_mstate->__pyx_n_u_M, __pyx_mstate->__pyx_n_u_s_ind};
+    __pyx_mstate_global->__pyx_codeobj_tab[4] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_adamixture_src_utils_c_em_pyx, __pyx_mstate->__pyx_n_u_P_step_cross, __pyx_mstate->__pyx_kp_b_iso88591_5_aq_Qaq_IV1Cq_IV1Cq_IV1F_Cq_q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[4])) goto bad;
+  }
+  {
+    const __Pyx_PyCode_New_function_description descr = {6, 0, 0, 6, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 247};
+    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_Q, __pyx_mstate->__pyx_n_u_Q_EM, __pyx_mstate->__pyx_n_u_Q_T, __pyx_mstate->__pyx_n_u_q_bat, __pyx_mstate->__pyx_n_u_K, __pyx_mstate->__pyx_n_u_s_ind};
+    __pyx_mstate_global->__pyx_codeobj_tab[5] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_adamixture_src_utils_c_em_pyx, __pyx_mstate->__pyx_n_u_Q_step_cross, __pyx_mstate->__pyx_kp_b_iso88591_5_aq_U_1_E_D_q_1AS_D_3d_4q_4s_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[5])) goto bad;
+  }
+  {
+    const __Pyx_PyCode_New_function_description descr = {9, 0, 0, 9, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 261};
+    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_G, __pyx_mstate->__pyx_n_u_P, __pyx_mstate->__pyx_n_u_Q, __pyx_mstate->__pyx_n_u_Q_EM, __pyx_mstate->__pyx_n_u_Q_T, __pyx_mstate->__pyx_n_u_q_bat, __pyx_mstate->__pyx_n_u_K, __pyx_mstate->__pyx_n_u_M, __pyx_mstate->__pyx_n_u_s_ind};
+    __pyx_mstate_global->__pyx_codeobj_tab[6] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_adamixture_src_utils_c_em_pyx, __pyx_mstate->__pyx_n_u_Q_proj_step, __pyx_mstate->__pyx_kp_b_iso88591_5_aq_Qaq_IV1F_Cq_q_q_AQauA_AQau, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[6])) goto bad;
   }
   Py_DECREF(tuple_dedup_map);
   return 0;
@@ -27282,6 +28890,29 @@ static const char* __Pyx_BufFmt_CheckString(__Pyx_BufFmt_Context* ctx, const cha
       retcode = __Pyx_ValidateAndInit_memviewslice(axes_specs, __Pyx_IS_C_CONTIG,
                                                    (PyBUF_C_CONTIGUOUS | PyBUF_FORMAT) | writable_flag, 1,
                                                    &__Pyx_TypeInfo_double, stack,
+                                                   &result, obj);
+      if (unlikely(retcode == -1))
+          goto __pyx_fail;
+      return result;
+  __pyx_fail:
+      result.memview = NULL;
+      result.data = NULL;
+      return result;
+  }
+  
+/* ObjectToMemviewSlice */
+  static CYTHON_INLINE __Pyx_memviewslice __Pyx_PyObject_to_MemoryviewSlice_dc_nn_uint32_t(PyObject *obj, int writable_flag) {
+      __Pyx_memviewslice result = __Pyx_MEMSLICE_INIT;
+      __Pyx_BufFmt_StackElem stack[1];
+      int axes_specs[] = { (__Pyx_MEMVIEW_DIRECT | __Pyx_MEMVIEW_CONTIG) };
+      int retcode;
+      if (obj == Py_None) {
+          result.memview = (struct __pyx_memoryview_obj *) Py_None;
+          return result;
+      }
+      retcode = __Pyx_ValidateAndInit_memviewslice(axes_specs, __Pyx_IS_C_CONTIG,
+                                                   (PyBUF_C_CONTIGUOUS | PyBUF_FORMAT) | writable_flag, 1,
+                                                   &__Pyx_TypeInfo_nn_uint32_t, stack,
                                                    &result, obj);
       if (unlikely(retcode == -1))
           goto __pyx_fail;
