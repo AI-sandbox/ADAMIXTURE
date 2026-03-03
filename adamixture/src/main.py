@@ -117,7 +117,7 @@ def main(args: argparse.Namespace, t0: float):
             
             # Suggest optimal K
             best_k = min(cv_results, key=lambda k: cv_results[k]['avg'])
-            log.info(f"\n     Suggested optimal K = {best_k} (lowest CV error: {cv_results[best_k]['avg']:.5f})\n")
+            log.info(f"\n    Suggested optimal K = {best_k} (lowest CV error: {cv_results[best_k]['avg']:.5f})\n")
             # Generate CV plot
             plot_file = out_path / f"{args.name}.cv.png"
             utils.plot_cv_results(cv_results, plot_file)

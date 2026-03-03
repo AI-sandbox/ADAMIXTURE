@@ -163,7 +163,7 @@ def RSVD(G: np.ndarray, N: int, M: int, f: np.ndarray, k: int, seed: int,
     V = np.ascontiguousarray(np.dot(orth_matrix, v_cond[:, :k]))
 
     total_time = time.time() - t0
-    log.info(f"    Total time for SVD={total_time:.4f}s")
+    log.info(f"\n    Total time for SVD={total_time:.4f}s")
     log.info("")
 
     return U, S, V

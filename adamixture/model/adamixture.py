@@ -89,13 +89,13 @@ def ALS(G: np.ndarray, U: np.ndarray, S: np.ndarray, V: np.ndarray, f: np.ndarra
         rmse_error = tools.rmse(Q, Q0, N, K)        
 
         if rmse_error < tole:
-            log.info(f"        Convergence reached in iteration {i+1}.")
+            log.info(f"        Convergence at iteration {i+1}.")
             break
             
         memoryview(Q0.ravel())[:] = memoryview(Q.ravel())
     
     total_time = time.time() - t0
-    log.info(f"        Total time for ALS={total_time:.4f}s\n")
+    log.info(f"    Total time for ALS={total_time:.4f}s\n")
     
     P = P.astype(np.float64)
     Q = Q.astype(np.float64)

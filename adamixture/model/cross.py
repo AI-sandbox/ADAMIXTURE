@@ -186,15 +186,16 @@ def crossRun(G: np.ndarray, P: np.ndarray, Q: np.ndarray, K: int,
         # Best-solution tracking for training
         P_best = np.empty_like(P_crv)
         Q_best = np.empty_like(Q_crv)
-        memoryview(P_best.ravel())[:] = memoryview(P_crv.ravel())
-        memoryview(Q_best.ravel())[:] = memoryview(Q_crv.ravel())
         L_best_trn = float('-inf')
         no_improve_trn = 0
         fold_lr = lr
         ts_fold = time.time()
-        
+
         # Initial EM step for training
         crossSteps(G, P_crv, Q_crv, P1, Q1, Q_T, q_bat, K, M, s_trn)
+        L_best_trn = tools.loglike_cross(G, P_crv, Q_crv, s_trn, M, N_trn, K)
+        memoryview(P_best.ravel())[:] = memoryview(P_crv.ravel())
+        memoryview(Q_best.ravel())[:] = memoryview(Q_crv.ravel())
         
         for it in range(max_iter):
             crossAdamStep(G, P_crv, Q_crv, P1, Q1, Q_T, q_bat, K, M,
@@ -209,8 +210,7 @@ def crossRun(G: np.ndarray, P: np.ndarray, Q: np.ndarray, K: int,
                     f"Time: {time.time() - ts_fold:.3f}s"
                 )
                 ts_fold = time.time()
-                if abs(L_cur - L_best_trn) < cv_tole:
-                    break
+                diff = abs(L_cur - L_best_trn)
                 if L_cur > L_best_trn:
                     L_best_trn = L_cur
                     memoryview(P_best.ravel())[:] = memoryview(P_crv.ravel())
@@ -224,10 +224,15 @@ def crossRun(G: np.ndarray, P: np.ndarray, Q: np.ndarray, K: int,
                         f"        No improvement. "
                         f"Reducing lr: {old_lr:.3e} → {fold_lr:.3e}"
                     )
-                
-                if no_improve_trn >= 2:
-                    log.info("        Early stopping triggered.")
+
+                if diff < cv_tole:
                     break
+
+                if no_improve_trn >= 2:
+                    log.info("\n        Early stopping triggered.")
+                    break
+        
+        log.info(f"\n        Final training log-likelihood: {L_best_trn:.1f}\n")
         
         # Revert to best training solution
         memoryview(P_crv.ravel())[:] = memoryview(P_best.ravel())
@@ -245,13 +250,14 @@ def crossRun(G: np.ndarray, P: np.ndarray, Q: np.ndarray, K: int,
         
         # Best-solution tracking for projection
         Q_best_proj = np.empty_like(Q_crv)
-        memoryview(Q_best_proj.ravel())[:] = memoryview(Q_crv.ravel())
         L_best_proj = float('-inf')
         no_improve_proj = 0
         proj_lr = lr
-        
+
         # Initial EM step for projection
         crossProjSteps(G, P_crv, Q_crv, Q1_proj, Q_T_proj, q_bat_proj, K, M, s_tst)
+        L_best_proj = tools.loglike_cross(G, P_crv, Q_crv, s_tst, M, N_tst, K)
+        memoryview(Q_best_proj.ravel())[:] = memoryview(Q_crv.ravel())
         
         for it in range(max_iter):
             crossProjAdamStep(G, P_crv, Q_crv, Q1_proj, Q_T_proj, q_bat_proj, K, M,
@@ -266,8 +272,7 @@ def crossRun(G: np.ndarray, P: np.ndarray, Q: np.ndarray, K: int,
                     f"Time: {time.time() - ts_fold:.3f}s"
                 )
                 ts_fold = time.time()
-                if abs(L_cur_tst - L_best_proj) < cv_tole:
-                    break
+                diff = abs(L_cur_tst - L_best_proj)
                 if L_cur_tst > L_best_proj:
                     L_best_proj = L_cur_tst
                     memoryview(Q_best_proj.ravel())[:] = memoryview(Q_crv.ravel())
@@ -280,10 +285,15 @@ def crossRun(G: np.ndarray, P: np.ndarray, Q: np.ndarray, K: int,
                         f"        No improvement."
                         f"Reducing lr: {old_lr:.3e} → {proj_lr:.3e}"
                     )
-                
-                if no_improve_proj >= 2:
-                    log.info("        Early stopping triggered.")
+
+                if diff < cv_tole:
                     break
+
+                if no_improve_proj >= 2:
+                    log.info("\n        Early stopping triggered.")
+                    break
+
+        log.info(f"\n        Final projection log-likelihood: {L_best_proj:.1f}")
         
         # Revert to best projection solution
         memoryview(Q_crv.ravel())[:] = memoryview(Q_best_proj.ravel())

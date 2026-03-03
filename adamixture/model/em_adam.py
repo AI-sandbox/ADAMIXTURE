@@ -105,8 +105,6 @@ def optimize_parameters(G: np.ndarray, P: np.ndarray, Q: np.ndarray, lr: float,
     # Variables for tracking the best solution:
     P_best = np.empty_like(P)
     Q_best = np.empty_like(Q)
-    memoryview(P_best.ravel())[:] = memoryview(P.ravel())
-    memoryview(Q_best.ravel())[:] = memoryview(Q.ravel())
     L_best = float('-inf')
     no_improve = 0
 
@@ -117,7 +115,12 @@ def optimize_parameters(G: np.ndarray, P: np.ndarray, Q: np.ndarray, lr: float,
     emStep(G, P, Q, T, P1, Q1, q_bat, K, M, N)
     adamStep(G, P, Q, T, P1, Q1, q_bat, K, M, N, m_P, v_P, m_Q, v_Q, t, lr, beta1, beta2, reg_adam)
     emStep(G, P, Q, T, P1, Q1, q_bat, K, M, N)
-    log.info(f"    Performed priming iteration.\t({time.time() - ts_priming:.1f}s)")
+    log.info(f"    Performed priming iteration... ({time.time() - ts_priming:.1f}s)\n")
+
+    # Initialize best with progress from priming
+    L_best = tools.loglikelihood(G, P, Q)
+    memoryview(P_best.ravel())[:] = memoryview(P.ravel())
+    memoryview(Q_best.ravel())[:] = memoryview(Q.ravel())
 
     # ---------- Adam-EM ----------
     for it in range(max_iter):
@@ -132,8 +135,7 @@ def optimize_parameters(G: np.ndarray, P: np.ndarray, Q: np.ndarray, lr: float,
                 f"Time: {time.time() - ts:.3f}s"
             )
             ts = time.time()
-            if abs(L_cur - L_best) < 0.1:
-                break
+            diff = abs(L_cur - L_best)
             if L_cur > L_best:
                 L_best = L_cur
                 memoryview(P_best.ravel())[:] = memoryview(P.ravel())
@@ -148,11 +150,13 @@ def optimize_parameters(G: np.ndarray, P: np.ndarray, Q: np.ndarray, lr: float,
                     f"Reducing lr: {old_lr:.3e} → {lr:.3e}"
                 )
 
-            if no_improve >= 2:
-                log.info("    Early stopping triggered.")
+            if diff < 0.1:
                 break
 
-    L_final = tools.loglikelihood(G, P_best, Q_best)
-    log.info(f"    Log-likelihood after final EM: {L_final:.1f}")
+            if no_improve >= 2:
+                log.info("\n    Early stopping triggered.")
+                break
+
+    log.info(f"\n    Final log-likelihood: {L_best:.1f}")
 
     return P_best, Q_best

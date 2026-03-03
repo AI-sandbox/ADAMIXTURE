@@ -77,7 +77,7 @@ def print_adamixture_banner(version: str="1.0") -> None:
 
     info = f"""
     Version: {version}
-    Authors: Joan Saurina Ricós, Daniel Mas Montserrat and 
+    Authors: Joan Saurina-i-Ricos, Daniel Mas Montserrat and 
              Alexander G. Ioannidis.
     """
 
