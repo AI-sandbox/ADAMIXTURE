@@ -3,7 +3,7 @@ import sys
 import time
 import numpy as np
 
-from .utils_c import rsvd
+from .utils_c import tools
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
 log = logging.getLogger(__name__)
@@ -34,7 +34,7 @@ def eigSVD(X: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     return np.ascontiguousarray(U[:, ::-1]), np.ascontiguousarray(S[::-1]), np.ascontiguousarray(V[:, ::-1])
 
 def RSVD(G: np.ndarray, N: int, M: int, f: np.ndarray, k: int, seed: int, 
-        power: int, tol: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        power: int, tol: float, chunk: int) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Randomized SVD with Dynamic Shifts.
 
@@ -59,10 +59,12 @@ def RSVD(G: np.ndarray, N: int, M: int, f: np.ndarray, k: int, seed: int,
         Target rank (number of singular values/vectors).
     seed : int
         Random seed.
-    power_iterations : int, optional
-        Number of power iterations (default: 10).
-    oversampling : int, optional
-        Extra dimensions for stability (default: 10).
+    power : int
+        Number of power iterations (default: 5).
+    tol : float
+        Tolerance for convergence (default: 1e-1).
+    chunk : int
+        Number of SNPs in chunk operations.
 
     Returns
     -------
@@ -75,68 +77,90 @@ def RSVD(G: np.ndarray, N: int, M: int, f: np.ndarray, k: int, seed: int,
     """
     t0 = time.time()
     rng = np.random.default_rng(seed)
-    k_prime = max(k + 10, 20)
+    
+    # Execution parameters
+    n_batches = int(np.ceil(M / chunk))
     alpha = 0.0
+    k_prime = max(k + 10, 20)
+    
+    # Internal buffers
+    accum_mat = np.zeros((N, k_prime), dtype=np.float32)
+    gen_buffer = np.zeros((chunk, N), dtype=np.float32)
+    proj_basis = rng.standard_normal(size=(M, k_prime), dtype=np.float32)
 
-    # Buffers 
-    Y = np.zeros((N, k_prime), dtype=np.float32)
-    G_small = np.zeros((M, k_prime), dtype=np.float32)
-
-    # Prime iteration:
+    # 1) Prime iteration:
     log.info("    1) Prime iteration...")
     t_prime = time.time()
-    Omega = rng.standard_normal(size=(M, k_prime), dtype=np.float32)
-    rsvd.multiply_AT_omega(G, Omega, f, Y)
-    Q, _, _ = eigSVD(Y)
-    Y.fill(0.0)
+    for w in range(n_batches):
+        start_idx = w * chunk
+        n_active = min(chunk, M - start_idx)
+        if gen_buffer.shape[0] != n_active:
+            gen_buffer = np.zeros((n_active, N), dtype=np.float32)
+        tools.decompress_block(G, gen_buffer, f, start_idx)
+        accum_mat += gen_buffer.T @ proj_basis[start_idx : (start_idx + n_active)]
+    
+    orth_matrix, _, _ = eigSVD(accum_mat)
+    accum_mat.fill(0.0)
     log.info(f"        time={time.time() - t_prime:.4f}s")
 
-    # Power iterations:
+    # 2) Power iterations:
     log.info("    2) Power iterations...")
     t_power = time.time()
-    sk = np.zeros(k_prime, dtype=np.float32)
-    s=0
+    singular_vals = np.zeros(k_prime, dtype=np.float32)
+    shift_offset = 0
     for i in range(power):
-        rsvd.multiply_A_omega(G, Q, f, G_small)
-        rsvd.multiply_AT_omega(G, G_small, f, Y)
-        Y -= alpha * Q
-        Q, S_y, _ = eigSVD(Y)
+        for w in range(n_batches):
+            start_idx = w * chunk
+            n_active = min(chunk, M - start_idx)
+            if gen_buffer.shape[0] != n_active:
+                gen_buffer = np.zeros((n_active, N), dtype=np.float32)
+            tools.decompress_block(G, gen_buffer, f, start_idx)
+            proj_basis[start_idx : (start_idx + n_active)] = gen_buffer @ orth_matrix
+            accum_mat += gen_buffer.T @ proj_basis[start_idx : (start_idx + n_active)]
+        
+        accum_mat -= alpha * orth_matrix
+        orth_matrix, s_vals, _ = eigSVD(accum_mat)
+        accum_mat.fill(0.0)
+        
         if i > 0:
-            sk_now = S_y + alpha
-            pve_all = np.abs(sk_now - sk[:len(sk_now)]) / np.maximum(sk_now, 1e-12)
-            ei = np.max(pve_all[s: k+s])
-            if ei < tol:
+            s_current = s_vals + alpha
+            rel_diff = np.abs(s_current - singular_vals[:len(s_current)]) / np.maximum(s_current, 1e-12)
+            max_err = np.max(rel_diff[shift_offset : k + shift_offset])
+            if max_err < tol:
                 log.info(f"        Converged at iteration {i}.")
-                G_small.fill(0.0)
-                Y.fill(0.0)
                 break
-            sk[:len(sk_now)] = sk_now
+            singular_vals[:len(s_current)] = s_current
         else:
-            sk[:len(S_y)] = S_y + alpha
+            singular_vals[:len(s_vals)] = s_vals + alpha
 
-        if alpha < S_y[-1]:
-            alpha = (alpha + S_y[-1]) / 2
-
-        # Reset buffers
-        G_small.fill(0.0)
-        Y.fill(0.0)
+        # Dynamic shift update
+        if s_vals[-1] > alpha:
+            alpha = 0.5 * (s_vals[-1] + alpha)
             
     log.info(f"        time={time.time() - t_power:.4f}s")
 
-    # Final SVD:
+    # 3) Build projection:
     log.info("    3) Build small matrix...")
     t_build = time.time()
-    rsvd.multiply_A_omega(G, Q, f, G_small)
+    for w in range(n_batches):
+        start_idx = w * chunk
+        n_active = min(chunk, M - start_idx)
+        if gen_buffer.shape[0] != n_active:
+            gen_buffer = np.zeros((n_active, N), dtype=np.float32)
+        tools.decompress_block(G, gen_buffer, f, start_idx)
+        proj_basis[start_idx : (start_idx + n_active)] = gen_buffer @ orth_matrix
     log.info(f"        time={time.time() - t_build:.4f}s")
 
+    # 4) SVD of condensed matrix:
     log.info("    4) SVD of small matrix...")
     t_svd = time.time()
-    U_small, S_all, V_small = eigSVD(G_small)
+    u_cond, s_all, v_cond = eigSVD(proj_basis)
     log.info(f"        time={time.time() - t_svd:.4f}s")
 
-    S = np.ascontiguousarray(S_all[:k])
-    U = np.ascontiguousarray(U_small[:, :k])
-    V = np.ascontiguousarray(np.dot(Q, V_small[:, :k]))
+    # Truncate and rotate to final basis
+    S = np.ascontiguousarray(s_all[:k])
+    U = np.ascontiguousarray(u_cond[:, :k])
+    V = np.ascontiguousarray(np.dot(orth_matrix, v_cond[:, :k]))
 
     total_time = time.time() - t0
     log.info(f"    Total time for SVD={total_time:.4f}s")

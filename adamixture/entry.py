@@ -48,6 +48,7 @@ def parse_args(argv: List[str]):
     parser.add_argument('--reg_als', type=float, default=1e-5, help='Regularization parameter for ALS')
     parser.add_argument('--power', type=int, default=5, help='Number of power iterations for RSVD')
     parser.add_argument('--tole_svd', type=float, default=1e-1, help='Convergence tolerance for SVD')
+    parser.add_argument('--chunk_size', type=int, default=4096, help='Number of SNPs in chunk operations for RSVD')
     
     args = parser.parse_args(argv)
     

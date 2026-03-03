@@ -90,6 +90,29 @@ def crossProjAdamStep(G: np.ndarray, P: np.ndarray, Q: np.ndarray,
     
     t[0] = t_val
 
+def crossSteps(G: np.ndarray, P: np.ndarray, Q: np.ndarray, 
+               P1: np.ndarray, Q1: np.ndarray, Q_T: np.ndarray, 
+               q_bat: np.ndarray, K: int, M: int,
+               s_ind: np.ndarray) -> None:
+    """
+    One regular EM iteration on the training subset.
+    Updates both P and Q using only the samples in s_ind.
+    """
+    em.P_step_cross(G, P, P1, Q, Q_T, q_bat, K, M, s_ind)
+    em.Q_step_cross(Q, Q1, Q_T, q_bat, K, s_ind)
+    memoryview(P.ravel())[:] = memoryview(P1.ravel())
+    memoryview(Q.ravel())[:] = memoryview(Q1.ravel())
+
+def crossProjSteps(G: np.ndarray, P: np.ndarray, Q: np.ndarray, 
+                   Q1: np.ndarray, Q_T: np.ndarray, q_bat: np.ndarray, 
+                   K: int, M: int, s_ind: np.ndarray) -> None:
+    """
+    One regular EM iteration for Q-only projection on the test subset.
+    P is fixed; only Q rows for test samples are updated.
+    """
+    em.Q_proj_step(G, P, Q, Q1, Q_T, q_bat, K, M, s_ind)
+    memoryview(Q.ravel())[:] = memoryview(Q1.ravel())
+
 def crossRun(G: np.ndarray, P: np.ndarray, Q: np.ndarray, K: int, 
              seed: int, lr: float, beta1: float, beta2: float, 
              reg_adam: float, max_iter: int, check: int, cross: int, 
@@ -140,8 +163,10 @@ def crossRun(G: np.ndarray, P: np.ndarray, Q: np.ndarray, K: int,
         N_tst = s_tst.shape[0]
         
         # Copy original solutions
-        P_crv = np.copy(P)
-        Q_crv = np.copy(Q)
+        P_crv = np.empty_like(P)
+        Q_crv = np.empty_like(Q)
+        memoryview(P_crv.ravel())[:] = memoryview(P.ravel())
+        memoryview(Q_crv.ravel())[:] = memoryview(Q.ravel())
         
         # ----- Phase 1: Train on training set (P and Q) -----
         log.info(f"        1) Training on training set (P and Q)\n")
@@ -159,16 +184,22 @@ def crossRun(G: np.ndarray, P: np.ndarray, Q: np.ndarray, K: int,
         q_bat = np.zeros(N_trn, dtype=np.float64)
         
         # Best-solution tracking for training
-        P_best = P_crv.copy()
-        Q_best = Q_crv.copy()
+        P_best = np.empty_like(P_crv)
+        Q_best = np.empty_like(Q_crv)
+        memoryview(P_best.ravel())[:] = memoryview(P_crv.ravel())
+        memoryview(Q_best.ravel())[:] = memoryview(Q_crv.ravel())
         L_best_trn = float('-inf')
         no_improve_trn = 0
         fold_lr = lr
         ts_fold = time.time()
         
+        # Initial EM step for training
+        crossSteps(G, P_crv, Q_crv, P1, Q1, Q_T, q_bat, K, M, s_trn)
+        
         for it in range(max_iter):
             crossAdamStep(G, P_crv, Q_crv, P1, Q1, Q_T, q_bat, K, M,
                           m_P, v_P, m_Q, v_Q, t, fold_lr, beta1, beta2, reg_adam, s_trn)
+            crossSteps(G, P_crv, Q_crv, P1, Q1, Q_T, q_bat, K, M, s_trn)
             
             if (it + 1) % check == 0:
                 L_cur = tools.loglike_cross(G, P_crv, Q_crv, s_trn, M, N_trn, K)
@@ -182,8 +213,8 @@ def crossRun(G: np.ndarray, P: np.ndarray, Q: np.ndarray, K: int,
                     break
                 if L_cur > L_best_trn:
                     L_best_trn = L_cur
-                    np.copyto(P_best, P_crv)
-                    np.copyto(Q_best, Q_crv)
+                    memoryview(P_best.ravel())[:] = memoryview(P_crv.ravel())
+                    memoryview(Q_best.ravel())[:] = memoryview(Q_crv.ravel())
                     no_improve_trn = 0
                 else:
                     no_improve_trn += 1
@@ -199,8 +230,8 @@ def crossRun(G: np.ndarray, P: np.ndarray, Q: np.ndarray, K: int,
                     break
         
         # Revert to best training solution
-        np.copyto(P_crv, P_best)
-        np.copyto(Q_crv, Q_best)
+        memoryview(P_crv.ravel())[:] = memoryview(P_best.ravel())
+        memoryview(Q_crv.ravel())[:] = memoryview(Q_best.ravel())
         
         # ----- Phase 2: Project Q on test set (P fixed) -----
         log.info(f"\n        2) Projecting Q on test set (P fixed)\n")
@@ -213,14 +244,19 @@ def crossRun(G: np.ndarray, P: np.ndarray, Q: np.ndarray, K: int,
         t_proj = [0]
         
         # Best-solution tracking for projection
-        Q_best_proj = Q_crv.copy()
+        Q_best_proj = np.empty_like(Q_crv)
+        memoryview(Q_best_proj.ravel())[:] = memoryview(Q_crv.ravel())
         L_best_proj = float('-inf')
         no_improve_proj = 0
         proj_lr = lr
         
+        # Initial EM step for projection
+        crossProjSteps(G, P_crv, Q_crv, Q1_proj, Q_T_proj, q_bat_proj, K, M, s_tst)
+        
         for it in range(max_iter):
             crossProjAdamStep(G, P_crv, Q_crv, Q1_proj, Q_T_proj, q_bat_proj, K, M,
                               m_Q_proj, v_Q_proj, t_proj, proj_lr, beta1, beta2, reg_adam, s_tst)
+            crossProjSteps(G, P_crv, Q_crv, Q1_proj, Q_T_proj, q_bat_proj, K, M, s_tst)
             
             if (it + 1) % check == 0:
                 L_cur_tst = tools.loglike_cross(G, P_crv, Q_crv, s_tst, M, N_tst, K)
@@ -234,7 +270,7 @@ def crossRun(G: np.ndarray, P: np.ndarray, Q: np.ndarray, K: int,
                     break
                 if L_cur_tst > L_best_proj:
                     L_best_proj = L_cur_tst
-                    np.copyto(Q_best_proj, Q_crv)
+                    memoryview(Q_best_proj.ravel())[:] = memoryview(Q_crv.ravel())
                     no_improve_proj = 0
                 else:
                     no_improve_proj += 1
@@ -250,7 +286,7 @@ def crossRun(G: np.ndarray, P: np.ndarray, Q: np.ndarray, K: int,
                     break
         
         # Revert to best projection solution
-        np.copyto(Q_crv, Q_best_proj)
+        memoryview(Q_crv.ravel())[:] = memoryview(Q_best_proj.ravel())
         
         # ----- Score: deviance on test set -----
         L_nrm_tst = tools.cross_norm(G, s_tst, M, N_tst)

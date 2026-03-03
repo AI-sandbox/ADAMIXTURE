@@ -10,8 +10,8 @@ log = logging.getLogger(__name__)
 
 def adamStep(G: np.ndarray, P0: np.ndarray, Q0: np.ndarray, T: np.ndarray, P1: np.ndarray, 
             Q1: np.ndarray, q_bat: np.ndarray, K: int, M: int, N: int, m_P: np.ndarray, 
-            v_P: np.ndarray, m_Q: np.ndarray, v_Q: np.ndarray, t: int, lr: float, beta1: float, 
-            beta2: float, epsilon: np.ndarray):
+            v_P: np.ndarray, m_Q: np.ndarray, v_Q: np.ndarray, t: list, lr: float, beta1: float, 
+            beta2: float, epsilon: float):
     """
     Description:
     Performs a single EM step followed by an Adam optimization update for matrices P and Q.
@@ -51,6 +51,16 @@ def adamStep(G: np.ndarray, P0: np.ndarray, Q0: np.ndarray, T: np.ndarray, P1: n
     
     # Update the global iteration counter for Adam bias correction:
     t[0] = t_val
+
+def emStep(G: np.ndarray, P0: np.ndarray, Q0: np.ndarray, T: np.ndarray, P1: np.ndarray, 
+           Q1: np.ndarray, q_bat: np.ndarray, K: int, M: int, N: int):
+    """
+    Performs a single regular EM step (no Adam momentum).
+    """
+    em.P_step(G, P0, P1, Q0, T, q_bat, K, M, N)
+    em.Q_step(Q0, Q1, T, q_bat, K, N)
+    memoryview(P0.ravel())[:] = memoryview(P1.ravel())
+    memoryview(Q0.ravel())[:] = memoryview(Q1.ravel())
 
 def optimize_parameters(G: np.ndarray, P: np.ndarray, Q: np.ndarray, lr: float, 
                         beta1: float, beta2: float, reg_adam: float, max_iter: int,
@@ -93,15 +103,25 @@ def optimize_parameters(G: np.ndarray, P: np.ndarray, Q: np.ndarray, lr: float,
     q_bat = np.zeros(G.shape[1], dtype=np.float64)
 
     # Variables for tracking the best solution:
-    P_best = P.copy()
-    Q_best = Q.copy()
+    P_best = np.empty_like(P)
+    Q_best = np.empty_like(Q)
+    memoryview(P_best.ravel())[:] = memoryview(P.ravel())
+    memoryview(Q_best.ravel())[:] = memoryview(Q.ravel())
     L_best = float('-inf')
     no_improve = 0
 
     ts = time.time()
+    
+    # Accelerated priming iteration
+    ts_priming = time.time()
+    emStep(G, P, Q, T, P1, Q1, q_bat, K, M, N)
+    adamStep(G, P, Q, T, P1, Q1, q_bat, K, M, N, m_P, v_P, m_Q, v_Q, t, lr, beta1, beta2, reg_adam)
+    emStep(G, P, Q, T, P1, Q1, q_bat, K, M, N)
+    log.info(f"    Performed priming iteration.\t({time.time() - ts_priming:.1f}s)")
+
     # ---------- Adam-EM ----------
     for it in range(max_iter):
-        adamStep(G, P, Q, T, P1, Q1, q_bat,K, M, N,m_P, v_P, m_Q, v_Q,
+        adamStep(G, P, Q, T, P1, Q1, q_bat, K, M, N,m_P, v_P, m_Q, v_Q,
                 t, lr, beta1, beta2, reg_adam)
 
         if (it + 1) % check == 0:
@@ -116,8 +136,8 @@ def optimize_parameters(G: np.ndarray, P: np.ndarray, Q: np.ndarray, lr: float,
                 break
             if L_cur > L_best:
                 L_best = L_cur
-                np.copyto(P_best, P)
-                np.copyto(Q_best, Q)
+                memoryview(P_best.ravel())[:] = memoryview(P.ravel())
+                memoryview(Q_best.ravel())[:] = memoryview(Q.ravel())
                 no_improve = 0
             else:
                 no_improve += 1

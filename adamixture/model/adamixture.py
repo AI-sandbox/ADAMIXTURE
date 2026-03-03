@@ -10,11 +10,17 @@ from ..src.utils_c import tools
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
 log = logging.getLogger(__name__)
 
+import time
+import numpy as np
+import logging
+
+log = logging.getLogger(__name__)
+
 def ALS(G: np.ndarray, U: np.ndarray, S: np.ndarray, V: np.ndarray, f: np.ndarray, 
-        seed: int, M: int, N: int, K: int, max_iter: int, tole: float, reg: float,
-        stall_max=20) -> tuple[np.ndarray, np.ndarray]:
+        seed: int, M: int, N: int, K: int, max_iter: int, tole: float, reg: float) -> tuple[np.ndarray, np.ndarray]:
     """
-    Alternating Least Squares (ALS) algorithm with HighCorr check.
+    Alternating Least Squares (ALS) algorithm with Tikhonov regularization 
+    and proximal smoothing, matching the PyTorch implementation (using pinv).
 
     Args:
         G (np.ndarray): Input genotype matrix.
@@ -29,87 +35,80 @@ def ALS(G: np.ndarray, U: np.ndarray, S: np.ndarray, V: np.ndarray, f: np.ndarra
         max_iter (int): Maximum number of ALS iterations.
         tole (float): Convergence tolerance for ALS.
         reg (float): Regularization parameter for ALS.
-        stall_max (int, optional): Maximum number of iterations without improvement before stopping. Defaults to 20.
 
     Returns:
-        tuple[np.ndarray, np.ndarray]: Initialized P and Q matrices.
+        tuple[np.ndarray, np.ndarray]: Final P and Q matrices.
     """
     t0 = time.time()
     rng = np.random.default_rng(seed)
+    
     Z = np.ascontiguousarray(U * S)
-    reg_eye = (reg * np.eye(K)).astype(np.float32)
+    
+    reg_eye = reg * np.eye(K, dtype=np.float32)
+    mu = 0.05
+    mu_eye = mu * np.eye(K, dtype=np.float32)
 
     # Init P:
-    P = rng.random(size=(M, K), dtype=np.float32).clip(min=1e-5, max=1-(1e-5))
-    I = P @ np.linalg.pinv(P.T @ P + reg_eye)
-    
+    P = rng.random(size=(M, K), dtype=np.float32)
+    tools.mapP(P, M, K)
+
     # Init Q:
+    G_mat = P.T @ P
+    G_reg = G_mat + reg_eye
+    inv_G = np.linalg.pinv(G_reg)
+    I = P @ inv_G
     Q = 0.5 * (V @ (Z.T @ I)) + (I * f[:, None]).sum(axis=0)
     tools.mapQ(Q, N, K)
-    Q0 = Q.copy()
-
-    rmse_best = np.inf
-    stall_counter = 0
-    high_corr = False
-    P_best = P.copy()
-    Q_best = Q.copy()
     
+    Q0 = np.empty_like(Q)
+    memoryview(Q0.ravel())[:] = memoryview(Q.ravel())
+
     for i in range(max_iter):
-        # Update P
-        I = Q @ np.linalg.pinv(Q.T @ Q + reg_eye)
-        P = 0.5 * (Z @ (V.T @ I)) + np.outer(f, I.sum(axis=0))
+        P0 = np.empty_like(P)
+        memoryview(P0.ravel())[:] = memoryview(P.ravel())
+        
+        # === Update P ===
+        G_mat = Q.T @ Q
+        G_reg = G_mat + reg_eye + mu_eye
+        inv_G = np.linalg.pinv(G_reg)
+        I = Q @ inv_G
+        
+        P = 0.5 * (Z @ (V.T @ I)) + np.outer(f, I.sum(axis=0)) + (P0 @ inv_G * mu)
         tools.mapP(P, M, K)
 
-        # Update Q
-        G_p = P.T @ P
-        I = P @ np.linalg.pinv(G_p + reg_eye)
-        Q = 0.5 * (V @ (Z.T @ I)) + (I * f[:, None]).sum(axis=0)
+        # === Update Q ===
+        G_mat = P.T @ P
+        G_reg = G_mat + reg_eye + mu_eye
+        inv_G = np.linalg.pinv(G_reg)
+        I = P @ inv_G
+        
+        Q = 0.5 * (V @ (Z.T @ I)) + (I * f[:, None]).sum(axis=0) + (Q0 @ inv_G * mu)
         tools.mapQ(Q, N, K)
+
+        # === Check convergence ===
         rmse_error = tools.rmse(Q, Q0, N, K)        
 
-        if not high_corr:
-            v = np.sqrt(np.diag(G_p))
-            denom = np.outer(v, v)
-            denom[denom == 0] = 1e-10 
-            C = G_p / denom
-            np.fill_diagonal(C, 0)
-            max_corr = np.max(np.abs(C))
-            
-            if max_corr > 0.95:
-                high_corr = True
-                
-        if high_corr:
-            if rmse_error < rmse_best:
-                rmse_best = rmse_error
-                P_best = P.copy()
-                Q_best = Q.copy()
-                stall_counter = 0
-            else:
-                stall_counter += 1
-            
-            if stall_counter >= stall_max:
-                log.info(f"        Stall limit reached ({stall_max}) at iter {i+1}. Reverting to best P, Q.")
-                P = P_best
-                Q = Q_best
-                break
         if rmse_error < tole:
             log.info(f"        Convergence reached in iteration {i+1}.")
             break
-        else:
-            np.copyto(Q0, Q)
+            
+        memoryview(Q0.ravel())[:] = memoryview(Q.ravel())
     
     total_time = time.time() - t0
     log.info(f"        Total time for ALS={total_time:.4f}s\n")
+    
     P = P.astype(np.float64)
     Q = Q.astype(np.float64)
+    
     logl = tools.loglikelihood(G, P, Q)
-    log.info(f"    Initial log-likelihood for K={K}: {logl:2f}.\n") 
+    log.info(f"    Initial log-likelihood for K={K}: {logl:.1f}.\n") 
+    
     return P, Q
 
 def train(G: np.ndarray, K: int, seed: int, lr: float, beta1: float, 
         beta2: float, reg_adam: float, max_iter: int, check: int,
         max_als: int, tole_als: float, power: int, tole_svd: float,
-        reg_als: float, lr_decay: float, min_lr: float) -> tuple[np.ndarray, np.ndarray]:
+        reg_als: float, lr_decay: float, min_lr: float, chunk_size: int) -> tuple[np.ndarray, np.ndarray]:
     """
     Initializes P and Q matrices and trains the ADAMIXTURE model.
 
@@ -130,6 +129,7 @@ def train(G: np.ndarray, K: int, seed: int, lr: float, beta1: float,
         reg_als (float): Regularization parameter for ALS.
         lr_decay (float): Learning rate decay factor.
         min_lr (float): Minimum learning rate value.
+        chunk_size (int): Number of SNPs in chunk operations for RSVD.
 
     Returns:
         tuple[np.ndarray, np.ndarray]: Optimized P and Q matrices.
@@ -143,7 +143,7 @@ def train(G: np.ndarray, K: int, seed: int, lr: float, beta1: float,
     
     # SVD + ALS:
     log.info("    Running RSVD...\n")
-    U, S, V = RSVD(G, N, M, f, K, seed, power, tole_svd)
+    U, S, V = RSVD(G, N, M, f, K, seed, power, tole_svd, chunk_size)
     log.info("    Running ALS...")
     P, Q = ALS(G, U, S, V, f, seed, M, N, K, max_als, tole_als, reg_als)
     del U, S, V, f

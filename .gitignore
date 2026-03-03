@@ -148,4 +148,4 @@ outputs/
 **/.DS_Store
 
 # Version file
-neural_admixture/_version.py
+adamixture/_version.py

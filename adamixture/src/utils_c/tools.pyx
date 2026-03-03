@@ -264,3 +264,24 @@ cpdef double cross_norm(uint8_t[:,::1] G, uint32_t[::1] s_ind, int M, int N_sub)
             if g[l] != 3:
                 count += 1.0
     return count
+
+# Decompress a block of genotypes (centered) for SVD
+cpdef void decompress_block(const uint8_t[:, ::1] G, float[:, ::1] data_block, const float[::1] freq, const Py_ssize_t offset) noexcept nogil:
+    cdef:
+        Py_ssize_t nr = data_block.shape[0]
+        Py_ssize_t nc = data_block.shape[1]
+        Py_ssize_t i, j, l
+        const uint8_t *gr
+        float val, u
+        float *ptr
+    for j in prange(nr, schedule='static'):
+        l = offset + j
+        u = 2.0 * freq[l]
+        gr = &G[l, 0]
+        ptr = &data_block[j, 0]
+        for i in range(nc):
+            if gr[i] != 3: # missing
+                val = <float>gr[i] - u
+                ptr[i] = val
+            else:
+                ptr[i] = 0.0
