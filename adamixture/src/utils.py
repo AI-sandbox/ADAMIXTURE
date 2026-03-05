@@ -81,15 +81,13 @@ def plot_cv_results(cv_results: dict, plot_path: Path) -> None:
 
 def read_data(tr_file: str) -> np.ndarray:
     """
-    Reads SNP data from a file and applies imputation if specified..
+    Reads SNP data from a file.
 
     Args:
         tr_file (str): Path to the SNP data file.
-        imputation (str): Type of imputation to apply ('mean' or 'zero').
-        tr_pops_f (str, optional): denotes the path containing the main populations file. Defaults to None.
 
     Returns:
-        da.core.Array: A Dask array containing the SNP data.
+        np.ndarray: A numpy array containing the SNP data.
     """
     snp_reader = SNPReader()
     G = snp_reader.read_data(tr_file)

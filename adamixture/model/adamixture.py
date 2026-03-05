@@ -20,7 +20,7 @@ def ALS(G: np.ndarray, U: np.ndarray, S: np.ndarray, V: np.ndarray, f: np.ndarra
         seed: int, M: int, N: int, K: int, max_iter: int, tole: float, reg: float) -> tuple[np.ndarray, np.ndarray]:
     """
     Alternating Least Squares (ALS) algorithm with Tikhonov regularization 
-    and proximal smoothing, matching the PyTorch implementation (using pinv).
+    and proximal smoothing.
 
     Args:
         G (np.ndarray): Input genotype matrix.
