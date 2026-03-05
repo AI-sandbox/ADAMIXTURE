@@ -118,10 +118,11 @@ def main(args: argparse.Namespace, t0: float):
             # Suggest optimal K
             best_k = min(cv_results, key=lambda k: cv_results[k]['avg'])
             log.info(f"\n    Suggested optimal K = {best_k} (lowest CV error: {cv_results[best_k]['avg']:.5f})\n")
-            # Generate CV plot
-            plot_file = out_path / f"{args.name}.cv.png"
-            utils.plot_cv_results(cv_results, plot_file)
-            log.info(f"    Cross-validation plot saved to {plot_file}\n")
+            # Generate CV plot only for multi-K
+            if len(cv_results) > 1:
+                plot_file = out_path / f"{args.name}.cv.png"
+                utils.plot_cv_results(cv_results, plot_file)
+                log.info(f"    Cross-validation plot saved to {plot_file}\n")
         
         t1 = time.time()
         log.info("")

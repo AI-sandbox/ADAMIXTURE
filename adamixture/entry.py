@@ -25,7 +25,7 @@ def parse_args(argv: List[str]):
     parser.add_argument('--reg_adam', type=float, default=1e-8, help='Adam epsilon for numerical stability')
     
     parser.add_argument('--lr_decay', type=float, default=0.5, help='Learning rate decay factor')
-    parser.add_argument('--min_lr', type=float, default=1e-6, help='Minimum learning rate value')
+    parser.add_argument('--min_lr', type=float, default=1e-4, help='Minimum learning rate value')
 
     parser.add_argument('--seed', required=False, type=int, default=42, help='Seed')
     parser.add_argument('--k', required=False, type=int, help='Number of populations/clusters (single run).')
