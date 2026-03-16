@@ -41,8 +41,6 @@ def parse_args(argv: List[str]):
     
     parser.add_argument('--max_iter', type=int, default=1500, help='Maximum number of iterations for Adam EM')
     parser.add_argument('--check', type=int, default=5, help='Frequency of log-likelihood checks')
-    parser.add_argument('--cv', type=int, default=0, help='Number of folds for cross-validation (0=disabled)')
-    parser.add_argument('--cv_tole', type=float, default=1e-1, help='Convergence tolerance for cross-validation log-likelihood')
     parser.add_argument('--no_freqs', action='store_true', default=False, help='Do not save the P (allele frequencies) matrix')
     
     parser.add_argument('--max_als', type=int, default=1000, help='Maximum number of iterations for ALS')
@@ -103,6 +101,30 @@ def main():
     os.environ["NUMEXPR_MAX_THREADS"] = th
     os.environ["OPENBLAS_NUM_THREADS"] = th
     os.environ["OPENBLAS_MAX_THREADS"] = th
+
+    # VALIDATE PARAMETERS:
+    assert args.lr > 0, "Learning rate (lr) must be positive."
+    assert 0 <= args.beta1 < 1, "Adam beta1 must be in [0, 1)."
+    assert 0 <= args.beta2 < 1, "Adam beta2 must be in [0, 1)."
+    assert 0 < args.lr_decay <= 1, "Learning rate decay (lr_decay) must be in (0, 1]."
+    assert args.min_lr > 0, "Minimum learning rate (min_lr) must be positive."
+    assert args.patience_adam >= 1, "Patience (patience_adam) must be at least 1."
+    assert args.seed >= 0, "Seed must be non-negative."
+    if args.k is not None:
+        assert args.k >= 2, "Number of clusters (k) must be at least 2."
+    if args.min_k is not None:
+        assert args.min_k >= 2, "Minimum K (min_k) must be at least 2."
+    assert args.max_iter >= 1, "Maximum iterations (max_iter) must be at least 1."
+    assert args.check >= 1, "Check frequency (check) must be at least 1."
+    assert args.max_als >= 1, "Maximum ALS iterations (max_als) must be at least 1."
+    assert args.stall_als >= 1, "Maximum stall iterations (stall_als) must be at least 1."
+    assert 0 < args.correlation_als <= 1, "Correlation threshold (correlation_als) must be in (0, 1]."
+    assert args.chunk_size >= 1, "Chunk size must be at least 1."
+    assert args.tol_adam > 0, "Adam tolerance (tol_adam) must be positive."
+    assert args.tole_als > 0, "ALS tolerance (tole_als) must be positive."
+    assert args.tole_svd > 0, "SVD tolerance (tole_svd) must be positive."
+    assert args.reg_adam >= 0, "Adam regularization (reg_adam) must be non-negative."
+    assert args.reg_als >= 0, "ALS regularization (reg_als) must be non-negative."
 
     # CONTROL TIME:
     t0 = time.time()

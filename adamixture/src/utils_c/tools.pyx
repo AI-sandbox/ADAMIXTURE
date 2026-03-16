@@ -54,36 +54,6 @@ cdef inline double _ind_loglike(uint8_t* g, double* rec, Py_ssize_t N) noexcept 
         rec[i] = 0.0
     return ll
 
-# Reconstruct from P and Q for a subset of samples:
-cdef inline void _reconstruct_sub(double* Q, double* p, double* rec,
-                                   uint32_t* s_ind, Py_ssize_t N_sub,
-                                   Py_ssize_t K) noexcept nogil:
-    cdef:
-        size_t i, k
-        uint32_t l
-        double* q
-    for i in range(N_sub):
-        l = s_ind[i]
-        q = &Q[l*K]
-        for k in range(K):
-            rec[i] += p[k]*q[k]
-
-# Individual contribution for a subset of samples:
-cdef inline double _ind_loglike_sub(uint8_t* g, double* rec,
-                                     uint32_t* s_ind,
-                                     Py_ssize_t N_sub) noexcept nogil:
-    cdef:
-        size_t i
-        uint32_t l
-        double ll = 0.0
-        double g_d
-    for i in range(N_sub):
-        l = s_ind[i]
-        g_d = <double>g[l]
-        ll += g_d*log(rec[i]) + (2.0-g_d)*log1p(-rec[i]) if g[l] != 3 else 0.0
-        rec[i] = 0.0
-    return ll
-
 # Log-likelihood:
 cpdef double loglikelihood(uint8_t[:,::1] G, double[:,::1] P, double[:,::1] Q) noexcept nogil:
     cdef:
@@ -206,64 +176,6 @@ cpdef double rmse_d(double[:,::1] Q1, double[:,::1] Q2, int N, int K) noexcept n
         diff = q1[i] - q2[i]
         acc += diff * diff
     return sqrt(acc * inv_T)
-
-# Log-likelihood on a subset of samples (cross-validation)
-cpdef double loglike_cross(uint8_t[:,::1] G, double[:,::1] P, double[:,::1] Q,
-                           uint32_t[::1] s_ind, int M, int N_sub, int K) noexcept nogil:
-    cdef:
-        size_t j
-        double ll = 0.0
-        double* rec
-    with nogil, parallel():
-        rec = <double*>calloc(N_sub, sizeof(double))
-        for j in prange(M, schedule='guided'):
-            _reconstruct_sub(&Q[0,0], &P[j,0], rec, &s_ind[0], N_sub, K)
-            ll += _ind_loglike_sub(&G[j,0], rec, &s_ind[0], N_sub)
-        free(rec)
-    return ll
-
-# Deviance residual on a subset of samples (cross-validation)
-cpdef double deviance(uint8_t[:,::1] G, double[:,::1] P, double[:,::1] Q,
-                      uint32_t[::1] s_ind, int M, int N_sub, int K) noexcept nogil:
-    cdef:
-        size_t i, j, k
-        uint32_t l
-        uint8_t* g
-        double r = 0.0
-        double e = 1e-10
-        double d, h
-        double* p
-    for j in prange(M, schedule='guided'):
-        g = &G[j, 0]
-        p = &P[j, 0]
-        for i in range(N_sub):
-            l = s_ind[i]
-            if g[l] != 3:
-                h = 0.0
-                for k in range(K):
-                    h += p[k] * Q[l, k]
-                h = 2.0 * h
-                d = <double>g[l]
-                if d > e:
-                    r += d * log(d / h if d / h > e else e)
-                if (2.0 - d) > e:
-                    r += (2.0 - d) * log((2.0 - d) / (2.0 - h) if (2.0 - d) / (2.0 - h) > e else e)
-    return r
-
-# Count non-missing genotypes for a subset of samples (normalization for CV)
-cpdef double cross_norm(uint8_t[:,::1] G, uint32_t[::1] s_ind, int M, int N_sub) noexcept nogil:
-    cdef:
-        size_t i, j
-        uint32_t l
-        uint8_t* g
-        double count = 0.0
-    for j in range(M):
-        g = &G[j, 0]
-        for i in range(N_sub):
-            l = s_ind[i]
-            if g[l] != 3:
-                count += 1.0
-    return count
 
 # Decompress a block of genotypes (centered) for SVD
 cpdef void decompress_block(const uint8_t[:, ::1] G, float[:, ::1] data_block, const float[::1] freq, const Py_ssize_t offset) noexcept nogil:
