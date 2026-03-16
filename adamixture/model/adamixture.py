@@ -17,10 +17,11 @@ import logging
 log = logging.getLogger(__name__)
 
 def ALS(G: np.ndarray, U: np.ndarray, S: np.ndarray, V: np.ndarray, f: np.ndarray, 
-        seed: int, M: int, N: int, K: int, max_iter: int, tole: float, reg: float) -> tuple[np.ndarray, np.ndarray]:
+        seed: int, M: int, N: int, K: int, max_iter: int, tole: float, reg: float,
+        stall_als: int, correlation_als: float) -> tuple[np.ndarray, np.ndarray]:
     """
     Alternating Least Squares (ALS) algorithm with Tikhonov regularization 
-    and proximal smoothing.
+    and proximal smoothing, matching the PyTorch implementation (using pinv).
 
     Args:
         G (np.ndarray): Input genotype matrix.
@@ -35,80 +36,90 @@ def ALS(G: np.ndarray, U: np.ndarray, S: np.ndarray, V: np.ndarray, f: np.ndarra
         max_iter (int): Maximum number of ALS iterations.
         tole (float): Convergence tolerance for ALS.
         reg (float): Regularization parameter for ALS.
+        stall_als (int, optional): Maximum number of iterations without improvement before stopping. Defaults to 20.
+        correlation_als (float, optional): Correlation threshold for switching to stall check. Defaults to 0.95.
 
     Returns:
-        tuple[np.ndarray, np.ndarray]: Final P and Q matrices.
+        tuple[np.ndarray, np.ndarray]: Initialized P and Q matrices.
     """
     t0 = time.time()
     rng = np.random.default_rng(seed)
-    
     Z = np.ascontiguousarray(U * S)
-    
-    reg_eye = reg * np.eye(K, dtype=np.float32)
-    mu = 0.05
-    mu_eye = mu * np.eye(K, dtype=np.float32)
+    reg_eye = (reg * np.eye(K)).astype(np.float32)
 
     # Init P:
-    P = rng.random(size=(M, K), dtype=np.float32)
-    tools.mapP(P, M, K)
-
+    P = rng.random(size=(M, K), dtype=np.float32).clip(min=1e-5, max=1-(1e-5))
+    I = P @ np.linalg.pinv(P.T @ P + reg_eye)
+    
     # Init Q:
-    G_mat = P.T @ P
-    G_reg = G_mat + reg_eye
-    inv_G = np.linalg.pinv(G_reg)
-    I = P @ inv_G
     Q = 0.5 * (V @ (Z.T @ I)) + (I * f[:, None]).sum(axis=0)
     tools.mapQ(Q, N, K)
-    
-    Q0 = np.empty_like(Q)
-    memoryview(Q0.ravel())[:] = memoryview(Q.ravel())
+    Q0 = Q.copy()
 
+    rmse_best = np.inf
+    stall_counter = 0
+    high_corr = False
+    P_best = P.copy()
+    Q_best = Q.copy()
+    
     for i in range(max_iter):
-        P0 = np.empty_like(P)
-        memoryview(P0.ravel())[:] = memoryview(P.ravel())
-        
-        # === Update P ===
-        G_mat = Q.T @ Q
-        G_reg = G_mat + reg_eye + mu_eye
-        inv_G = np.linalg.pinv(G_reg)
-        I = Q @ inv_G
-        
-        P = 0.5 * (Z @ (V.T @ I)) + np.outer(f, I.sum(axis=0)) + (P0 @ inv_G * mu)
+        # Update P
+        I = Q @ np.linalg.pinv(Q.T @ Q + reg_eye)
+        P = 0.5 * (Z @ (V.T @ I)) + np.outer(f, I.sum(axis=0))
         tools.mapP(P, M, K)
 
-        # === Update Q ===
-        G_mat = P.T @ P
-        G_reg = G_mat + reg_eye + mu_eye
-        inv_G = np.linalg.pinv(G_reg)
-        I = P @ inv_G
-        
-        Q = 0.5 * (V @ (Z.T @ I)) + (I * f[:, None]).sum(axis=0) + (Q0 @ inv_G * mu)
+        # Update Q
+        G_p = P.T @ P
+        I = P @ np.linalg.pinv(G_p + reg_eye)
+        Q = 0.5 * (V @ (Z.T @ I)) + (I * f[:, None]).sum(axis=0)
         tools.mapQ(Q, N, K)
-
-        # === Check convergence ===
         rmse_error = tools.rmse(Q, Q0, N, K)        
 
-        if rmse_error < tole:
-            log.info(f"        Convergence at iteration {i+1}.")
-            break
+        if not high_corr:
+            v = np.sqrt(np.diag(G_p))
+            denom = np.outer(v, v)
+            denom[denom == 0] = 1e-10 
+            C = G_p / denom
+            np.fill_diagonal(C, 0)
+            max_corr = np.max(np.abs(C))
             
-        memoryview(Q0.ravel())[:] = memoryview(Q.ravel())
+            if max_corr > correlation_als:
+                high_corr = True
+                
+        if high_corr:
+            if rmse_error < rmse_best:
+                rmse_best = rmse_error
+                P_best = P.copy()
+                Q_best = Q.copy()
+                stall_counter = 0
+            else:
+                stall_counter += 1
+            
+            if stall_counter >= stall_als:
+                log.info(f"        Stall limit reached ({stall_als}) at iter {i+1}. Reverting to best P, Q.")
+                P = P_best
+                Q = Q_best
+                break
+        if rmse_error < tole:
+            log.info(f"        Convergence reached in iteration {i+1}.")
+            break
+        else:
+            np.copyto(Q0, Q)
     
     total_time = time.time() - t0
-    log.info(f"    Total time for ALS={total_time:.4f}s\n")
-    
+    log.info(f"        Total ALS time={total_time:.4f}s")
     P = P.astype(np.float64)
     Q = Q.astype(np.float64)
-    
     logl = tools.loglikelihood(G, P, Q)
-    log.info(f"    Initial log-likelihood for K={K}: {logl:.1f}.\n") 
-    
+    log.info(f"    Initial log-likelihood for K={K}: {logl:2f}.") 
     return P, Q
 
 def train(G: np.ndarray, K: int, seed: int, lr: float, beta1: float, 
         beta2: float, reg_adam: float, max_iter: int, check: int,
         max_als: int, tole_als: float, power: int, tole_svd: float,
-        reg_als: float, lr_decay: float, min_lr: float, chunk_size: int) -> tuple[np.ndarray, np.ndarray]:
+        reg_als: float, lr_decay: float, min_lr: float, chunk_size: int,
+        correlation_als: float = 0.95, stall_als: int = 20,
+        patience_adam: int = 2, tol_adam: float = 0.1) -> tuple[np.ndarray, np.ndarray]:
     """
     Initializes P and Q matrices and trains the ADAMIXTURE model.
 
@@ -130,6 +141,10 @@ def train(G: np.ndarray, K: int, seed: int, lr: float, beta1: float,
         lr_decay (float): Learning rate decay factor.
         min_lr (float): Minimum learning rate value.
         chunk_size (int): Number of SNPs in chunk operations for RSVD.
+        correlation_als (float): Correlation threshold for ALS high-correlation check.
+        stall_als (int): Maximum stall iterations for ALS.
+        patience_adam (int): Early stopping patience for Adam-EM.
+        tol_adam (float): Convergence tolerance for Adam-EM.
 
     Returns:
         tuple[np.ndarray, np.ndarray]: Optimized P and Q matrices.
@@ -145,13 +160,13 @@ def train(G: np.ndarray, K: int, seed: int, lr: float, beta1: float,
     log.info("    Running RSVD...\n")
     U, S, V = RSVD(G, N, M, f, K, seed, power, tole_svd, chunk_size)
     log.info("    Running ALS...")
-    P, Q = ALS(G, U, S, V, f, seed, M, N, K, max_als, tole_als, reg_als)
+    P, Q = ALS(G, U, S, V, f, seed, M, N, K, max_als, tole_als, reg_als, stall_als, correlation_als)
     del U, S, V, f
     
     # ADAM EM:
     log.info("    Adam-EM running...\n")
     P, Q = optimize_parameters(G, P, Q, lr, beta1, beta2, reg_adam, max_iter, 
-                            check, K, M, N, lr_decay, min_lr)
+                            check, K, M, N, lr_decay, min_lr, patience_adam, tol_adam)
     del G
 
     return P, Q

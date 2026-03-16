@@ -26,6 +26,8 @@ def parse_args(argv: List[str]):
     
     parser.add_argument('--lr_decay', type=float, default=0.5, help='Learning rate decay factor')
     parser.add_argument('--min_lr', type=float, default=1e-4, help='Minimum learning rate value')
+    parser.add_argument('--patience_adam', type=int, default=2, help='Early stopping patience for Adam-EM')
+    parser.add_argument('--tol_adam', type=float, default=0.1, help='Convergence tolerance for Adam-EM')
 
     parser.add_argument('--seed', required=False, type=int, default=42, help='Seed')
     parser.add_argument('--k', required=False, type=int, help='Number of populations/clusters (single run).')
@@ -46,6 +48,8 @@ def parse_args(argv: List[str]):
     parser.add_argument('--max_als', type=int, default=1000, help='Maximum number of iterations for ALS')
     parser.add_argument('--tole_als', type=float, default=1e-4, help='Convergence tolerance for ALS')
     parser.add_argument('--reg_als', type=float, default=1e-5, help='Regularization parameter for ALS')
+    parser.add_argument('--correlation_als', type=float, default=0.95, help='Correlation threshold for ALS high-correlation check')
+    parser.add_argument('--stall_als', type=int, default=20, help='Maximum stall iterations for ALS')
     parser.add_argument('--power', type=int, default=5, help='Number of power iterations for RSVD')
     parser.add_argument('--tole_svd', type=float, default=1e-1, help='Convergence tolerance for SVD')
     parser.add_argument('--chunk_size', type=int, default=4096, help='Number of SNPs in chunk operations for RSVD')

@@ -64,7 +64,8 @@ def emStep(G: np.ndarray, P0: np.ndarray, Q0: np.ndarray, T: np.ndarray, P1: np.
 
 def optimize_parameters(G: np.ndarray, P: np.ndarray, Q: np.ndarray, lr: float, 
                         beta1: float, beta2: float, reg_adam: float, max_iter: int,
-                        check: int, K: int, M: int, N: int, lr_decay: float, min_lr: float):
+                        check: int, K: int, M: int, N: int, lr_decay: float, min_lr: float,
+                        patience_adam: int, tol_adam: float):
     """
     Description:
     Optimizes the P and Q matrices using Adam-accelerated EM .
@@ -85,6 +86,8 @@ def optimize_parameters(G: np.ndarray, P: np.ndarray, Q: np.ndarray, lr: float,
         N (int): Number of individuals (columns in G).
         lr_decay (float): Learning rate decay factor.
         min_lr (float): Minimum learning rate value.
+        patience_adam (int): Number of checks without improvement before early stopping.
+        tol_adam (float): Convergence tolerance for log-likelihood.
 
     Return:
         Tuple[np.ndarray, np.ndarray]: Optimized P and Q matrices.
@@ -150,10 +153,10 @@ def optimize_parameters(G: np.ndarray, P: np.ndarray, Q: np.ndarray, lr: float,
                     f"Reducing lr: {old_lr:.3e} → {lr:.3e}"
                 )
 
-            if diff < 0.1:
+            if diff < tol_adam:
                 break
 
-            if no_improve >= 2:
+            if no_improve >= patience_adam:
                 log.info("\n    Early stopping triggered.")
                 break
 

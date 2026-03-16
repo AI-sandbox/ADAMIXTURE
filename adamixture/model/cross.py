@@ -116,7 +116,8 @@ def crossProjSteps(G: np.ndarray, P: np.ndarray, Q: np.ndarray,
 def crossRun(G: np.ndarray, P: np.ndarray, Q: np.ndarray, K: int, 
              seed: int, lr: float, beta1: float, beta2: float, 
              reg_adam: float, max_iter: int, check: int, cross: int, 
-             lr_decay: float, min_lr: float, cv_tole: float) -> dict:
+             lr_decay: float, min_lr: float, cv_tole: float,
+             patience_adam: int, tol_adam: float) -> dict:
     """
     Perform K-fold cross-validation.
     
@@ -136,6 +137,8 @@ def crossRun(G: np.ndarray, P: np.ndarray, Q: np.ndarray, K: int,
         lr_decay (float): Learning rate decay factor on no-improvement.
         min_lr (float): Minimum learning rate value.
         cv_tole (float): Convergence tolerance for log-likelihood.
+        patience_adam (int): Early stopping patience.
+        tol_adam (float): Convergence tolerance for Adam-EM.
     
     Returns:
         dict: {'avg': float, 'std': float} with cross-validation deviance error.
@@ -225,10 +228,10 @@ def crossRun(G: np.ndarray, P: np.ndarray, Q: np.ndarray, K: int,
                         f"Reducing lr: {old_lr:.3e} → {fold_lr:.3e}"
                     )
 
-                if diff < cv_tole:
+                if diff < tol_adam:
                     break
 
-                if no_improve_trn >= 2:
+                if no_improve_trn >= patience_adam:
                     log.info("\n        Early stopping triggered.")
                     break
         
@@ -286,10 +289,10 @@ def crossRun(G: np.ndarray, P: np.ndarray, Q: np.ndarray, K: int,
                         f"Reducing lr: {old_lr:.3e} → {proj_lr:.3e}"
                     )
 
-                if diff < cv_tole:
+                if diff < tol_adam:
                     break
 
-                if no_improve_proj >= 2:
+                if no_improve_proj >= patience_adam:
                     log.info("\n        Early stopping triggered.")
                     break
 
