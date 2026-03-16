@@ -14,10 +14,11 @@ cdef inline void _update_temp_factors(double* A, double* B, double* t, const dou
         double g_f = <double>g
         double a = g_f/rec
         double b = (2.0-g_f)/(1.0-rec)
+        double a_minus_b = a - b
     for k in range(K):
         A[k] += q[k]*a
         B[k] += q[k]*b
-        t[k] += p[k]*(a - b) + b
+        t[k] += p[k]*a_minus_b + b
 
 # EM : Update P
 cdef inline void _updateEM_P(double* A, double* B, const double* p, double* P_EM, const size_t K) noexcept nogil:
@@ -33,11 +34,13 @@ cdef inline void _updateEM_Q(double* T, const double* q, double* Q_EM, const dou
     cdef:
         size_t k
         double totalQ = 0.0
+        double inv_totalQ
     for k in range(K):
         Q_EM[k] = _clip_to_domain(q[k] * T[k] * a)
         totalQ += Q_EM[k]
+    inv_totalQ = 1.0 / totalQ
     for k in range(K):
-        Q_EM[k] /= totalQ
+        Q_EM[k] *= inv_totalQ
         T[k] = 0.0
 
 # ADAM: Update P
@@ -46,11 +49,7 @@ cpdef void adamUpdateP(double[:,::1] P0, const double[:,::1] P1,
                       const double alpha, const double beta1, const double beta2, 
                       const double epsilon, const int t, const int M, const int K) noexcept nogil:
     cdef:
-        double* p0
-        const double* p1
-        double* m_p
-        double* v_p
-        size_t i, j, I = P0.shape[0], J = P0.shape[1]
+        size_t i, j
         double delta, m_hat, v_hat, step
         double beta1_t = pow(beta1, t)
         double beta2_t = pow(beta2, t)
@@ -58,19 +57,27 @@ cpdef void adamUpdateP(double[:,::1] P0, const double[:,::1] P1,
         double v_scale = 1.0 / (1.0 - beta2_t) if beta2_t != 1.0 else 1.0
         double one_m_beta1 = 1.0 - beta1
         double one_m_beta2 = 1.0 - beta2
+        double* p0_ptr
+        const double* p1_ptr
+        double* m_p_ptr
+        double* v_p_ptr
     
     for i in prange(M, schedule='guided'):
+        p0_ptr = &P0[i, 0]
+        p1_ptr = &P1[i, 0]
+        m_p_ptr = &m_P[i, 0]
+        v_p_ptr = &v_P[i, 0]
         for j in range(K):
             # Update moments
-            delta = P1[i,j] - P0[i,j]
-            m_P[i,j] = beta1 * m_P[i,j] + one_m_beta1 * delta
-            v_P[i,j] = beta2 * v_P[i,j] + one_m_beta2 * delta * delta
+            delta = p1_ptr[j] - p0_ptr[j]
+            m_p_ptr[j] = beta1 * m_p_ptr[j] + one_m_beta1 * delta
+            v_p_ptr[j] = beta2 * v_p_ptr[j] + one_m_beta2 * delta * delta
             
             # Apply updates
-            m_hat = m_P[i,j] * m_scale
-            v_hat = v_P[i,j] * v_scale
+            m_hat = m_p_ptr[j] * m_scale
+            v_hat = v_p_ptr[j] * v_scale
             step = alpha * m_hat / (sqrt(v_hat) + epsilon)
-            P0[i,j] = _clip_to_domain(P0[i,j] + step)
+            p0_ptr[j] = _clip_to_domain(p0_ptr[j] + step)
 
 # ADAM: Update Q
 cpdef void adamUpdateQ(double[:,::1] Q0, const double[:,::1] Q1, 
@@ -79,7 +86,7 @@ cpdef void adamUpdateQ(double[:,::1] Q0, const double[:,::1] Q1,
                       const double epsilon, const int t, const int N, const int K) noexcept nogil:
     cdef:
         size_t i, j
-        double delta, m_hat, v_hat, step, sumQ
+        double delta, m_hat, v_hat, step, sumQ, inv_sumQ
         double beta1_t = pow(beta1, t)
         double beta2_t = pow(beta2, t)
         double m_scale = 1.0 / (1.0 - beta1_t) if beta1_t != 1.0 else 1.0
@@ -110,11 +117,11 @@ cpdef void adamUpdateQ(double[:,::1] Q0, const double[:,::1] Q1,
             q0[j] = _clip_to_domain(q0[j] + step)
 
             # Accumulate for normalization
-            sumQ += q0[j]
+            sumQ = sumQ + q0[j]
         
-        # Normalize row
+        inv_sumQ = 1.0 / sumQ
         for j in range(K):
-            q0[j] /= sumQ
+            q0[j] *= inv_sumQ
 
 # EM: Apply parameter update for P
 cpdef void P_step(const unsigned char[:,::1] G, double[:,::1] P, double[:,::1] P_EM, 
@@ -125,7 +132,7 @@ cpdef void P_step(const unsigned char[:,::1] G, double[:,::1] P, double[:,::1] P
         double rec
         double* p_ptr
         double* dest_row 
-        unsigned char* g_ptr
+        const unsigned char* g_ptr
         double* A
         double* B
         double* t
@@ -189,6 +196,3 @@ cdef inline double _reconstruct(const double* p, const double* q, const size_t K
     for k in range(K):
         rec += p[k]*q[k]
     return rec
-
-
-
