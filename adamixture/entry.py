@@ -45,9 +45,6 @@ def parse_args(argv: List[str]):
     
     parser.add_argument('--max_als', type=int, default=1000, help='Maximum number of iterations for ALS')
     parser.add_argument('--tole_als', type=float, default=1e-4, help='Convergence tolerance for ALS')
-    parser.add_argument('--reg_als', type=float, default=1e-5, help='Regularization parameter for ALS')
-    parser.add_argument('--correlation_als', type=float, default=0.95, help='Correlation threshold for ALS high-correlation check')
-    parser.add_argument('--stall_als', type=int, default=20, help='Maximum stall iterations for ALS')
     parser.add_argument('--power', type=int, default=5, help='Number of power iterations for RSVD')
     parser.add_argument('--tole_svd', type=float, default=1e-1, help='Convergence tolerance for SVD')
     parser.add_argument('--chunk_size', type=int, default=4096, help='Number of SNPs in chunk operations for RSVD')
@@ -117,14 +114,11 @@ def main():
     assert args.max_iter >= 1, "Maximum iterations (max_iter) must be at least 1."
     assert args.check >= 1, "Check frequency (check) must be at least 1."
     assert args.max_als >= 1, "Maximum ALS iterations (max_als) must be at least 1."
-    assert args.stall_als >= 1, "Maximum stall iterations (stall_als) must be at least 1."
-    assert 0 < args.correlation_als <= 1, "Correlation threshold (correlation_als) must be in (0, 1]."
     assert args.chunk_size >= 1, "Chunk size must be at least 1."
     assert args.tol_adam > 0, "Adam tolerance (tol_adam) must be positive."
     assert args.tole_als > 0, "ALS tolerance (tole_als) must be positive."
     assert args.tole_svd > 0, "SVD tolerance (tole_svd) must be positive."
     assert args.reg_adam >= 0, "Adam regularization (reg_adam) must be non-negative."
-    assert args.reg_als >= 0, "ALS regularization (reg_als) must be non-negative."
 
     # CONTROL TIME:
     t0 = time.time()

@@ -134,20 +134,11 @@ Instead of running ADAMIXTURE for a single K, you can automatically sweep over a
 - `--tole_als` (float, default: `1e-4`):  
   Convergence tolerance for the ALS optimization.
 
-- `--reg_als` (float, default: `1e-5`):  
-  Regularization parameter for ALS.
-
 - `--power` (int, default: `5`):  
   Number of power iterations used in randomized SVD (RSVD).
 
 - `--tole_svd` (float, default: `1e-1`):  
   Convergence tolerance for the SVD approximation.
-
-- `--correlation_als` (float, default: `0.95`):  
-  Correlation threshold for ALS high-correlation check.
-
-- `--stall_als` (int, default: `20`):  
-  Maximum stall iterations for ALS.
 
 - `--chunk_size` (int, default: `4096`):  
   Number of SNPs in chunk operations for RSVD.

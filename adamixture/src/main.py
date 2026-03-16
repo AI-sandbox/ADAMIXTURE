@@ -26,17 +26,15 @@ def fit_model(args: argparse.Namespace, G: np.ndarray, K: int) -> tuple:
     (save_dir, name, seed, lr, beta1, 
     beta2, reg_adam, max_iter, 
     check, max_als, tole_als, power, tole_svd,
-    reg_als, lr_decay, min_lr, chunk_size,
-    correlation_als, stall_als, patience_adam, tol_adam) = (args.save_dir, args.name, int(args.seed), float(args.lr),
+    lr_decay, min_lr, chunk_size, patience_adam, tol_adam) = (args.save_dir, args.name, int(args.seed), float(args.lr),
                 float(args.beta1), float(args.beta2), float(args.reg_adam), int(args.max_iter),
                 int(args.check), int(args.max_als), float(args.tole_als), int(args.power), 
-                float(args.tole_svd), float(args.reg_als), float(args.lr_decay), float(args.min_lr),
-                int(args.chunk_size), float(args.correlation_als), int(args.stall_als),
-                int(args.patience_adam), float(args.tol_adam))
+                float(args.tole_svd), float(args.lr_decay), float(args.min_lr),
+                int(args.chunk_size), int(args.patience_adam), float(args.tol_adam))
             
     P, Q = train(G, K, seed, lr, beta1, beta2, reg_adam, max_iter, 
-                check, max_als, tole_als, power, tole_svd, reg_als, lr_decay, min_lr, chunk_size,
-                correlation_als, stall_als, patience_adam, tol_adam)
+                check, max_als, tole_als, power, tole_svd, lr_decay, min_lr, chunk_size,
+                patience_adam, tol_adam)
     
     Path(save_dir).mkdir(parents=True, exist_ok=True)
     utils.write_outputs(Q, name, K, save_dir, P=None if args.no_freqs else P)
