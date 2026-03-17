@@ -44,10 +44,10 @@ def parse_args(argv: List[str]):
     parser.add_argument('--no_freqs', action='store_true', default=False, help='Do not save the P (allele frequencies) matrix')
     
     parser.add_argument('--max_als', type=int, default=1000, help='Maximum number of iterations for ALS')
-    parser.add_argument('--tole_als', type=float, default=1e-4, help='Convergence tolerance for ALS')
-    parser.add_argument('--power', type=int, default=5, help='Number of power iterations for RSVD')
-    parser.add_argument('--tole_svd', type=float, default=1e-1, help='Convergence tolerance for SVD')
-    parser.add_argument('--chunk_size', type=int, default=4096, help='Number of SNPs in chunk operations for RSVD')
+    parser.add_argument('--tol_als', type=float, default=1e-4, help='Convergence tolerance for ALS')
+    parser.add_argument('--power', type=int, default=5, help='Number of power iterations for SVD')
+    parser.add_argument('--tol_svd', type=float, default=1e-1, help='Convergence tolerance for SVD')
+    parser.add_argument('--chunk_size', type=int, default=4096, help='Number of SNPs in chunk operations for SVD')
     
     args = parser.parse_args(argv)
     
@@ -78,6 +78,7 @@ def print_adamixture_banner(version: str="1.0") -> None:
     Version: {version}
     Authors: Joan Saurina-i-Ricos, Daniel Mas Montserrat and 
              Alexander G. Ioannidis.
+    Pre-print: https://www.biorxiv.org/content/10.64898/2026.02.13.700171v1
     """
 
     log.info("\n" + banner + info)
@@ -116,8 +117,8 @@ def main():
     assert args.max_als >= 1, "Maximum ALS iterations (max_als) must be at least 1."
     assert args.chunk_size >= 1, "Chunk size must be at least 1."
     assert args.tol_adam > 0, "Adam tolerance (tol_adam) must be positive."
-    assert args.tole_als > 0, "ALS tolerance (tole_als) must be positive."
-    assert args.tole_svd > 0, "SVD tolerance (tole_svd) must be positive."
+    assert args.tol_als > 0, "ALS tolerance (tol_als) must be positive."
+    assert args.tol_svd > 0, "SVD tolerance (tol_svd) must be positive."
     assert args.reg_adam >= 0, "Adam regularization (reg_adam) must be non-negative."
 
     # CONTROL TIME:

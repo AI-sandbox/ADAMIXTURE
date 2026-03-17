@@ -11,7 +11,7 @@ logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
 log = logging.getLogger(__name__)
 
 def ALS(G: np.ndarray, U: np.ndarray, S: np.ndarray, V: np.ndarray, f: np.ndarray, 
-        seed: int, M: int, N: int, K: int, max_iter: int, tole: float) -> tuple[np.ndarray, np.ndarray]:
+        seed: int, M: int, N: int, K: int, max_iter: int, tol: float) -> tuple[np.ndarray, np.ndarray]:
     """
     Alternating Least Squares (ALS) algorithm with exact NNLS (KKT conditions) 
     via Block Principal Pivoting and correct biological projection.
@@ -27,7 +27,7 @@ def ALS(G: np.ndarray, U: np.ndarray, S: np.ndarray, V: np.ndarray, f: np.ndarra
         N (int): Number of SNPs.
         K (int): Number of ancestral populations.
         max_iter (int): Maximum number of ALS iterations.
-        tole (float): Convergence tolerance for ALS.
+        tol (float): Convergence tolerance for ALS.
 
     Returns:
         tuple[np.ndarray, np.ndarray]: Optimized P and Q matrices.
@@ -79,7 +79,7 @@ def ALS(G: np.ndarray, U: np.ndarray, S: np.ndarray, V: np.ndarray, f: np.ndarra
         
         rmse_error = tools.rmse_d(Q, Q0, N, K) 
         
-        if rmse_error < tole:
+        if rmse_error < tol:
             log.info(f"        Convergence reached in iteration {i+1}.")
             break
         else:
@@ -94,7 +94,7 @@ def ALS(G: np.ndarray, U: np.ndarray, S: np.ndarray, V: np.ndarray, f: np.ndarra
 
 def train(G: np.ndarray, K: int, seed: int, lr: float, beta1: float, 
         beta2: float, reg_adam: float, max_iter: int, check: int,
-        max_als: int, tole_als: float, power: int, tole_svd: float,
+        max_als: int, tol_als: float, power: int, tol_svd: float,
         lr_decay: float, min_lr: float, chunk_size: int,
         patience_adam: int, tol_adam: float) -> tuple[np.ndarray, np.ndarray]:
     """
@@ -111,9 +111,9 @@ def train(G: np.ndarray, K: int, seed: int, lr: float, beta1: float,
         max_iter (int): Maximum number of Adam-EM iterations.
         check (int): Frequency of log-likelihood evaluation.
         max_als (int): Maximum number of ALS iterations.
-        tole_als (float): Convergence tolerance for ALS.
+        tol_als (float): Convergence tolerance for ALS.
         power (int): Number of power iterations for RSVD.
-        tole_svd (float): Convergence tolerance for SVD.
+        tol_svd (float): Convergence tolerance for SVD.
         reg_als (float): Regularization parameter for ALS.
         lr_decay (float): Learning rate decay factor.
         min_lr (float): Minimum learning rate value.
@@ -135,9 +135,9 @@ def train(G: np.ndarray, K: int, seed: int, lr: float, beta1: float,
     
     # SVD + ALS:
     log.info("    Running RSVD...\n")
-    U, S, V = RSVD(G, N, M, f, K, seed, power, tole_svd, chunk_size)
+    U, S, V = RSVD(G, N, M, f, K, seed, power, tol_svd, chunk_size)
     log.info("    Running ALS...")
-    P, Q = ALS(G, U, S, V, f, seed, M, N, K, max_als, tole_als)
+    P, Q = ALS(G, U, S, V, f, seed, M, N, K, max_als, tol_als)
     del U, S, V, f
     
     # ADAM EM:
