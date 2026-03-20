@@ -59,7 +59,7 @@ def ALS(G: np.ndarray, U: np.ndarray, S: np.ndarray, V: np.ndarray, f: np.ndarra
         B_target_P = np.ascontiguousarray(P_free @ A_cov_Q, dtype=np.float64)
         
         P_buffer.fill(0)
-        tools.batch_nnls_bpp(A_cov_Q, B_target_P, P_buffer)
+        tools.batch_bvls_bpp(A_cov_Q, B_target_P, P_buffer, 0.0, 1.0)
         tools.mapP_d(P_buffer, M, K)
         memoryview(P.ravel())[:] = memoryview(P_buffer.ravel())
         
@@ -70,7 +70,7 @@ def ALS(G: np.ndarray, U: np.ndarray, S: np.ndarray, V: np.ndarray, f: np.ndarra
         B_target_Q = np.ascontiguousarray(Q_free @ A_cov_P, dtype=np.float64)
         
         Q_buffer.fill(0)
-        tools.batch_nnls_bpp(A_cov_P, B_target_Q, Q_buffer)
+        tools.batch_bvls_bpp(A_cov_P, B_target_Q, Q_buffer, 0.0, 1.0)
         tools.mapQ_d(Q_buffer, N, K)
         memoryview(Q.ravel())[:] = memoryview(Q_buffer.ravel())
         

@@ -267,6 +267,73 @@ cdef void _exact_nnls_bpp_ptr(const double* A, const double* b, double* x, int K
         if not changed:
             break
 
+# Exact BVLS (Block Principal Pivoting):
+cdef void _exact_bvls_bpp_ptr(const double* A, const double* b, double* x, int K, double* aug, int* map_idx, int* F, int* U, double* y, double* b_subset, double lower, double upper) noexcept nogil:
+    cdef int i, j, iter_count
+    cdef bint changed
+    
+    # Initialize: everything Free (F=1), nothing at Upper (U=0)
+    for i in range(K):
+        F[i] = 1
+        U[i] = 0
+        x[i] = 0.0
+        
+    for iter_count in range(50):
+        # Adjust b for subset solve: b_F_prime = b_F - A_FU * upper - A_FL * lower
+        for i in range(K):
+            if F[i] == 1:
+                b_subset[i] = b[i]
+                for j in range(K):
+                    if F[j] == 0:
+                        if U[j] == 1:
+                            b_subset[i] -= A[i * K + j] * upper
+                        else:
+                            b_subset[i] -= A[i * K + j] * lower
+        
+        # solve A_FF * x_F = b_subset_F
+        if not solve_subset_ptr(A, b_subset, x, F, K, aug, map_idx):
+            break
+            
+        # Set x for non-free variables
+        for i in range(K):
+            if F[i] == 0:
+                if U[i] == 1:
+                    x[i] = upper
+                else:
+                    x[i] = lower
+                    
+        # Calculate gradient: y = Ax - b
+        for i in range(K):
+            y[i] = -b[i]
+            for j in range(K):
+                y[i] += A[i * K + j] * x[j]
+
+        changed = False
+        for i in range(K):
+            if F[i] == 1:
+                if x[i] < lower - 1e-8:
+                    F[i] = 0
+                    U[i] = 0
+                    changed = True
+                elif x[i] > upper + 1e-8:
+                    F[i] = 0
+                    U[i] = 1
+                    changed = True
+            else: # Fixed
+                if U[i] == 0: # At Lower bound
+                    if y[i] < -1e-8:
+                        F[i] = 1
+                        U[i] = 0
+                        changed = True
+                else: # At Upper bound
+                    if y[i] > 1e-8:
+                        F[i] = 1
+                        U[i] = 0
+                        changed = True
+
+        if not changed:
+            break
+
 # Batch NNLS solver for P and Q updates
 cpdef void batch_nnls_bpp(double[:, ::1] A_cov, double[:, ::1] B_target, double[:, ::1] Out_mat) noexcept nogil:
     cdef int M = B_target.shape[0]
@@ -292,6 +359,38 @@ cpdef void batch_nnls_bpp(double[:, ::1] A_cov, double[:, ::1] B_target, double[
             free(map_idx)
             free(F)
             free(y)
+
+# Batch BVLS solver for P and Q updates
+cpdef void batch_bvls_bpp(double[:, ::1] A_cov, double[:, ::1] B_target, double[:, ::1] Out_mat, double lower, double upper) noexcept nogil:
+    cdef int M = B_target.shape[0]
+    cdef int K = A_cov.shape[0]
+    cdef int i
+    cdef const double* A_ptr = &A_cov[0, 0]
+    
+    cdef double* aug
+    cdef int* map_idx
+    cdef int* F
+    cdef int* U
+    cdef double* y
+    cdef double* b_subset
+    
+    with nogil, parallel():
+        for i in prange(M, schedule='static'):
+            aug = <double*>malloc(K * (K + 1) * sizeof(double))
+            map_idx = <int*>malloc(K * sizeof(int))
+            F = <int*>malloc(K * sizeof(int))
+            U = <int*>malloc(K * sizeof(int))
+            y = <double*>malloc(K * sizeof(double))
+            b_subset = <double*>malloc(K * sizeof(double))
+            
+            _exact_bvls_bpp_ptr(A_ptr, &B_target[i, 0], &Out_mat[i, 0], K, aug, map_idx, F, U, y, b_subset, lower, upper)
+            
+            free(aug)
+            free(map_idx)
+            free(F)
+            free(U)
+            free(y)
+            free(b_subset)
 
 # Eval KL divergence:
 cpdef double KL(double[:, ::1] Q1, double[:, ::1] Q2, int N, int K) noexcept nogil:
