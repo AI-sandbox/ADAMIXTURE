@@ -83,6 +83,6 @@ def ALS(G: np.ndarray, U: np.ndarray, S: np.ndarray, V: np.ndarray, f: np.ndarra
             memoryview(Q0.ravel())[:] = memoryview(Q.ravel())
     
     total_time = time.time() - t0
-    log.info(f"        Total ALS time={total_time:.3f}s")
+    log.info(f"        Total ALS time={total_time:.3f}s\n")
     
     return P, Q

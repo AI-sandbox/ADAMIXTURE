@@ -72,8 +72,9 @@ def main(args: argparse.Namespace, t0: float) -> None:
         Path(args.save_dir).mkdir(parents=True, exist_ok=True)
         
         # READ DATA (once):
-        is_cuda = 'cuda' in args.device
-        G, N, M = utils.read_data(args.data_path, packed=is_cuda)
+        is_gpu = 'cuda' in args.device or 'mps' in args.device
+        packed = 'cuda' in args.device # Only packed for CUDA
+        G, N, M = utils.read_data(args.data_path, packed=packed)
         
         for K in k_values:
             log.info(f"\n    Running on K = {K}.\n")

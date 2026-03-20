@@ -175,5 +175,5 @@ def ALS_gpu(G: torch.Tensor, U: torch.Tensor, S: torch.Tensor, V: torch.Tensor, 
             Q0.copy_(Q)
             
     total_time = time.time() - t0
-    log.info(f"        Total ALS time={total_time:.3f}s")
+    log.info(f"        Total ALS time={total_time:.3f}s\n")
     return P, Q

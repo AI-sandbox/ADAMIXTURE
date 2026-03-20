@@ -2,6 +2,7 @@ import torch
 import math
 import logging
 import time
+from ..src import utils
 
 log = logging.getLogger(__name__)
 
@@ -17,44 +18,27 @@ def eigSVD_gpu(C: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tenso
     Returns:
         tuple[torch.Tensor, torch.Tensor, torch.Tensor]: (U, S, V) matrices from SVD.
     """
-    D, V = torch.linalg.eigh(C @ C.transpose(-2, -1))
+    device = C.device
+    cov = C @ C.transpose(-2, -1)
+    
+    # Fallback to CPU for eigh if device is MPS (operation not yet implemented)
+    if device.type == 'mps':
+        D, V = torch.linalg.eigh(cov.cpu())
+        D, V = D.to(device), V.to(device)
+    else:
+        D, V = torch.linalg.eigh(cov)
+        
     S = torch.sqrt(torch.clamp(D, min=1e-12))
     U = (C.transpose(-2, -1) @ V) / S
     
-    idx = torch.arange(V.shape[1]-1, -1, -1, device=V.device)
+    idx = torch.arange(V.shape[1]-1, -1, -1, device=device)
     U, S, V = U[:, idx], S.flip(0), V[:, idx]
     return U, S, V
 
-def _unpack_chunk_center(G: torch.Tensor, f: torch.Tensor, start_idx: int, actual_chunk_size: int, M: int, device: torch.device, threads_per_block: int) -> torch.Tensor:
-    """
-    Description:
-    Unpacks a chunk of 2-bit packed genotypes and centers them by subtracting 
-    the mean (calculated from allele frequencies f). Result is a float32 tensor.
-
-    Args:
-        G (torch.Tensor): Packed 2-bit genotype matrix.
-        f (torch.Tensor): Allele frequencies for centering.
-        start_idx (int): The starting individual index for the chunk.
-        actual_chunk_size (int): Number of individuals in this chunk.
-        M (int): Total number of individuals in the dataset.
-        device (torch.device): Target computation device.
-        threads_per_block (int): Threads per block for the CUDA kernel.
-
-    Returns:
-        torch.Tensor: Unpacked and centered genotype chunk (float32).
-    """
-    if G.device.type == 'cpu':
-        byte_start = start_idx // 4
-        byte_end = (start_idx + actual_chunk_size + 3) // 4
-        G_sub = G[byte_start:byte_end, :].to(device, non_blocking=True)
-        return torch.ops.pack2bit.unpack2bit_gpu_chunk_center(G_sub, f, start_idx, actual_chunk_size, M, byte_start, threads_per_block)
-    else:
-        return torch.ops.pack2bit.unpack2bit_gpu_chunk_center(G, f, start_idx, actual_chunk_size, M, 0, threads_per_block)
-
 
 def SVD_gpu(G: torch.Tensor, N: int, M: int, f: torch.Tensor, k: int, seed: int, 
-             power: int, tol: float, chunk_size: int, device: torch.device, 
-             threads_per_block: int = 256) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+            power: int, tol: float, chunk_size: int, device: torch.device, 
+            threads_per_block: int) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """
     Description:
     Randomized SVD with Dynamic Shifts optimized for GPU. Processes 2-bit 
@@ -87,6 +71,7 @@ def SVD_gpu(G: torch.Tensor, N: int, M: int, f: torch.Tensor, k: int, seed: int,
     accum_mat = torch.zeros((N, L), dtype=torch.float32, device=device)
     
     n_batches = math.ceil(M / chunk_size)
+    unpacker = utils.get_centering_unpacker(device, threads_per_block)
     
     # 1) Prime iteration
     log.info("    1) Prime iteration...")
@@ -95,7 +80,7 @@ def SVD_gpu(G: torch.Tensor, N: int, M: int, f: torch.Tensor, k: int, seed: int,
         start_idx = w * chunk_size
         end_idx = min(start_idx + chunk_size, M)
         actual_chunk_size = end_idx - start_idx
-        X = _unpack_chunk_center(G, f, start_idx, actual_chunk_size, M, device, threads_per_block)
+        X = unpacker(G, f, start_idx, actual_chunk_size, M)
         
         accum_mat.addmm_(X.T, proj_basis[start_idx:end_idx])
     
@@ -115,7 +100,7 @@ def SVD_gpu(G: torch.Tensor, N: int, M: int, f: torch.Tensor, k: int, seed: int,
             end_idx = min(start_idx + chunk_size, M)
             actual_chunk_size = end_idx - start_idx
             
-            X = _unpack_chunk_center(G, f, start_idx, actual_chunk_size, M, device, threads_per_block)
+            X = unpacker(G, f, start_idx, actual_chunk_size, M)
             
             proj_basis[start_idx:end_idx] = X @ orth_matrix
             accum_mat.addmm_(X.T, proj_basis[start_idx:end_idx])
@@ -148,7 +133,7 @@ def SVD_gpu(G: torch.Tensor, N: int, M: int, f: torch.Tensor, k: int, seed: int,
         start_idx = w * chunk_size
         end_idx = min(start_idx + chunk_size, M)
         actual_chunk_size = end_idx - start_idx
-        X = _unpack_chunk_center(G, f, start_idx, actual_chunk_size, M, device, threads_per_block)
+        X = unpacker(G, f, start_idx, actual_chunk_size, M)
         proj_basis[start_idx:end_idx] = X @ orth_matrix
     log.info(f"        time={time.time() - ts_build:.4f}s")
         

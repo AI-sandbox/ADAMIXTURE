@@ -51,7 +51,7 @@ def train(G: torch.Tensor | np.ndarray, N: int, M: int, K: int, seed: int, lr: f
         tuple[np.ndarray, np.ndarray]: Optimized P and Q matrices.
     """
     device_obj = torch.device(device)
-    log.info(f"    Running on {device_obj}")
+    log.info(f"    Running on {str(device_obj).upper()}.\n")
     utils.load_extensions(device_obj)
     threads_per_block = utils.get_tuning_params(device_obj)
 
@@ -86,11 +86,22 @@ def train(G: torch.Tensor | np.ndarray, N: int, M: int, K: int, seed: int, lr: f
         # SVD + ALS:
         log.info("    Running SVD on GPU...\n")
         U, S, V = SVD_gpu(G, N, M, f_torch, K, seed, power, tol_svd, chunk_size, device_obj, threads_per_block)
-        log.info("    Running ALS on GPU...")
-        P, Q = ALS_gpu(G, U, S, V, f_torch, seed, M, N, K, max_als, tol_als, device_obj, threads_per_block, chunk_size)
+        
+        if device_obj.type == 'mps':
+            log.info("    Running ALS on CPU (device is MPS)...")
+            U_cpu, S_cpu, V_cpu, f_cpu = U.cpu().numpy(), S.cpu().numpy(), V.cpu().numpy(), f_torch.cpu().numpy()
+            G_cpu = G.cpu().numpy() if isinstance(G, torch.Tensor) else G
+            P_np, Q_np = ALS(G_cpu, U_cpu, S_cpu, V_cpu, f_cpu, seed, M, N, K, max_als, tol_als)
+            P = torch.from_numpy(P_np).to(device_obj, dtype=torch.float32)
+            Q = torch.from_numpy(Q_np).to(device_obj, dtype=torch.float32)
+        else:
+            log.info("    Running ALS on GPU...")
+            P, Q = ALS_gpu(G, U, S, V, f_torch, seed, M, N, K, max_als, tol_als, device_obj, threads_per_block, chunk_size)
         
         # Initial Log-Likelihood
-        logl = loglikelihood_gpu(G, P, Q, M, N, chunk_size, device_obj, threads_per_block)
+        logl_calc = utils.get_logl_calculator(device_obj)
+        logl = logl_calc(G, P, Q, M, N, chunk_size, threads_per_block)
+        
         log.info(f"    Initial log-likelihood for K={K}: {logl:.1f}.") 
         
         torch.set_float32_matmul_precision('medium')

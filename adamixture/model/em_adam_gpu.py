@@ -2,7 +2,8 @@ import torch
 import logging
 import time
 import numpy as np
-from typing import Tuple
+from typing import Tuple, Callable
+from ..src import utils
 
 log = logging.getLogger(__name__)
 
@@ -202,33 +203,11 @@ def logl_batch_math(g_chunk: torch.Tensor, p_batch: torch.Tensor, Q: torch.Tenso
 
 logl_batch_compiled = torch.compile(logl_batch_math, disable=not hasattr(torch, "compile"))
 
-def _unpack_chunk_uint8(G: torch.Tensor, start_idx: int, actual_chunk_size: int, M: int, device: torch.device, threads_per_block: int) -> torch.Tensor:
-    """
-    Description:
-    Unpacks a 2-bit genotype chunk into uint8 on the device.
-
-    Args:
-        G (torch.Tensor): Packed genotypes.
-        start_idx (int): Starting individual index.
-        actual_chunk_size (int): Chunk size to unpack.
-        M (int): Total number of SNPs.
-        device (torch.device): Computation device.
-        threads_per_block (int): CUDA threads configuration.
-
-    Returns:
-        torch.Tensor: Unpacked uint8 tensor.
-    """
-    if G.device.type == 'cpu':
-        byte_start = start_idx // 4
-        byte_end = (start_idx + actual_chunk_size + 3) // 4
-        G_sub = G[byte_start:byte_end, :].to(device, non_blocking=True)
-        return torch.ops.pack2bit.unpack2bit_gpu_chunk_uint8(G_sub, start_idx, actual_chunk_size, M, byte_start, threads_per_block)
-    else:
-        return torch.ops.pack2bit.unpack2bit_gpu_chunk_uint8(G, start_idx, actual_chunk_size, M, 0, threads_per_block)
 
 def run_em_step(G: torch.Tensor, P: torch.Tensor, Q: torch.Tensor, N: int, M: int, device: torch.device, 
                 batch_size: int, A_accum: torch.Tensor, B_accum: torch.Tensor, 
-                T_accum: torch.Tensor, q_bat: torch.Tensor, P_target: torch.Tensor, Q_target: torch.Tensor, threads_per_block: int) -> Tuple[torch.Tensor, torch.Tensor]:
+                T_accum: torch.Tensor, q_bat: torch.Tensor, P_target: torch.Tensor, Q_target: torch.Tensor, 
+                unpacker: Callable) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     Description:
     Executes a complete EM step iterating over genotype batches on the GPU.
@@ -260,7 +239,7 @@ def run_em_step(G: torch.Tensor, P: torch.Tensor, Q: torch.Tensor, N: int, M: in
     for i in range(0, M, batch_size):
         end = min(i + batch_size, M)
         actual_chunk_size = end - i
-        G_chunk = _unpack_chunk_uint8(G, i, actual_chunk_size, M, device, threads_per_block)
+        G_chunk = unpacker(G, i, actual_chunk_size, M)
         p_batch = P[i:end]
         A_p, B_p, T_p, T_sum_p, q_p = em_batch_compiled(G_chunk, p_batch, Q)
         A_accum[i:end] = A_p
@@ -275,9 +254,10 @@ def loglikelihood_gpu(G: torch.Tensor, P: torch.Tensor, Q: torch.Tensor, M: int,
     """
     Description:
     Computes total log-likelihood iterating over chunks in float64.
+    If the device is MPS, it redirects to the CPU implementation since MPS does not support float64.
 
     Args:
-        G (torch.Tensor): Packed genotypes.
+        G (torch.Tensor): Genotype matrix (packed if CUDA, unpacked if MPS/CPU).
         P (torch.Tensor): P matrix.
         Q (torch.Tensor): Q matrix.
         M (int): Number of SNPs.
@@ -289,12 +269,18 @@ def loglikelihood_gpu(G: torch.Tensor, P: torch.Tensor, Q: torch.Tensor, M: int,
     Returns:
         float: Total log-likelihood.
     """
+    if device.type == 'mps':
+        from ..src.utils_c import tools
+        G_np = G.numpy() if isinstance(G, torch.Tensor) else G
+        return tools.loglikelihood(G_np, P.cpu().numpy().astype(np.float64), Q.cpu().numpy().astype(np.float64))
+
     ll_tensor = torch.tensor(0.0, dtype=torch.float64, device=device)
     Q_64 = Q.to(torch.float64)
+    unpacker = utils.get_unpacker(device, threads_per_block)
     for i in range(0, M, batch_size):
         end = min(i + batch_size, M)
         actual_chunk_size = end - i
-        G_chunk = _unpack_chunk_uint8(G, i, actual_chunk_size, M, device, threads_per_block)
+        G_chunk = unpacker(G, i, actual_chunk_size, M)
         p_batch = P[i:end].to(torch.float64)
         ll_tensor.add_(logl_batch_compiled(G_chunk, p_batch, Q_64))
     return ll_tensor.item()
@@ -342,15 +328,18 @@ def optimize_parameters_gpu(G: torch.Tensor, P: torch.Tensor, Q: torch.Tensor, l
     P_EM = torch.zeros_like(P)
     Q_EM = torch.zeros_like(Q)
     
+    unpacker = utils.get_unpacker(device, threads_per_block)
+    logl_calc = utils.get_logl_calculator(device)
+
     # Accelerated priming iteration
     ts_priming = time.time()
-    run_em_step(G, P, Q, N, M, device, chunk_size, A_accum, B_accum, T_accum, q_bat, P_EM, Q_EM, threads_per_block)
+    run_em_step(G, P, Q, N, M, device, chunk_size, A_accum, B_accum, T_accum, q_bat, P_EM, Q_EM, unpacker)
     optimizer.step(P, Q, P_EM, Q_EM)
-    run_em_step(G, P, Q, N, M, device, chunk_size, A_accum, B_accum, T_accum, q_bat, P_EM, Q_EM, threads_per_block)
+    run_em_step(G, P, Q, N, M, device, chunk_size, A_accum, B_accum, T_accum, q_bat, P_EM, Q_EM, unpacker)
     log.info(f"    Performed priming iteration... ({time.time() - ts_priming:.1f}s)\n")
     
     # Initial log-likelihood
-    L_best = loglikelihood_gpu(G, P, Q, M, N, chunk_size, device, threads_per_block)
+    L_best = logl_calc(G, P, Q, M, N, chunk_size, threads_per_block)
 
     P_best = P.clone()
     Q_best = Q.clone()
@@ -358,13 +347,12 @@ def optimize_parameters_gpu(G: torch.Tensor, P: torch.Tensor, Q: torch.Tensor, l
     ts = time.time()
 
     for it in range(max_iter):
-        with torch.no_grad():
             run_em_step(G, P, Q, N, M, device, chunk_size,
-                        A_accum, B_accum, T_accum, q_bat, P_EM, Q_EM, threads_per_block)
+                        A_accum, B_accum, T_accum, q_bat, P_EM, Q_EM, unpacker)
             optimizer.step(P, Q, P_EM, Q_EM)
 
             if (it + 1) % check == 0:
-                L_cur = loglikelihood_gpu(G, P, Q, M, N, chunk_size, device, threads_per_block)
+                L_cur = logl_calc(G, P, Q, M, N, chunk_size, threads_per_block)
                 
                 log.info(
                     f"    Iteration {it+1}, "
