@@ -70,12 +70,12 @@ class EMAdamOptimizer:
         self.beta1 = beta1
         self.beta2 = beta2
         self.reg_adam = reg_adam
-        self.t = torch.tensor(0.0, device=device, dtype=torch.float32)
+        self.t = torch.tensor(0.0, device=device, dtype=torch.float64)
         
-        self.m_P = torch.zeros(P_shape, dtype=torch.float32, device=device)
-        self.v_P = torch.zeros(P_shape, dtype=torch.float32, device=device)
-        self.m_Q = torch.zeros(Q_shape, dtype=torch.float32, device=device)
-        self.v_Q = torch.zeros(Q_shape, dtype=torch.float32, device=device)
+        self.m_P = torch.zeros(P_shape, dtype=torch.float64, device=device)
+        self.v_P = torch.zeros(P_shape, dtype=torch.float64, device=device)
+        self.m_Q = torch.zeros(Q_shape, dtype=torch.float64, device=device)
+        self.v_Q = torch.zeros(Q_shape, dtype=torch.float64, device=device)
 
     def step(self, P: torch.Tensor, Q: torch.Tensor, P_target: torch.Tensor, Q_target: torch.Tensor) -> None:
         """
@@ -117,7 +117,7 @@ def em_batch_math(G_chunk: torch.Tensor, p_batch: torch.Tensor, Q: torch.Tensor)
         Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]: Intermediate updates (A_part, B_part, T_part, T_sum_part, q_bat_part).
     """
     mask = (G_chunk != 3)
-    g_val = G_chunk.float()
+    g_val = G_chunk.to(torch.float64)
     
     rec = torch.matmul(p_batch, Q.T)
     rec = torch.clamp(rec, 1e-5, 1.0-1e-5)
@@ -133,7 +133,7 @@ def em_batch_math(G_chunk: torch.Tensor, p_batch: torch.Tensor, Q: torch.Tensor)
     T_part = torch.matmul(diff.T, p_batch)
     T_sum_part = term_b.sum(dim=0, keepdim=True).T
     
-    q_bat_part = mask.float().sum(dim=0) * 2.0
+    q_bat_part = mask.to(torch.float64).sum(dim=0) * 2.0
     
     return A_part, B_part, T_part, T_sum_part, q_bat_part
 
@@ -290,7 +290,7 @@ def optimize_parameters_gpu(G: torch.Tensor, P: torch.Tensor, Q: torch.Tensor, l
                   patience_adam: int, tol_adam: float, device: torch.device, chunk_size: int, threads_per_block: int) -> Tuple[np.ndarray, np.ndarray]:
     """
     Description:
-    Adam-EM optimization on the GPU (float32).
+    Adam-EM optimization on the GPU (float64).
 
     Args:
         G (torch.Tensor): Packed genotype matrix.
@@ -316,6 +316,8 @@ def optimize_parameters_gpu(G: torch.Tensor, P: torch.Tensor, Q: torch.Tensor, l
     Returns:
         Tuple[np.ndarray, np.ndarray]: Optimized P and Q matrices on CPU.
     """
+    P = P.to(torch.float64)
+    Q = Q.to(torch.float64)
     optimizer = EMAdamOptimizer(P.shape, Q.shape, lr, beta1, beta2, reg_adam, device)
 
     wait_lr = 0
@@ -323,7 +325,7 @@ def optimize_parameters_gpu(G: torch.Tensor, P: torch.Tensor, Q: torch.Tensor, l
     A_accum = torch.zeros_like(P)
     B_accum = torch.zeros_like(P)
     T_accum = torch.zeros_like(Q)
-    q_bat = torch.zeros(N, device=device, dtype=torch.float32)
+    q_bat = torch.zeros(N, device=device, dtype=torch.float64)
     
     P_EM = torch.zeros_like(P)
     Q_EM = torch.zeros_like(Q)

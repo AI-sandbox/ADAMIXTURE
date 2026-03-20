@@ -36,7 +36,7 @@ def parse_args(argv: List[str]) -> configargparse.Namespace:
     
     parser.add_argument('--lr_decay', type=float, default=0.5, help='Learning rate decay factor')
     parser.add_argument('--min_lr', type=float, default=1e-4, help='Minimum learning rate value')
-    parser.add_argument('--patience_adam', type=int, default=2, help='Patience for reducing the learning rate in Adam-EM')
+    parser.add_argument('--patience_adam', type=int, default=3, help='Patience for reducing the learning rate in Adam-EM')
     parser.add_argument('--tol_adam', type=float, default=0.1, help='Tolerance for stopping the Adam-EM algorithm')
 
     parser.add_argument('--seed', required=False, type=int, default=42, help='Seed')
