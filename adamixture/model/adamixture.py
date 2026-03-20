@@ -51,6 +51,12 @@ def train(G: torch.Tensor | np.ndarray, N: int, M: int, K: int, seed: int, lr: f
         tuple[np.ndarray, np.ndarray]: Optimized P and Q matrices.
     """
     device_obj = torch.device(device)
+    if device_obj.type == 'mps':
+        try:
+            import torch._inductor.config as inductor_config
+            inductor_config.max_autotune_gemm = False
+        except (ImportError, AttributeError):
+            pass
     log.info(f"    Running on {str(device_obj).upper()}.\n")
     utils.load_extensions(device_obj)
     threads_per_block = utils.get_tuning_params(device_obj)

@@ -60,6 +60,23 @@ def get_tuning_params(device: torch.device, verbose: bool = True) -> int:
 
     return threads_per_block
 
+def get_dtype(device: torch.device) -> torch.dtype:
+    """
+    Description:
+    Returns the recommended floating point precision for the given device.
+    MPS does not support float64, so float32 is returned. For other devices,
+    float64 is preferred for precision.
+
+    Args:
+        device (torch.device): Target computation device.
+
+    Returns:
+        torch.dtype: Recommended dtype (float32 or float64).
+    """
+    if device.type == "mps":
+        return torch.float32
+    return torch.float64
+
 def write_outputs(Q: np.ndarray, run_name: str, K: int, out_path: str | Path, P: np.ndarray = None) -> None:
     """
     Description:
