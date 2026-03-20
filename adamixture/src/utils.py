@@ -6,6 +6,7 @@ import numpy as np
 
 from pathlib import Path
 
+from typing import Callable, Tuple
 from .snp_reader import SNPReader
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
@@ -59,7 +60,7 @@ def get_tuning_params(device: torch.device, verbose: bool = True) -> int:
 
     return threads_per_block
 
-def write_outputs(Q: np.ndarray, run_name: str, K: int, out_path: str, P: np.ndarray = None) -> None:
+def write_outputs(Q: np.ndarray, run_name: str, K: int, out_path: str | Path, P: np.ndarray = None) -> None:
     """
     Description:
     Saves the inferred ancestry proportions (Q) and optionally the allele frequencies (P).
@@ -211,7 +212,7 @@ def load_extensions(device: torch.device) -> None:
              verbose=False, keep_intermediates=False, 
              extra_cuda_cflags=['-O3', '--use_fast_math'], extra_cflags=['-O3'])
 
-def get_unpacker(device: torch.device, threads_per_block: int):
+def get_unpacker(device: torch.device, threads_per_block: int) -> Callable[[torch.Tensor, int, int, int], torch.Tensor]:
     """
     Description:
     Returns a specialized function for unpacking genotype chunks based on the device.
@@ -225,11 +226,11 @@ def get_unpacker(device: torch.device, threads_per_block: int):
         Callable: A function with signature (G, start_idx, actual_chunk_size, M) -> torch.Tensor.
     """
     if device.type == 'mps':
-        def unpack_mps(G, start_idx, actual_chunk_size, M):
+        def unpack_mps(G: torch.Tensor, start_idx: int, actual_chunk_size: int, M: int) -> torch.Tensor:
             return G[start_idx:start_idx + actual_chunk_size, :].to(device, non_blocking=True)
         return unpack_mps
     
-    def unpack_cuda(G, start_idx, actual_chunk_size, M):
+    def unpack_cuda(G: torch.Tensor, start_idx: int, actual_chunk_size: int, M: int) -> torch.Tensor:
         if G.device.type == 'cpu':
             byte_start = start_idx // 4
             byte_end = (start_idx + actual_chunk_size + 3) // 4
@@ -239,7 +240,7 @@ def get_unpacker(device: torch.device, threads_per_block: int):
     
     return unpack_cuda
 
-def get_logl_calculator(device: torch.device):
+def get_logl_calculator(device: torch.device) -> Callable[[torch.Tensor, torch.Tensor, torch.Tensor, int, int, int, int], float]:
     """
     Description:
     Returns the optimal log-likelihood calculation function for the given device.
@@ -253,13 +254,15 @@ def get_logl_calculator(device: torch.device):
     """
     if device.type == 'mps':
         from .utils_c import tools
-        def logl_mps(G, P, Q, M, N, batch_size, threads_per_block):
+        def logl_mps(G: torch.Tensor, P: torch.Tensor, Q: torch.Tensor, M: int, N: int, batch_size: int, threads_per_block: int) -> float:
             G_cpu = G.numpy() if isinstance(G, torch.Tensor) else G
             return tools.loglikelihood(G_cpu, P.cpu().numpy().astype(np.float64), Q.cpu().numpy().astype(np.float64))
         return logl_mps
     
     from ..model.em_adam_gpu import loglikelihood_gpu
-    return loglikelihood_gpu
+    def logl_gpu_wrapped(G: torch.Tensor, P: torch.Tensor, Q: torch.Tensor, M: int, N: int, batch_size: int, threads_per_block: int) -> float:
+        return loglikelihood_gpu(G, P, Q, M, N, batch_size, device, threads_per_block)
+    return logl_gpu_wrapped
 
 def _unpack_chunk_uint8(G: torch.Tensor, start_idx: int, actual_chunk_size: int, M: int, device: torch.device, threads_per_block: int) -> torch.Tensor:
     """
@@ -269,7 +272,7 @@ def _unpack_chunk_uint8(G: torch.Tensor, start_idx: int, actual_chunk_size: int,
     unpacker = get_unpacker(device, threads_per_block)
     return unpacker(G, start_idx, actual_chunk_size, M)
 
-def get_centering_unpacker(device: torch.device, threads_per_block: int):
+def get_centering_unpacker(device: torch.device, threads_per_block: int) -> Callable[[torch.Tensor, torch.Tensor, int, int, int], torch.Tensor]:
     """
     Description:
     Returns a specialized function for unpacking and centering genotype chunks.
@@ -283,13 +286,13 @@ def get_centering_unpacker(device: torch.device, threads_per_block: int):
         Callable: A function (G, f, start_idx, actual_chunk_size, M) -> centered_float32_chunk.
     """
     if device.type == 'mps':
-        def unpack_center_mps(G, f, start_idx, actual_chunk_size, M):
+        def unpack_center_mps(G: torch.Tensor, f: torch.Tensor, start_idx: int, actual_chunk_size: int, M: int) -> torch.Tensor:
             G_chunk = G[start_idx:start_idx + actual_chunk_size, :].to(device, non_blocking=True)
             f_chunk = f[start_idx:start_idx + actual_chunk_size].unsqueeze(1)
             return G_chunk.float() - 2.0 * f_chunk
         return unpack_center_mps
     
-    def unpack_center_cuda(G, f, start_idx, actual_chunk_size, M):
+    def unpack_center_cuda(G: torch.Tensor, f: torch.Tensor, start_idx: int, actual_chunk_size: int, M: int) -> torch.Tensor:
         if G.device.type == 'cpu':
             byte_start = start_idx // 4
             byte_end = (start_idx + actual_chunk_size + 3) // 4

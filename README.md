@@ -60,7 +60,7 @@ $ ./admixture snps_data.bed 8 -s 42
 would be mimicked in ADAMIXTURE by running
 
 ```console
-$ adamixture --k 8 --data_path snps_data.bed --save_dir SAVE_PATH --init_file INIT_FILE --name snps_data --seed 42
+$ adamixture --k 8 --data_path snps_data.bed --save_dir SAVE_PATH --name snps_data --seed 42
 ```
 
 Two files will be output to the `SAVE_PATH` directory (the `name` parameter will be used to create the whole filenames):
@@ -74,9 +74,29 @@ Logs are printed to the `stdout` channel by default. If you want to save them to
 $ adamixture --k 8 ... | tee run.log
 ```
 
+### Running with GPU acceleration
+
+To leverage GPU acceleration (highly recommended for large datasets), use the `--device` flag:
+
+- **NVIDIA GPU (CUDA)**:
+  ```console
+  $ adamixture --k 8 --data_path data.bed --save_dir out/ --name test --device gpu
+  ```
+- **macOS Apple Silicon (MPS)**:
+  ```console
+  $ adamixture --k 8 --data_path data.bed --save_dir out/ --name test --device mps
+  ```
+
+> [!NOTE]  
+> Biobank-scale datasets are best handled on dedicated CUDA-capable GPUs.
+
 ## Multi-K Sweep
 
 Instead of running ADAMIXTURE for a single K, you can automatically sweep over a range of K values using `--min_k` and `--max_k`. The data is loaded once, and each K is trained sequentially:
+
+```console
+$ adamixture --min_k 2 --max_k 10 --data_path snps_data.bed --save_dir SAVE_PATH --name snps_sweep
+```
 ## Other options
 
 - `--lr` (float, default: `0.005`):  
@@ -111,6 +131,9 @@ Instead of running ADAMIXTURE for a single K, you can automatically sweep over a
 
 - `--name` (str, required):  
   Experiment/model name used as prefix for output files.
+
+- `--device` (str, default: `cpu`):  
+  Target hardware for computation. Choices: `cpu`, `gpu` (NVIDIA/CUDA), or `mps` (Apple Metal).
 
 - `--seed` (int, default: `42`):  
   Random number generator seed for reproducibility.
@@ -152,8 +175,6 @@ Instead of running ADAMIXTURE for a single K, you can automatically sweep over a
 - `--threads` (int, default: `1`):  
   Number of CPU threads used during execution.
 
-- `--device` (str, default: `cpu`):  
-  Hardware device to use for computations. Choices are `cpu`, `gpu` (for CUDA), or `mps` (for Apple Metal).
 
 ## License
 
