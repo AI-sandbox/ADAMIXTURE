@@ -11,7 +11,7 @@ log = logging.getLogger(__name__)
 def adamStep(G: np.ndarray, P0: np.ndarray, Q0: np.ndarray, T: np.ndarray, P1: np.ndarray, 
             Q1: np.ndarray, q_bat: np.ndarray, K: int, M: int, N: int, m_P: np.ndarray, 
             v_P: np.ndarray, m_Q: np.ndarray, v_Q: np.ndarray, t: list, lr: float, beta1: float, 
-            beta2: float, epsilon: float):
+            beta2: float, epsilon: float) -> None:
     """
     Description:
     Performs a single EM step followed by an Adam optimization update for matrices P and Q.
@@ -23,7 +23,7 @@ def adamStep(G: np.ndarray, P0: np.ndarray, Q0: np.ndarray, T: np.ndarray, P1: n
         T (np.ndarray): Temporary buffer for EM calculations.
         P1 (np.ndarray): Buffer for updated P matrix.
         Q1 (np.ndarray): Buffer for updated Q matrix.
-        Q_bat (np.ndarray): Batch-wise normalization buffer.
+        q_bat (np.ndarray): Batch-wise normalization buffer.
         K (int): Number of components (clusters).
         M (int): Number of SNPs (rows in G).
         N (int): Number of individuals (columns in G).
@@ -37,7 +37,7 @@ def adamStep(G: np.ndarray, P0: np.ndarray, Q0: np.ndarray, T: np.ndarray, P1: n
         beta2 (float): Exponential decay rate for the second moment.
         epsilon (float): Numerical stability constant.
 
-    Return:
+    Returns:
         None
     """
     # EM Step:
@@ -53,9 +53,25 @@ def adamStep(G: np.ndarray, P0: np.ndarray, Q0: np.ndarray, T: np.ndarray, P1: n
     t[0] = t_val
 
 def emStep(G: np.ndarray, P0: np.ndarray, Q0: np.ndarray, T: np.ndarray, P1: np.ndarray, 
-           Q1: np.ndarray, q_bat: np.ndarray, K: int, M: int, N: int):
+           Q1: np.ndarray, q_bat: np.ndarray, K: int, M: int, N: int) -> None:
     """
+    Description:
     Performs a single regular EM step (no Adam momentum).
+
+    Args:
+        G (np.ndarray): Input genotype matrix.
+        P0 (np.ndarray): Current P matrix.
+        Q0 (np.ndarray): Current Q matrix.
+        T (np.ndarray): Temporary buffer for EM calculations.
+        P1 (np.ndarray): Buffer for updated P matrix.
+        Q1 (np.ndarray): Buffer for updated Q matrix.
+        q_bat (np.ndarray): Batch-wise normalization buffer.
+        K (int): Number of components (clusters).
+        M (int): Number of SNPs (rows in G).
+        N (int): Number of individuals (columns in G).
+
+    Returns:
+        None
     """
     em.P_step(G, P0, P1, Q0, T, q_bat, K, M, N)
     em.Q_step(Q0, Q1, T, q_bat, K, N)
@@ -65,16 +81,15 @@ def emStep(G: np.ndarray, P0: np.ndarray, Q0: np.ndarray, T: np.ndarray, P1: np.
 def optimize_parameters(G: np.ndarray, P: np.ndarray, Q: np.ndarray, lr: float, 
                         beta1: float, beta2: float, reg_adam: float, max_iter: int,
                         check: int, K: int, M: int, N: int, lr_decay: float, min_lr: float,
-                        patience_adam: int, tol_adam: float):
+                        patience_adam: int, tol_adam: float) -> tuple[np.ndarray, np.ndarray]:
     """
     Description:
-    Optimizes the P and Q matrices using Adam-accelerated EM .
+    Optimizes the P and Q matrices using Adam-accelerated Expectation-Maximization.
 
     Args:
         G (np.ndarray): Input genotype matrix.
         P (np.ndarray): Initial P matrix (frequencies).
         Q (np.ndarray): Initial Q matrix (proportions).
-        seed (int): Random seed for reproducibility.
         lr (float): Adam learning rate.
         beta1 (float): Adam beta1 parameter.
         beta2 (float): Adam beta2 parameter.
@@ -89,8 +104,8 @@ def optimize_parameters(G: np.ndarray, P: np.ndarray, Q: np.ndarray, lr: float,
         patience_adam (int): Number of checks without improvement before early stopping.
         tol_adam (float): Convergence tolerance for log-likelihood.
 
-    Return:
-        Tuple[np.ndarray, np.ndarray]: Optimized P and Q matrices.
+    Returns:
+        tuple[np.ndarray, np.ndarray]: Optimized P and Q matrices.
     """
     # Adam state variables (first and second moments):
     m_P = np.zeros_like(P, dtype=np.float64)
@@ -103,13 +118,13 @@ def optimize_parameters(G: np.ndarray, P: np.ndarray, Q: np.ndarray, lr: float,
     P1 = np.zeros_like(P, dtype=np.float64)
     Q1 = np.zeros_like(Q, dtype=np.float64)
     T = np.zeros_like(Q, dtype=np.float64)
-    q_bat = np.zeros(G.shape[1], dtype=np.float64)
+    q_bat = np.zeros(N, dtype=np.float64)
 
     # Variables for tracking the best solution:
     P_best = np.empty_like(P)
     Q_best = np.empty_like(Q)
     L_best = float('-inf')
-    no_improve = 0
+    wait_lr = 0
 
     ts = time.time()
     
@@ -127,7 +142,7 @@ def optimize_parameters(G: np.ndarray, P: np.ndarray, Q: np.ndarray, lr: float,
 
     # ---------- Adam-EM ----------
     for it in range(max_iter):
-        adamStep(G, P, Q, T, P1, Q1, q_bat, K, M, N,m_P, v_P, m_Q, v_Q,
+        adamStep(G, P, Q, T, P1, Q1, q_bat, K, M, N, m_P, v_P, m_Q, v_Q,
                 t, lr, beta1, beta2, reg_adam)
 
         if (it + 1) % check == 0:
@@ -138,27 +153,25 @@ def optimize_parameters(G: np.ndarray, P: np.ndarray, Q: np.ndarray, lr: float,
                 f"Time: {time.time() - ts:.3f}s"
             )
             ts = time.time()
-            diff = abs(L_cur - L_best)
-            if L_cur > L_best:
+            if L_cur > L_best + tol_adam:
                 L_best = L_cur
                 memoryview(P_best.ravel())[:] = memoryview(P.ravel())
                 memoryview(Q_best.ravel())[:] = memoryview(Q.ravel())
-                no_improve = 0
+                wait_lr = 0
             else:
-                no_improve += 1
-                old_lr = lr
-                lr = max(lr * lr_decay, min_lr)
-                log.info(
-                    f"    No improvement. "
-                    f"Reducing lr: {old_lr:.3e} → {lr:.3e}"
-                )
-
-            if diff < tol_adam:
-                break
-
-            if no_improve >= patience_adam:
-                log.info("\n    Early stopping triggered.")
-                break
+                wait_lr += 1
+                
+                if wait_lr >= patience_adam:
+                    old_lr = lr
+                    lr = max(lr * lr_decay, min_lr)
+                    log.info(
+                        f"    Plateau reached ({wait_lr} checks without beating best). "
+                        f"Reducing lr: {old_lr:.3e} → {lr:.3e}"
+                    )
+                    if lr <= min_lr:
+                        log.info("        Convergence reached.")
+                        break
+                    wait_lr = 0
 
     log.info(f"\n    Final log-likelihood: {L_best:.1f}")
 

@@ -10,23 +10,15 @@ log = logging.getLogger(__name__)
 
 def eigSVD(X: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
-    Compute the Singular Value Decomposition (SVD) of a matrix using eigen-decomposition.
+    Description:
+    Computes the Singular Value Decomposition (SVD) of a matrix X using 
+    eigen-decomposition of its covariance (X^T @ X).
 
-    This function computes the SVD of a matrix S.
+    Args:
+        X (np.ndarray): Input matrix of shape (m, n).
 
-    Parameters
-    ----------
-    S : ndarray, shape (m, n)
-        Input matrix.
-
-    Returns
-    -------
-    U : ndarray, shape (m, r)
-        Left singular vectors (orthonormal).
-    S : ndarray, shape (r,)
-        Singular values in descending order.
-    V : ndarray, shape (n, r)
-        Right singular vectors (orthonormal).
+    Returns:
+        tuple[np.ndarray, np.ndarray, np.ndarray]: (U, S, V) matrices from SVD.
     """
     D, V = np.linalg.eigh(X.T @ X)
     S = np.sqrt(D)
@@ -36,44 +28,23 @@ def eigSVD(X: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
 def RSVD(G: np.ndarray, N: int, M: int, f: np.ndarray, k: int, seed: int, 
         power: int, tol: float, chunk: int) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
-    Randomized SVD with Dynamic Shifts.
+    Description:
+    Randomized Singular Value Decomposition with Dynamic Shifts (dashSVD).
+    Optimized for memory-efficient processing of large genotype matrices.
 
-    Based on the paper:
-        "dashSVD: Faster Randomized SVD with Dynamic Shifts"
-        https://dl.acm.org/doi/10.1145/3660629
+    Args:
+        G (np.ndarray): Input genotype matrix (unpacked or packed).
+        N (int): Number of individuals (rows).
+        M (int): Number of SNPs (columns).
+        f (np.ndarray): Allele frequencies buffer.
+        k (int): Target rank (number of components).
+        seed (int): Random seed for the projection basis.
+        power (int): Number of power iterations for subspace refinement.
+        tol (float): Relative error tolerance for convergence.
+        chunk (int): Number of SNPs per processing batch.
 
-    Reference code:
-        https://github.com/THU-numbda/dashSVD
-
-    Parameters
-    ----------
-    G : array-like
-        Input matrix in uint8 format.
-    N : int
-        Number of rows in A.
-    M : int
-        Number of columns in A.
-    f : object
-        Extra structure needed by the multiplication routines.
-    k : int
-        Target rank (number of singular values/vectors).
-    seed : int
-        Random seed.
-    power : int
-        Number of power iterations (default: 5).
-    tol : float
-        Tolerance for convergence (default: 1e-1).
-    chunk : int
-        Number of SNPs in chunk operations.
-
-    Returns
-    -------
-    U : ndarray, shape (N, k)
-        Left singular vectors.
-    S : ndarray, shape (k,)
-        Singular values.
-    V : ndarray, shape (M, k)
-        Right singular vectors.
+    Returns:
+        tuple[np.ndarray, np.ndarray, np.ndarray]: (U matrix, S vector, V matrix).
     """
     t0 = time.time()
     rng = np.random.default_rng(seed)
@@ -163,7 +134,6 @@ def RSVD(G: np.ndarray, N: int, M: int, f: np.ndarray, k: int, seed: int,
     V = np.ascontiguousarray(np.dot(orth_matrix, v_cond[:, :k]))
 
     total_time = time.time() - t0
-    log.info(f"\n    Total time for SVD={total_time:.3f}s")
-    log.info("")
+    log.info(f"\n    Total time for SVD={total_time:.3f}s\n")
 
     return U, S, V

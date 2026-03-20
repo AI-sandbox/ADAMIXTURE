@@ -1,0 +1,2 @@
+recursive-include adamixture *.cu
+recursive-include adamixture *.pyx

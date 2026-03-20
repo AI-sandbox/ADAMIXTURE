@@ -22,7 +22,7 @@ The successful usage of this package requires a computer with enough RAM to be a
 We recommend creating a fresh Python 3.10 virtual environment using `virtualenv` (or `conda`), and then install the package `adamixture` there. As an example, for `virtualenv`, one should launch the following commands:
 
 ```console
-$ virtualenv --python=python3.9 ~/venv/nadmenv
+$ virtualenv --python=python3.10 ~/venv/nadmenv
 $ source ~/venv/nadmenv/bin/activate
 (nadmenv) $ pip install adamixture
 ```
@@ -43,7 +43,13 @@ The package can be easily installed in at most a few minutes using `pip` (make s
 
 ## Running ADAMIXTURE
 
-To train a model, simply invoke the following commands from the root directory of the project. For more info about all the arguments, please run `adamixture --help`. Note that VCF and BED are supported as of now:
+To train a model, simply invoke the following commands from the root directory of the project. For more info about all the arguments, please run `adamixture --help`. Note that **BED**, **VCF** and **PGEN** are supported:
+
+> [!TIP]
+> **GPU Acceleration**: Using GPUs greatly speeds up processing and is highly recommended for large datasets. You can specify the hardware to use with the `--device` parameter:
+> - For NVIDIA GPUs, use `--device gpu` (requires CUDA).
+> - For macOS users with Apple Silicon (M1/M2/M3/M4/M5), use `--device mps` to enable Metal Performance Shaders (MPS) acceleration. 
+> - Note that biobank-scale datasets are best handled on dedicated CUDA-capable GPUs due to high RAM requirements. 
 
 As an example, the following ADMIXTURE call
 
@@ -92,13 +98,13 @@ Instead of running ADAMIXTURE for a single K, you can automatically sweep over a
   Numerical stability constant (epsilon) for the Adam optimizer.
 
 - `--patience_adam` (int, default: `2`):  
-  Early stopping patience for Adam-EM.
+  Patience for reducing the learning rate in Adam-EM.
 
 - `--tol_adam` (float, default: `0.1`):  
-  Convergence tolerance for Adam-EM.
+  Tolerance for stopping the Adam-EM algorithm.
 
 - `--data_path` (str, required):  
-  Path to the genotype data (BED or VCF).
+  Path to the genotype data (BED, VCF or PGEN).
 
 - `--save_dir` (str, required):  
   Directory where the output files will be saved.
@@ -146,9 +152,32 @@ Instead of running ADAMIXTURE for a single K, you can automatically sweep over a
 - `--threads` (int, default: `1`):  
   Number of CPU threads used during execution.
 
+- `--device` (str, default: `cpu`):  
+  Hardware device to use for computations. Choices are `cpu`, `gpu` (for CUDA), or `mps` (for Apple Metal).
+
 ## License
 
 **NOTICE**: This software is available for use free of charge for academic research use only. Academic users may fork this repository and modify and improve to suit their research needs, but also inherit these terms and must include a licensing notice to that effect. Commercial users, for profit companies or consultants, and non-profit institutions not qualifying as "academic research" should contact the authors for a separate license. This applies to this repository directly and any other repository that includes source, executables, or git commands that pull/clone this repository as part of its function. Such repositories, whether ours or others, must include this notice.
+
+## Troubleshooting
+
+### CUDA issues
+If you get an error similar to the following when using the GPU:
+
+`OSError: CUDA_HOME environment variable is not set. Please set it to your CUDA install root.`
+
+Simply installing `nvcc` using conda or mamba should fix it:
+
+```console
+$ conda install -c nvidia nvcc
+```
+
+### macOS compilation issues
+If you get errors related to OpenMP (OMP) during installation on macOS, ensure you have `libomp` installed via Homebrew:
+
+```console
+$ brew install libomp
+```
 
 ## Cite
 

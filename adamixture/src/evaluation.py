@@ -11,8 +11,18 @@ from src.utils_c import tools
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
 log = logging.getLogger("AncestryEval")
 
-def set_numerical_backends(n_threads):
-    """Restricts thread usage for OMP, MKL, and BLAS libraries."""
+def set_numerical_backends(n_threads: int) -> None:
+    """
+    Description:
+    Restricts thread usage for numerical libraries (OMP, MKL, OpenBLAS, NumExpr) 
+    to prevent over-subscription of CPU resources.
+
+    Args:
+        n_threads (int): Maximum number of threads to allow.
+
+    Returns:
+        None
+    """
     n_str = str(n_threads)
     keys = [
         "MKL_NUM_THREADS", "MKL_MAX_THREADS", "OMP_NUM_THREADS", 
@@ -22,7 +32,18 @@ def set_numerical_backends(n_threads):
     for key in keys:
         os.environ[key] = n_str
 
-def parse_input():
+def parse_input() -> argparse.Namespace:
+    """
+    Description:
+    Configures and executes the command-line argument parser for the 
+    evaluation script.
+
+    Args:
+        None
+
+    Returns:
+        argparse.Namespace: Parsed arguments object containing file paths and flags.
+    """
     parser = argparse.ArgumentParser(description="Evaluation metrics for ancestry inference.")
     
     # Input Data Group
@@ -55,8 +76,19 @@ def parse_input():
 
     return args
 
-def load_proportions(filepath, bound):
-    """Loads, transposes if needed, and normalizes ancestry matrix."""
+def load_proportions(filepath: str, bound: float) -> np.ndarray:
+    """
+    Description:
+    Loads ancestry proportions (Q matrix) from a file, ensures correct orientation,
+    applies numerical clipping for stability, and normalizes rows to sum to 1.
+
+    Args:
+        filepath (str): Path to the Q matrix file.
+        bound (float): Small value for clipping (numerical stability).
+
+    Returns:
+        np.ndarray: Normalized proportions matrix of shape (Samples x K).
+    """
     mat = np.loadtxt(filepath, dtype=float)
     # Ensure shape is (Samples x K)
     if mat.shape[1] > mat.shape[0]:
@@ -68,10 +100,18 @@ def load_proportions(filepath, bound):
     mat /= np.sum(mat, axis=1, keepdims=True)
     return mat
 
-def align_latent_factors(est_props, true_props):
+def align_latent_factors(est_props: np.ndarray, true_props: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """
-    Solves the label switching problem by matching columns 
-    between estimated and true matrices via greedy minimization.
+    Description:
+    Solves the label switching problem by matching columns between estimated and 
+    true matrices using a greedy assignment based on Euclidean distances.
+
+    Args:
+        est_props (np.ndarray): The estimated ancestry proportions.
+        true_props (np.ndarray): The ground truth ancestry proportions.
+
+    Returns:
+        tuple[np.ndarray, np.ndarray]: (Aligned estimated matrix, Aligned ground truth).
     """
     K = est_props.shape[1]
     cost_matrix = np.zeros((K, K))
@@ -97,8 +137,18 @@ def align_latent_factors(est_props, true_props):
     return (np.ascontiguousarray(est_props[:, est_indices]), 
             np.ascontiguousarray(true_props[:, true_indices]))
 
-def run_validation(args, est_props, N, K):
-    """Calculates RMSE or JSD against a ground truth."""
+def run_validation(args: argparse.Namespace, est_props: np.ndarray) -> None:
+    """
+    Description:
+    Calculates validation metrics (RMSE and JSD) against a ground truth file.
+
+    Args:
+        args (argparse.Namespace): Parsed CLI arguments containing truth file paths.
+        est_props (np.ndarray): The estimated ancestry proportions.
+
+    Returns:
+        None
+    """
     true_props = np.loadtxt(args.tfile, dtype=float)
     N, K = true_props.shape
     
@@ -117,8 +167,19 @@ def run_validation(args, est_props, N, K):
         jsd = 0.5 * (div_a + div_b)
         log.info(f"JSD: {jsd:.7f}")
 
-def run_fitting_eval(args, est_props):
-    """Calculates Log-Likelihood of the model given the data."""
+def run_fitting_eval(args: argparse.Namespace, est_props: np.ndarray) -> None:
+    """
+    Description:
+    Calculates the Log-Likelihood of the model given the original genotype data 
+    and the inferred allele frequencies.
+
+    Args:
+        args (argparse.Namespace): Parsed CLI arguments.
+        est_props (np.ndarray): The estimated ancestry proportions.
+
+    Returns:
+        None
+    """
     K = est_props.shape[1]
     
     # Load Genotypes
@@ -137,7 +198,18 @@ def run_fitting_eval(args, est_props):
     ll = tools.loglikelihood(genotypes, freqs, est_props)
     log.info(f"Log-likelihood: {round(ll, 1)}")
 
-def main():
+def main() -> None:
+    """
+    Description:
+    Main execution flow for the evaluation module. Parses arguments and 
+    triggers either validation metrics or model fitting metrics.
+
+    Args:
+        None
+
+    Returns:
+        None
+    """
     args = parse_input()
     set_numerical_backends(args.threads)
 

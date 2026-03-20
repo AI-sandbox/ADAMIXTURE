@@ -5,14 +5,24 @@ import configargparse
 import time
 import os
 import platform
+import torch
 
 from ._version import __version__
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
 log = logging.getLogger(__name__)
 
-def parse_args(argv: List[str]):
-    """Training arguments parser"""
+def parse_args(argv: List[str]) -> configargparse.Namespace:
+    """
+    Description:
+    Parses command-line arguments for the ADAMIXTURE training script.
+
+    Args:
+        argv (List[str]): List of command-line arguments.
+
+    Returns:
+        configargparse.Namespace: Parsed arguments object.
+    """
     parser = configargparse.ArgumentParser(
         prog='adamixture',
         description='Population clustering using ADAM-EM.',
@@ -26,8 +36,8 @@ def parse_args(argv: List[str]):
     
     parser.add_argument('--lr_decay', type=float, default=0.5, help='Learning rate decay factor')
     parser.add_argument('--min_lr', type=float, default=1e-4, help='Minimum learning rate value')
-    parser.add_argument('--patience_adam', type=int, default=2, help='Early stopping patience for Adam-EM')
-    parser.add_argument('--tol_adam', type=float, default=0.1, help='Convergence tolerance for Adam-EM')
+    parser.add_argument('--patience_adam', type=int, default=2, help='Patience for reducing the learning rate in Adam-EM')
+    parser.add_argument('--tol_adam', type=float, default=0.1, help='Tolerance for stopping the Adam-EM algorithm')
 
     parser.add_argument('--seed', required=False, type=int, default=42, help='Seed')
     parser.add_argument('--k', required=False, type=int, help='Number of populations/clusters (single run).')
@@ -38,6 +48,7 @@ def parse_args(argv: List[str]):
     parser.add_argument('--data_path', required=True, type=str, help='Path containing the main data')
     parser.add_argument('--name', required=True, type=str, help='Experiment/model name')
     parser.add_argument('--threads', required=False, default=1, type=int, help='Number of threads to be used in the execution.')
+    parser.add_argument('--device', required=False, default='cpu', choices=['cpu', 'gpu', 'mps'], help='Device to use (cpu, gpu, mps)')
     
     parser.add_argument('--max_iter', type=int, default=1500, help='Maximum number of iterations for Adam EM')
     parser.add_argument('--check', type=int, default=5, help='Frequency of log-likelihood checks')
@@ -61,9 +72,16 @@ def parse_args(argv: List[str]):
     
     return args
     
-def print_adamixture_banner(version: str="1.0") -> None:
+def print_adamixture_banner(version: str = "1.0") -> None:
     """
-    Display the Neural Admixture banner with version and author information.
+    Description:
+    Displays the ADAMIXTURE ASCII banner along with version and author information.
+
+    Args:
+        version (str): The software version to display. Defaults to "1.0".
+
+    Returns:
+        None
     """
     banner = r"""
       ___  ____   ___  __  __ _____       _______ _    _ _____  ______
@@ -84,7 +102,18 @@ def print_adamixture_banner(version: str="1.0") -> None:
     log.info("\n" + banner + info)
 
 
-def main():
+def main() -> None:
+    """
+    Description:
+    Main entry point for the ADAMIXTURE command-line interface. 
+    Handles application setup, environment configuration, and execution flow.
+
+    Args:
+        None
+
+    Returns:
+        None
+    """
     print_adamixture_banner(__version__)
     arg_list = tuple(sys.argv)
     args = parse_args(arg_list[1:])
@@ -139,6 +168,23 @@ def main():
         pass
     else:
         log.info(f"System not recognized: {system}")
+        sys.exit(1)
+    
+    if args.device == 'gpu':
+        if not torch.cuda.is_available():
+            log.error("    GPU requested via --device gpu but CUDA is not available.")
+            sys.exit(1)
+        args.device = 'cuda'
+    elif args.device == 'mps':
+        if not torch.backends.mps.is_available():
+            log.error("    MPS requested via --device mps but MPS is not available.")
+            sys.exit(1)
+    
+    # Final check: can we actually create a device object?
+    try:
+        torch.device(args.device)
+    except Exception as e:
+        log.error(f"    Invalid or unavailable device '{args.device}': {e}")
         sys.exit(1)
     
     # CONTROL SEED:

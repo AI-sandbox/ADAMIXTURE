@@ -2,7 +2,7 @@
 from cython.parallel import parallel, prange
 from libc.math cimport log, log1p, sqrtf, sqrt
 from libc.stdlib cimport calloc, free, malloc
-from libc.stdint cimport uint8_t, uint32_t
+from libc.stdint cimport uint8_t, uint32_t, uintptr_t, int32_t, uint64_t
 
 # Read BED file:
 cpdef void read_bed(unsigned char[:,::1] bed_source, unsigned char[:,::1] geno_target) noexcept nogil:
@@ -50,6 +50,41 @@ cdef inline double _ind_loglike(uint8_t* g, double* rec, Py_ssize_t N) noexcept 
         ll += g_d*log(rec[i]) + (2.0-g_d)*log1p(-rec[i]) if g[i] != 3 else 0.0
         rec[i] = 0.0
     return ll
+
+# Read Bed data file (packed):
+# G_packed will be (M_bytes, N) where M_bytes = ceil(M/4)
+cpdef void read_bed_packed(uintptr_t B_bed_ptr, uintptr_t G_packed_ptr, Py_ssize_t M, Py_ssize_t N_bytes, Py_ssize_t N, Py_ssize_t M_bytes) noexcept nogil:
+    cdef:
+        const uint8_t* B_bed = <const uint8_t*> B_bed_ptr
+        uint8_t* G_packed = <uint8_t*> G_packed_ptr
+        Py_ssize_t i, j, k, byte_idx
+        Py_ssize_t snp_idx
+        int bit_in
+        uint8_t byte_in, val
+        uint8_t mask = 3
+        unsigned char[4] lookup_table = [2, 3, 1, 0]
+        uint8_t* out_row
+
+    with nogil, parallel():
+        for i in prange(N, schedule='guided'):
+            # Each sample i
+            for j in range(M_bytes):
+                # Each packed byte j in the output (contains SNPs 4j...4j+3)
+                out_row = G_packed + j * N + i
+                out_row[0] = 0
+                
+                for k in range(4):
+                    snp_idx = j * 4 + k
+                    if snp_idx >= M:
+                        break
+                    
+                    # Byte in BED file for snp_idx that contains sample i
+                    byte_idx = i // 4
+                    bit_in = (i % 4) * 2
+                    byte_in = B_bed[snp_idx * N_bytes + byte_idx]
+                    val = lookup_table[(byte_in >> bit_in) & mask]
+                    
+                    out_row[0] |= (val & 0x03) << (2 * k)
 
 # Calculate log-likelihood:
 cpdef double loglikelihood(uint8_t[:,::1] G, double[:,::1] P, double[:,::1] Q) noexcept nogil:
@@ -297,3 +332,109 @@ cpdef void decompress_block(const uint8_t[:, ::1] G, float[:, ::1] data_block, c
                 ptr[i] = val
             else:
                 ptr[i] = 0.0
+
+# Pack a genotype matrix into 2-bit format (M_bytes, N)
+cpdef void pack_genotypes(uintptr_t G_ptr, uintptr_t G_packed_ptr, Py_ssize_t M, Py_ssize_t N, Py_ssize_t M_bytes) noexcept nogil:
+    cdef:
+        const uint8_t* G = <const uint8_t*> G_ptr
+        uint8_t* G_packed = <uint8_t*> G_packed_ptr
+        Py_ssize_t i, j, k, snp_idx
+        uint8_t val
+        uint8_t* p_packed
+    
+    with nogil, parallel():
+        for i in prange(N, schedule='guided'):
+            for j in range(M_bytes):
+                p_packed = &G_packed[j * N + i]
+                p_packed[0] = 0
+                for k in range(4):
+                    snp_idx = (j << 2) | k
+                    if snp_idx < M:
+                        val = G[snp_idx * N + i]
+                        p_packed[0] |= (val & 0x03) << (k << 1)
+
+# Calculate mean of unpacked genotypes (ignoring 3):
+cpdef double get_mean_unpacked(uint8_t[:, ::1] G) noexcept nogil:
+    cdef:
+        size_t M = G.shape[0]
+        size_t N = G.shape[1]
+        size_t i, j
+        uint64_t total_sum = 0
+        uint64_t total_count = 0
+        uint8_t val
+    
+    with nogil, parallel():
+        for i in prange(M, schedule='guided'):
+            for j in range(N):
+                val = G[i, j]
+                if val != 3:
+                    total_sum += val
+                    total_count += 2
+    
+    if total_count == 0:
+        return 0.0
+    return <double>total_sum / <double>total_count
+
+# In-place flip of unpacked genotypes:
+cpdef void flip_unpacked(uint8_t[:, ::1] G) noexcept nogil:
+    cdef:
+        size_t M = G.shape[0]
+        size_t N = G.shape[1]
+        size_t i, j
+        uint8_t[4] lookup = [2, 1, 0, 3]
+    
+    with nogil, parallel():
+        for i in prange(M, schedule='guided'):
+            for j in range(N):
+                G[i, j] = lookup[G[i, j]]
+
+# Calculate mean of packed genotypes (ignoring 3):
+cpdef double get_mean_packed(uintptr_t G_ptr, size_t M, size_t N, size_t M_bytes) noexcept nogil:
+    cdef:
+        const uint8_t* G = <const uint8_t*> G_ptr
+        size_t i, j, k, snp_idx
+        uint64_t total_sum = 0
+        uint64_t total_count = 0
+        uint8_t packed_val, v
+    
+    with nogil, parallel():
+        for i in prange(N, schedule='guided'):
+            for j in range(M_bytes):
+                packed_val = G[j * N + i]
+                for k in range(4):
+                    snp_idx = (j << 2) | k
+                    if snp_idx < M:
+                        v = (packed_val >> (k << 1)) & 0x03
+                        if v != 3:
+                            total_sum += v
+                            total_count += 2
+    
+    if total_count == 0:
+        return 0.0
+    return <double>total_sum / <double>total_count
+
+# In-place flip of packed genotypes:
+cpdef void flip_packed(uintptr_t G_ptr, size_t M_bytes, size_t N) noexcept nogil:
+    cdef:
+        uint8_t* G = <uint8_t*> G_ptr
+        size_t i, j, k
+        uint8_t[256] flip_tab
+        uint8_t v, flip_v
+        int b, res
+    
+    # Precompute packed flip table:
+    for b in range(256):
+        res = 0
+        for k in range(4):
+            v = (b >> (k << 1)) & 0x03
+            if v == 0: flip_v = 2
+            elif v == 1: flip_v = 1
+            elif v == 2: flip_v = 0
+            else: flip_v = 3
+            res |= (flip_v << (k << 1))
+        flip_tab[b] = <uint8_t>res
+
+    with nogil, parallel():
+        for i in prange(N, schedule='guided'):
+            for j in range(M_bytes):
+                G[j * N + i] = flip_tab[G[j * N + i]]
