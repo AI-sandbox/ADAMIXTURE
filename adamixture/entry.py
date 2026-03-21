@@ -50,7 +50,7 @@ def parse_args(argv: List[str]) -> configargparse.Namespace:
     parser.add_argument('--threads', required=False, default=1, type=int, help='Number of threads to be used in the execution.')
     parser.add_argument('--device', required=False, default='cpu', choices=['cpu', 'gpu', 'mps'], help='Device to use (cpu, gpu, mps)')
     
-    parser.add_argument('--max_iter', type=int, default=1500, help='Maximum number of iterations for Adam EM')
+    parser.add_argument('--max_iter', type=int, default=10000, help='Maximum number of iterations for Adam EM')
     parser.add_argument('--check', type=int, default=5, help='Frequency of log-likelihood checks')
     parser.add_argument('--no_freqs', action='store_true', default=False, help='Do not save the P (allele frequencies) matrix')
     

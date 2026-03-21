@@ -90,6 +90,14 @@ To leverage GPU acceleration (highly recommended for large datasets), use the `-
 > [!NOTE]  
 > Biobank-scale datasets are best handled on dedicated CUDA-capable GPUs.
 
+> [!TIP]
+> **Biobank-Scale Execution & High K Values**: For large-scale datasets (e.g., UK Biobank, All of Us) with high K values, we recommend the following parameter settings for optimal convergence and performance:
+> ```console
+> --patience_adam 5 \
+> --lr_decay 0.85 \
+> --lr 0.0075
+> ```
+
 ## Multi-K Sweep
 
 Instead of running ADAMIXTURE for a single K, you can automatically sweep over a range of K values using `--min_k` and `--max_k`. The data is loaded once, and each K is trained sequentially:
