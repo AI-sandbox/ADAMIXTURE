@@ -170,25 +170,29 @@ def manage_gpu_memory(G: torch.Tensor | np.ndarray, device: torch.device, M: int
     
     L = max(K + 10, 20)
     
-    # RSVD Matrices (approx peak)
-    U_bytes = M * L * bytes_per_float32
-    V_bytes = N * L * bytes_per_float64
-    S_bytes = L * bytes_per_float64
-    Qmat_bytes = N * L * bytes_per_float64
-    Usmall_bytes = M * L * bytes_per_float32
-    rsvd_total = U_bytes + S_bytes + V_bytes + Qmat_bytes + Usmall_bytes
+    # SVD Matrices (approx peak)
+    # proj_basis (float32), accum_mat (float32), orth_matrix (float32)
+    svd_total = (M * L * bytes_per_float32) + (2 * N * L * bytes_per_float32)
     
-    # EM-Adam matrices
-    P_bytes = M * K * bytes_per_float32
-    Q_bytes = N * K * bytes_per_float32
-    adam_bytes = 4 * M * K * bytes_per_float32 # approx A, B, targets
+    # ALS Peak memory (mostly float64)
+    # P, Z, P_free, B_target_P, x_batch => ~5 matrices of (M x K) in float64
+    # Q, Q0, V, I_q, B_target_Q => ~5 matrices of (N x K) in float64
+    als_total = (5 * M * K * bytes_per_float64) + (5 * N * K * bytes_per_float64)
     
-    peak_memory_MB = max(rsvd_total, P_bytes + Q_bytes + adam_bytes) / (1024 ** 2)
+    # EM-Adam Peak memory (float64 on CUDA)
+    # P, m_P, v_P, A_accum, B_accum, P_EM => 6 matrices of (M x K) in float64
+    # Q, m_Q, v_Q, T_accum, Q_EM => 5 matrices of (N x K) in float64
+    # Batch memory during em_batch_math => ~6 tensors of (chunk_size x N) in float64
+    adam_total = (6 * M * K * bytes_per_float64) + \
+                 (5 * N * K * bytes_per_float64) + \
+                 (6 * chunk_size * N * bytes_per_float64)
+    
+    peak_memory_MB = max(svd_total, als_total, adam_total) / (1024 ** 2)
     
     # 2-bit Data tensor size:
     memory_data_MB = (torch.numel(G)) / (1024 ** 2)
     
-    # Chunk memory (chunk_size, N float32 during unpacking)
+    # Base chunk unpacking memory is already accounted for in svd/adam formulas but adding base unpack buffer:
     memory_chunk_MB = chunk_size * N * bytes_per_float32 / (1024 ** 2)
     
     # Total required with some buffer
