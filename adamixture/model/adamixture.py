@@ -100,10 +100,14 @@ def train(G: torch.Tensor | np.ndarray, N: int, M: int, K: int, seed: int, lr: f
             P_np, Q_np = ALS(G_cpu, U_cpu, S_cpu, V_cpu, f_cpu, seed, M, N, K, max_als, tol_als)
             P = torch.from_numpy(P_np).to(device_obj, dtype=torch.float32)
             Q = torch.from_numpy(Q_np).to(device_obj, dtype=torch.float32)
+            del U_cpu, S_cpu, V_cpu, f_cpu, G_cpu, P_np, Q_np
         else:
             log.info("    Running ALS on GPU...")
             P, Q = ALS_gpu(G, U, S, V, f_torch, seed, M, N, K, max_als, tol_als, device_obj, threads_per_block, chunk_size)
         
+        del U, S, V, f_torch
+        if device_obj.type == 'cuda':
+            torch.cuda.empty_cache()        
         # Initial Log-Likelihood
         logl_calc = utils.get_logl_calculator(device_obj)
         logl = logl_calc(G, P, Q, M, N, chunk_size, threads_per_block)
