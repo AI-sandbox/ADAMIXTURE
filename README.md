@@ -30,6 +30,9 @@ The successful usage of this package requires a computer with enough RAM to be a
 
 We recommend creating a fresh Python 3.10+ virtual environment. For a faster installation experience, we highly recommend using [uv](https://github.com/astral-sh/uv) (or `pixi`). Alternatively, you can use `virtualenv` or `conda`.
 
+> [!IMPORTANT]  
+> If you plan to use GPU acceleration, ensure that the CUDA toolkit is correctly loaded (e.g., `module load cuda`) **before** starting the installation. This ensures that the dependencies and internal components are correctly configured for your hardware.
+
 As an example, using `uv` (recommended):
 ```console
 $ uv venv --python 3.10

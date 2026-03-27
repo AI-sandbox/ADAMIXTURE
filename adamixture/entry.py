@@ -1,11 +1,11 @@
 import logging
 import sys
+import os
+import platform
+
 from typing import List
 import configargparse
 import time
-import os
-import platform
-import torch
 
 from ._version import __version__
 
@@ -102,6 +102,59 @@ def print_adamixture_banner(version: str = "1.0") -> None:
     log.info("\n" + banner + info)
 
 
+def _fix_macos_libomp() -> None:
+    """
+    On macOS, PyTorch ships its own libomp.dylib which conflicts with
+    the Homebrew libomp used by our Cython extensions. Two different OpenMP
+    runtimes loaded simultaneously cause segfaults with multiple threads.
+    
+    Fix: replace torch's libomp with a symlink to Homebrew's so both
+    torch and our extensions use exactly the same OpenMP runtime.
+    """
+    if platform.system() != "Darwin":
+        return
+    
+    # Find Homebrew libomp
+    brew_omp = None
+    for p in ["/opt/homebrew/opt/libomp/lib/libomp.dylib", 
+              "/usr/local/opt/libomp/lib/libomp.dylib"]:
+        if os.path.exists(p):
+            brew_omp = p
+            break
+    
+    if brew_omp is None:
+        return
+    
+    # Find torch's libomp
+    try:
+        import torch as _torch
+        torch_omp = os.path.join(os.path.dirname(_torch.__file__), "lib", "libomp.dylib")
+    except ImportError:
+        return
+    
+    if not os.path.exists(torch_omp):
+        return
+    
+    # Already a symlink pointing to the right place? Nothing to do.
+    if os.path.islink(torch_omp) and os.path.realpath(torch_omp) == os.path.realpath(brew_omp):
+        return
+    
+    # Not a symlink (or points elsewhere) → fix it
+    try:
+        backup = torch_omp + ".bak"
+        if not os.path.exists(backup):
+            os.rename(torch_omp, backup)
+        else:
+            os.remove(torch_omp)
+        os.symlink(brew_omp, torch_omp)
+        log.info(f"    Fixed OpenMP conflict: linked torch's libomp → {brew_omp}")
+    except OSError as e:
+        log.warning(f"    Could not fix OpenMP conflict automatically: {e}")
+        log.warning(f"    To fix manually, run:")
+        log.warning(f"      mv {torch_omp} {torch_omp}.bak")
+        log.warning(f"      ln -s {brew_omp} {torch_omp}")
+
+
 def main() -> None:
     """
     Description:
@@ -114,6 +167,9 @@ def main() -> None:
     Returns:
         None
     """
+    _fix_macos_libomp()
+    import torch
+
     print_adamixture_banner(__version__)
     arg_list = tuple(sys.argv)
     args = parse_args(arg_list[1:])
@@ -163,6 +219,7 @@ def main() -> None:
         log.info("    Operating system is Darwin (Mac OS)!")
         os.environ["CC"] = "clang"
         os.environ["CXX"] = "clang++"
+        os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
     elif system == "Windows":
         log.info("    Operating system is Windows!")
         pass

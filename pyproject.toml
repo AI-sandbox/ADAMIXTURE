@@ -35,7 +35,7 @@ dependencies = [
     "Cython>=3.0.0",
     "numpy>=2.0.0",
     "matplotlib>=3.5.0",
-    "torch>=2.6.0",
+    "torch>=2.6.0, <2.11.0",
     "scikit-allel>=1.3.8",
     "pgenlib>=0.93.0",
     "ninja",
