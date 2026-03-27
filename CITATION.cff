@@ -1,0 +1,31 @@
+cff-version: 1.2.0
+message: "If you use ADAMIXTURE, please cite the paper below."
+title: "ADAMIXTURE"
+type: software
+authors:
+  - family-names: "Saurina-i-Ricos"
+    given-names: "Joan"
+  - family-names: "Mas Montserrat"
+    given-names: "Daniel"
+  - family-names: "Ioannidis"
+    given-names: "Alexander G."
+url: "https://github.com/AI-sandbox/ADAMIXTURE"
+repository-code: "https://github.com/AI-sandbox/ADAMIXTURE"
+license: "custom"
+
+preferred-citation:
+  type: article
+  title: "ADAMIXTURE: Adaptive First-Order Optimization for Biobank-Scale Genetic Clustering"
+  authors:
+    - family-names: "Saurina-i-Ricos"
+      given-names: "Joan"
+    - family-names: "Mas Montserrat"
+      given-names: "Daniel"
+    - family-names: "Ioannidis"
+      given-names: "Alexander G."
+  doi: "10.64898/2026.02.13.700171"
+  url: "https://www.biorxiv.org/content/10.64898/2026.02.13.700171"
+  journal: "bioRxiv"
+  publisher: "Cold Spring Harbor Laboratory"
+  year: 2026
+  month: 2

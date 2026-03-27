@@ -1,16 +1,25 @@
-![PyPI - Python Version](https://img.shields.io/pypi/pyversions/adamixture.svg)
-![PyPI - Version](https://img.shields.io/pypi/v/adamixture)
-![PyPI - License](https://img.shields.io/pypi/l/adamixture)
-![PyPI - Status](https://img.shields.io/pypi/status/adamixture)
-![PyPI - Downloads](https://img.shields.io/pypi/dm/adamixture)
-[![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.18289231-blue)](https://doi.org/10.5281/zenodo.18289231)
-# ADAMIXTURE: Adaptive First-Order Optimization for Biobank-Scale Genetic Clustering
+<p align="center">
+  <img src="assets/logo.png" alt="ADAMIXTURE logo" width="800">
+</p>
 
-ADAMIXTURE is an unsupervised global ancestry inference method that scales the ADMIXTURE model to biobank-sized datasets. It combines the Expectation–Maximization (EM) framework with the ADAM first-order optimizer, enabling parameter updates after a single EM step. This approach accelerates convergence while maintaining comparable or improved accuracy, substantially reducing runtime on large genotype datasets. For more information, we recommend reading [our pre-print](https://www.biorxiv.org/content/10.64898/2026.02.13.700171v1).
+<h3 align="center">
+  Adaptive First-Order Optimization for Biobank-Scale Genetic Clustering
+</h3>
+
+<p align="center">
+  <img src="https://img.shields.io/pypi/pyversions/adamixture.svg" alt="Python Version">
+  <img src="https://img.shields.io/pypi/v/adamixture" alt="PyPI Version">
+  <img src="https://img.shields.io/pypi/l/adamixture" alt="License">
+  <img src="https://img.shields.io/pypi/status/adamixture" alt="Status">
+  <img src="https://img.shields.io/pypi/dm/adamixture" alt="Downloads">
+  <a href="https://doi.org/10.5281/zenodo.18289231"><img src="https://img.shields.io/badge/DOI-10.5281%2Fzenodo.18289231-blue" alt="DOI"></a>
+</p>
+
+---
+
+ADAMIXTURE is an unsupervised global ancestry inference method that scales the ADMIXTURE model to biobank-sized datasets. It combines the Expectation–Maximization (EM) framework with the Adam first-order optimizer, enabling parameter updates after a single EM step. This approach accelerates convergence while maintaining comparable or improved accuracy, substantially reducing runtime on large genotype datasets. For more information, we recommend reading [our preprint](https://www.biorxiv.org/content/10.64898/2026.02.13.700171).
 
 The software can be invoked via CLI and has a similar interface to ADMIXTURE (_e.g._ the output format is completely interchangeable).
-
-![nadm_mna](assets/logo.png)
 
 ## System requirements
 
@@ -19,8 +28,16 @@ The successful usage of this package requires a computer with enough RAM to be a
 
 ### Software requirements
 
-We recommend creating a fresh Python 3.10 virtual environment using `virtualenv` (or `conda`), and then install the package `adamixture` there. As an example, for `virtualenv`, one should launch the following commands:
+We recommend creating a fresh Python 3.10+ virtual environment. For a faster installation experience, we highly recommend using [uv](https://github.com/astral-sh/uv) (or `pixi`). Alternatively, you can use `virtualenv` or `conda`.
 
+As an example, using `uv` (recommended):
+```console
+$ uv venv --python 3.10
+$ source .venv/bin/activate
+$ uv pip install adamixture
+```
+
+Or using `virtualenv`:
 ```console
 $ virtualenv --python=python3.10 ~/venv/nadmenv
 $ source ~/venv/nadmenv/bin/activate
@@ -57,13 +74,13 @@ As an example, the following ADMIXTURE call
 $ ./admixture snps_data.bed 8 -s 42
 ```
 
-would be mimicked in ADAMIXTURE by running
+would be equivalent in ADAMIXTURE by running
 
 ```console
-$ adamixture --k 8 --data_path snps_data.bed --save_dir SAVE_PATH --name snps_data --seed 42
+$ adamixture -k 8 --data_path snps_data.bed --save_dir SAVE_PATH --name snps_data -s 42
 ```
 
-Two files will be output to the `SAVE_PATH` directory (the `name` parameter will be used to create the whole filenames):
+Two files will be output to the `SAVE_PATH` directory (the `name` parameter will be used to create the full filenames):
 
 - A `.P` file, similar to ADMIXTURE.
 - A `.Q` file, similar to ADMIXTURE.
@@ -71,7 +88,15 @@ Two files will be output to the `SAVE_PATH` directory (the `name` parameter will
 Logs are printed to the `stdout` channel by default. If you want to save them to a file, you can use the command `tee` along with a pipe:
 
 ```console
-$ adamixture --k 8 ... | tee run.log
+$ adamixture -k 8 ... | tee run.log
+```
+
+### Running with multi-threading
+
+To run ADAMIXTURE using multiple CPU threads, use the `-t` flag:
+
+```console
+$ adamixture -k 8 --data_path data.bed --save_dir out/ --name test -t 8
 ```
 
 ### Running with GPU acceleration
@@ -80,11 +105,11 @@ To leverage GPU acceleration (highly recommended for large datasets), use the `-
 
 - **NVIDIA GPU (CUDA)**:
   ```console
-  $ adamixture --k 8 --data_path data.bed --save_dir out/ --name test --device gpu
+  $ adamixture -k 8 --data_path data.bed --save_dir out/ --name test --device gpu
   ```
 - **macOS Apple Silicon (MPS)**:
   ```console
-  $ adamixture --k 8 --data_path data.bed --save_dir out/ --name test --device mps
+  $ adamixture -k 8 --data_path data.bed --save_dir out/ --name test --device mps
   ```
 
 > [!NOTE]  
@@ -143,10 +168,10 @@ $ adamixture --min_k 2 --max_k 10 --data_path snps_data.bed --save_dir SAVE_PATH
 - `--device` (str, default: `cpu`):  
   Target hardware for computation. Choices: `cpu`, `gpu` (NVIDIA/CUDA), or `mps` (Apple Metal).
 
-- `--seed` (int, default: `42`):  
+- `-s` (int, default: `42`):  
   Random number generator seed for reproducibility.
 
-- `--k` (int):  
+- `-k` (int):  
   Number of ancestral populations (clusters) to infer. Required if `--min_k`/`--max_k` are not specified.
 
 - `--min_k` (int):  
@@ -180,7 +205,7 @@ $ adamixture --min_k 2 --max_k 10 --data_path snps_data.bed --save_dir SAVE_PATH
 - `--chunk_size` (int, default: `4096`):  
   Number of SNPs in chunk operations for SVD.
 
-- `--threads` (int, default: `1`):  
+- `-t` (int, default: `1`):  
   Number of CPU threads used during execution.
 
 
@@ -210,7 +235,7 @@ $ brew install libomp
 
 ## Cite
 
-When using this software, please cite the following pre-print:
+When using this software, please cite the following preprint:
 
 ```bibtex
 @article{saurina2026adamixture,

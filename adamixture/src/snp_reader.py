@@ -83,7 +83,7 @@ class SNPReader:
         log.info("    Input format is VCF.")
         import allel
         f_tr = allel.read_vcf(file, fields=["calldata/GT"], types={"calldata/GT": "i1"}, fills={"calldata/GT": -1})
-        G = np.ascontiguousarray(np.sum(f_tr["calldata/GT"], axis=2, dtype=np.int8))
+        G = np.ascontiguousarray(np.sum(f_tr["calldata/GT"], axis=2, dtype=np.uint8))
         G[G < 0] = 3
         M, N = G.shape
         if packed:

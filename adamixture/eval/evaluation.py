@@ -4,8 +4,8 @@ import sys
 import logging
 import numpy as np
 
-from src import utils
-from src.utils_c import tools
+from ..src import utils
+from ..src.utils_c import tools
 
 # Global logging configuration
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
@@ -183,7 +183,8 @@ def run_fitting_eval(args: argparse.Namespace, est_props: np.ndarray) -> None:
     K = est_props.shape[1]
     
     # Load Genotypes
-    genotypes = utils.read_data(args.data_path)
+    genotypes_data = utils.read_data(args.data_path)
+    genotypes = genotypes_data[0]
     M = genotypes.shape[0]
 
     # Load and prep Frequencies

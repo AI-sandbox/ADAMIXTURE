@@ -3,17 +3,71 @@ requires = [
     "setuptools >= 61.0",
     "setuptools_scm[toml]>=6.2",
     "Cython>=3.0.0",
-    "numpy>=2.0.0",
-    "scikit-allel>=1.3.8",
-    "matplotlib>=3.5.0",
-    "pgenlib>=0.93.0"
+    "numpy>=2.0.0"
 ]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "adamixture"
+dynamic = ["version"]
+description = "ADAMIXTURE: Adaptive First-Order Optimization for Biobank-Scale Ancestry Inference"
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [
+    { name = "Joan Saurina i Ricós", email = "joansaurinaricos@gmail.com" }
+]
+requires-python = ">=3.10"
+keywords = ["genetic-clustering", "population-genetics", "adam", "em-algorithm", "biobank"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+]
+dependencies = [
+    "configargparse>=1.5.3",
+    "Cython>=3.0.0",
+    "numpy>=2.0.0",
+    "matplotlib>=3.5.0",
+    "torch>=2.6.0",
+    "scikit-allel>=1.3.8",
+    "pgenlib>=0.93.0",
+    "ninja",
+]
+
+[project.urls]
+Homepage = "https://github.com/AI-sandbox/ADAMIXTURE"
+Repository = "https://github.com/AI-sandbox/ADAMIXTURE"
+
+[project.optional-dependencies]
+testing = [
+    "tox",
+    "pytest",
+    "pytest-cov",
+    "pytest-mock",
+]
+
+[project.scripts]
+adamixture = "adamixture.entry:main"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["adamixture*"]
+
+[tool.setuptools.package-data]
+adamixture = ["src/utils_c/*.cu", "src/utils_c/*.pyx"]
+
+[tool.setuptools_scm]
+write_to = "adamixture/_version.py"
 
 [tool.pytest.ini_options]
 addopts = "--ignore=adamixture/entry.py"
 testpaths = ["tests"]
-
-[tool.setuptools_scm]
-write_to = "adamixture/_version.py"
-fallback_version = "0.1.0"

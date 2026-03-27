@@ -39,15 +39,15 @@ def parse_args(argv: List[str]) -> configargparse.Namespace:
     parser.add_argument('--patience_adam', type=int, default=3, help='Patience for reducing the learning rate in Adam-EM')
     parser.add_argument('--tol_adam', type=float, default=0.1, help='Tolerance for stopping the Adam-EM algorithm')
 
-    parser.add_argument('--seed', required=False, type=int, default=42, help='Seed')
-    parser.add_argument('--k', required=False, type=int, help='Number of populations/clusters (single run).')
+    parser.add_argument('-s', '--seed', required=False, type=int, default=42, help='Seed')
+    parser.add_argument('-k', '--k', required=False, type=int, help='Number of populations/clusters (single run).')
     parser.add_argument('--min_k', required=False, type=int, help='Minimum K for multi-K sweep (inclusive).')
     parser.add_argument('--max_k', required=False, type=int, help='Maximum K for multi-K sweep (inclusive).')
     
     parser.add_argument('--save_dir', required=True, type=str, help='Save model in this directory')
     parser.add_argument('--data_path', required=True, type=str, help='Path containing the main data')
     parser.add_argument('--name', required=True, type=str, help='Experiment/model name')
-    parser.add_argument('--threads', required=False, default=1, type=int, help='Number of threads to be used in the execution.')
+    parser.add_argument('-t', '--threads', required=False, default=1, type=int, help='Number of threads to be used in the execution.')
     parser.add_argument('--device', required=False, default='cpu', choices=['cpu', 'gpu', 'mps'], help='Device to use (cpu, gpu, mps)')
     
     parser.add_argument('--max_iter', type=int, default=10000, help='Maximum number of iterations for Adam EM')
@@ -96,7 +96,7 @@ def print_adamixture_banner(version: str = "1.0") -> None:
     Version: {version}
     Authors: Joan Saurina-i-Ricos, Daniel Mas Montserrat and 
              Alexander G. Ioannidis.
-    Pre-print: https://www.biorxiv.org/content/10.64898/2026.02.13.700171v1
+    Preprint: https://www.biorxiv.org/content/10.64898/2026.02.13.700171
     """
 
     log.info("\n" + banner + info)

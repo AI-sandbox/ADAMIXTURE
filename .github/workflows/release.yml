@@ -11,7 +11,7 @@ jobs:
     strategy:
       matrix:
         platform: [ubuntu-latest, macos-14]
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v4
 
@@ -77,7 +77,7 @@ jobs:
         uses: pypa/cibuildwheel@v2.19.2
         env:
           SETUPTOOLS_SCM_PRETEND_VERSION: ${{ env.SETUPTOOLS_SCM_PRETEND_VERSION }}
-          CIBW_BUILD: cp310-* cp311-* cp312-*
+          CIBW_BUILD: cp310-* cp311-* cp312-* cp313-* cp314-*
           CIBW_SKIP: "pp* *musllinux* *i686*"
 
           CIBW_ARCHS_LINUX: "x86_64"
