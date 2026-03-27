@@ -186,6 +186,14 @@ def main() -> None:
     except Exception as e:
         log.error(f"    Invalid or unavailable device '{args.device}': {e}")
         sys.exit(1)
+
+    # CONTROL INDUCTOR CONFIG:
+    if args.device == 'mps':
+        try:
+            import torch._inductor.config as inductor_config
+            inductor_config.max_autotune_gemm = False
+        except (ImportError, AttributeError):
+            pass
     
     # CONTROL SEED:
     from .src import utils
