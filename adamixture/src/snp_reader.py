@@ -15,7 +15,7 @@ class SNPReader:
     Wrapper to read genotype data from several formats.
     """
 
-    def _read_bed(self, file: str, packed: bool = False) -> tuple[torch.Tensor | np.ndarray, int, int]:
+    def _read_bed(self, file: str, packed: bool) -> tuple[torch.Tensor | np.ndarray, int, int]:
         """
         Description:
         Internal reader for PLINK BED files. Handles both regular (uint8) and 
@@ -69,32 +69,32 @@ class SNPReader:
             del B
             return G, N, M
     
-    def _read_vcf(self, file: str, packed: bool = False) -> tuple[torch.Tensor | np.ndarray, int, int]:
+    def _read_vcf(self, file: str, packed: bool, chunk_size: int) -> tuple[torch.Tensor | np.ndarray, int, int]:
         """
         Description:
-        Internal reader for VCF files using the `scikit-allel` library.
+        Internal reader for VCF files using Cython-based parser.
+        Handles both regular (uint8) and packed (2-bit) formats for GPU acceleration.
 
         Args:
             file (str): Path to the VCF file.
+            packed (bool): If True, returns a 2-bit packed torch.Tensor. Defaults to False.
+            chunk_size (int): Size of chunks to read for VCF files. Defaults to 4096.
 
         Returns:
-            tuple[np.ndarray, int, int]: (genotype matrix, N individuals, M SNPs)
+            tuple[torch.Tensor | np.ndarray, int, int]: (genotype matrix, N individuals, M SNPs)
         """
         log.info("    Input format is VCF.")
-        import allel
-        f_tr = allel.read_vcf(file, fields=["calldata/GT"], types={"calldata/GT": "i1"}, fills={"calldata/GT": -1})
-        G = np.ascontiguousarray(np.sum(f_tr["calldata/GT"], axis=2, dtype=np.uint8))
-        G[G < 0] = 3
-        M, N = G.shape
-        if packed:
+
+        if not packed:
+            G, N, M = tools.read_vcf_file(file, chunk_size=chunk_size)
+            return np.ascontiguousarray(G), N, M
+        else:
             log.info("        Reading VCF in packed 2-bit format for GPU use.")
-            M_bytes = (M + 3) // 4
-            G_packed = torch.zeros((M_bytes, N), dtype=torch.uint8)
-            tools.pack_genotypes(G.ctypes.data, G_packed.data_ptr(), M, N, M_bytes)
+            G_packed_np, N, M = tools.read_vcf_file_packed(file, chunk_size=chunk_size)
+            G_packed = torch.from_numpy(G_packed_np)
             return G_packed, N, M
-        return G, N, M
     
-    def _read_pgen(self, file: str, packed: bool = False) -> tuple[torch.Tensor | np.ndarray, int, int]:
+    def _read_pgen(self, file: str, packed: bool) -> tuple[torch.Tensor | np.ndarray, int, int]:
         """
         Description:
         Internal reader for PLINK PGEN files.
@@ -130,8 +130,7 @@ class SNPReader:
             
         return G, N, M
        
-        
-    def read_data(self, file: str, packed: bool = False) -> tuple[torch.Tensor | np.ndarray, int, int]:
+    def read_data(self, file: str, packed: bool, chunk_size: int) -> tuple[torch.Tensor | np.ndarray, int, int]:
         """
         Description:
         Public wrapper to read genotype data from various formats (BED, VCF).
@@ -140,6 +139,7 @@ class SNPReader:
         Args:
             file (str): Path to the genotype file.
             packed (bool): If True, returns a 2-bit packed torch.Tensor (BED, PGEN, VCF). Defaults to False.
+            chunk_size (int): Size of chunks to read for VCF files. Defaults to 4096.
 
         Returns:
             tuple[torch.Tensor | np.ndarray, int, int]: (genotype matrix, N individuals, M SNPs)
@@ -147,11 +147,11 @@ class SNPReader:
         file_extensions = Path(file).suffixes
     
         if '.bed' in file_extensions:
-            G, N, M = self._read_bed(file, packed=packed)
+            G, N, M = self._read_bed(file, packed)
         elif '.vcf' in file_extensions:
-            G, N, M = self._read_vcf(file, packed=packed)
+            G, N, M = self._read_vcf(file, packed, chunk_size)
         elif '.pgen' in file_extensions:
-            G, N, M = self._read_pgen(file, packed=packed)
+            G, N, M = self._read_pgen(file, packed)
         else:
             log.error("    Invalid format. Unrecognized file format. Make sure file ends with .bed, .pgen or .vcf .")
             sys.exit(1)

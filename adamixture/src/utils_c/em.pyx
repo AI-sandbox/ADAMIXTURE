@@ -9,6 +9,23 @@ from libc.stdint cimport uint32_t
 cdef inline void _update_temp_factors(double* A, double* B, double* t, const double* p, 
                                 const double* q, const unsigned char g, const double rec, 
                                 const size_t K) noexcept nogil:
+    """
+    Description:
+    Updates temporary accumulators for P and Q based on genotype and current reconstruction.
+
+    Args:
+        A (double*): Accumulator for P numerator.
+        B (double*): Accumulator for P denominator.
+        t (double*): Accumulated intermediate values for Q.
+        p (double*): Current row of P matrix.
+        q (double*): Current row of Q matrix.
+        g (unsigned char): Genotype value (0, 1, or 2).
+        rec (double): Reconstructed value (p dot q).
+        K (size_t): Number of ancestral populations.
+
+    Returns:
+        None
+    """
     cdef:
         size_t k
         double g_f = <double>g
@@ -20,8 +37,22 @@ cdef inline void _update_temp_factors(double* A, double* B, double* t, const dou
         B[k] += q[k]*b
         t[k] += p[k]*a_minus_b + b
 
-# EM : Update P
+# Perform EM update for P row
 cdef inline void _updateEM_P(double* A, double* B, const double* p, double* P_EM, const size_t K) noexcept nogil:
+    """
+    Description:
+    Performs EM update for a row of the P matrix using pre-calculated accumulators.
+
+    Args:
+        A (double*): Numerator accumulator.
+        B (double*): Denominator accumulator.
+        p (double*): Current P parameters.
+        P_EM (double*): Output buffer for updated P parameters.
+        K (size_t): Number of ancestral populations.
+
+    Returns:
+        None
+    """
     cdef:
         size_t k
     for k in range(K):
@@ -29,8 +60,22 @@ cdef inline void _updateEM_P(double* A, double* B, const double* p, double* P_EM
         A[k] = 0.0
         B[k] = 0.0
 
-# EM : Update Q
+# Perform EM update for Q row
 cdef inline void _updateEM_Q(double* T, const double* q, double* Q_EM, const double a, const size_t K) noexcept nogil:
+    """
+    Description:
+    Performs EM update for a row of the Q matrix using accumulated terms.
+
+    Args:
+        T (double*): Accumulated terms for Q.
+        q (double*): Current Q parameters.
+        Q_EM (double*): Output buffer for updated Q parameters.
+        a (double): Scaling factor (1 / genotype count).
+        K (size_t): Number of ancestral populations.
+
+    Returns:
+        None
+    """
     cdef:
         size_t k
         double totalQ = 0.0
@@ -43,11 +88,31 @@ cdef inline void _updateEM_Q(double* T, const double* q, double* Q_EM, const dou
         Q_EM[k] *= inv_totalQ
         T[k] = 0.0
 
-# ADAM: Update P
+# Update P using Adam optimizer
 cpdef void adamUpdateP(double[:,::1] P0, const double[:,::1] P1, 
                       double[:,::1] m_P, double[:,::1] v_P, 
                       const double alpha, const double beta1, const double beta2, 
                       const double epsilon, const int t, const int M, const int K) noexcept nogil:
+    """
+    Description:
+    Updates the P matrix using the Adam optimization algorithm.
+
+    Args:
+        P0 (double[:,::1]): Target P matrix to update.
+        P1 (const double[:,::1]): EM-updated P matrix (gradient proxy).
+        m_P (double[:,::1]): First moment vector for Adam.
+        v_P (double[:,::1]): Second moment vector for Adam.
+        alpha (double): Learning rate.
+        beta1 (double): Exponential decay rate for the first moment.
+        beta2 (double): Exponential decay rate for the second moment.
+        epsilon (double): Small constant for numerical stability.
+        t (int): Current iteration number.
+        M (int): Number of SNPs.
+        K (int): Number of ancestral populations.
+
+    Returns:
+        None
+    """
     cdef:
         size_t i, j
         double delta, m_hat, v_hat, step
@@ -79,11 +144,31 @@ cpdef void adamUpdateP(double[:,::1] P0, const double[:,::1] P1,
             step = alpha * m_hat / (sqrt(v_hat) + epsilon)
             p0_ptr[j] = _clip_to_domain(p0_ptr[j] + step)
 
-# ADAM: Update Q
+# Update Q using Adam optimizer
 cpdef void adamUpdateQ(double[:,::1] Q0, const double[:,::1] Q1, 
                       double[:,::1] m_Q, double[:,::1] v_Q, 
                       const double alpha, const double beta1, const double beta2, 
                       const double epsilon, const int t, const int N, const int K) noexcept nogil:
+    """
+    Description:
+    Updates the Q matrix using the Adam optimization algorithm.
+
+    Args:
+        Q0 (double[:,::1]): Target Q matrix to update.
+        Q1 (const double[:,::1]): EM-updated Q matrix (gradient proxy).
+        m_Q (double[:,::1]): First moment vector for Adam.
+        v_Q (double[:,::1]): Second moment vector for Adam.
+        alpha (double): Learning rate.
+        beta1 (double): Exponential decay rate for the first moment.
+        beta2 (double): Exponential decay rate for the second moment.
+        epsilon (double): Small constant for numerical stability.
+        t (int): Current iteration number.
+        N (int): Number of samples.
+        K (int): Number of ancestral populations.
+
+    Returns:
+        None
+    """
     cdef:
         size_t i, j
         double delta, m_hat, v_hat, step, sumQ, inv_sumQ
@@ -123,10 +208,28 @@ cpdef void adamUpdateQ(double[:,::1] Q0, const double[:,::1] Q1,
         for j in range(K):
             q0[j] *= inv_sumQ
 
-# EM: Apply parameter update for P
+# Coordinated EM P-step
 cpdef void P_step(const unsigned char[:,::1] G, double[:,::1] P, double[:,::1] P_EM, 
                 const double[:,::1] Q, double[:,::1] Q_T, double[::1] q_bat, 
                 const int K, const int M, const int N) noexcept nogil:
+    """
+    Description:
+    Coordinated EM step for P matrix update. Calculates EM P and accumulates factors for Q update.
+
+    Args:
+        G (const unsigned char[:,::1]): Genotype matrix.
+        P (double[:,::1]): Current P matrix.
+        P_EM (double[:,::1]): Output buffer for EM-updated P.
+        Q (const double[:,::1]): Current Q matrix.
+        Q_T (double[:,::1]): Accumulator for Q update terms.
+        q_bat (double[::1]): Accumulator for genotype weights per sample.
+        K (int): Number of ancestral populations.
+        M (int): Number of SNPs.
+        N (int): Number of samples.
+
+    Returns:
+        None
+    """
     cdef:
         size_t col, row, idx_n, idx_k
         double rec
@@ -173,9 +276,24 @@ cpdef void P_step(const unsigned char[:,::1] G, double[:,::1] P, double[:,::1] P
         
     omp.omp_destroy_lock(&sync_lock)
 
-# EM: Apply parameter update for Q
+# Coordinated EM Q-step
 cpdef void Q_step(const double[:,::1] Q, double[:,::1] Q_EM, double[:,::1] T, 
                 double[::1] q_bat, const int K, const int N) noexcept nogil:
+    """
+    Description:
+    Coordinated EM step for Q matrix update.
+
+    Args:
+        Q (const double[:,::1]): Current Q matrix.
+        Q_EM (double[:,::1]): Output buffer for EM-updated Q.
+        T (double[:,::1]): Accumulated update terms for Q.
+        q_bat (double[::1]): Weights (genotype counts) for normalization.
+        K (int): Number of ancestral populations.
+        N (int): Number of samples.
+
+    Returns:
+        None
+    """
     cdef:
         size_t i, k
         double a
@@ -184,12 +302,34 @@ cpdef void Q_step(const double[:,::1] Q, double[:,::1] Q_EM, double[:,::1] T,
         _updateEM_Q(&T[i, 0], &Q[i, 0], &Q_EM[i, 0], a, K)
         q_bat[i] = 0.0
 
-# Clip parameters to domain
+# Clip value to valid domain
 cdef inline double _clip_to_domain(const double value) noexcept nogil:
+    """
+    Description:
+    Clips a value to the valid range [1e-5, 1-1e-5] to ensure numerical stability.
+
+    Args:
+        value (const double): Value to clip.
+
+    Returns:
+        double: Clipped value.
+    """
     return fmin(fmax(value, 1e-5), 1.0 - 1e-5)
 
-# Compute reconstruction matrix (P x Q)
+# Single genotype reconstruction (p dot q)
 cdef inline double _reconstruct(const double* p, const double* q, const size_t K) noexcept nogil:
+    """
+    Description:
+    Computes the dot product of p and q vectors (single reconstruction point).
+
+    Args:
+        p (const double*): Row of P.
+        q (const double*): Row of Q.
+        K (size_t): Number of ancestral populations.
+
+    Returns:
+        double: Dot product result.
+    """
     cdef:
         size_t k
         double rec = 0.0

@@ -13,7 +13,7 @@ logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
 log = logging.getLogger(__name__)
 
 
-def read_data(tr_file: str, packed: bool = False) -> tuple[torch.Tensor | np.ndarray, int, int]:
+def read_data(tr_file: str, packed: bool = False, chunk_size: int = 4096) -> tuple[torch.Tensor | np.ndarray, int, int]:
     """
     Description:
     Reads SNP data from a file (BED, VCF, etc.) and returns the genotype matrix and dimensions.
@@ -21,12 +21,13 @@ def read_data(tr_file: str, packed: bool = False) -> tuple[torch.Tensor | np.nda
     Args:
         tr_file (str): Path to the SNP data file.
         packed (bool): If True, return a 2-bit packed torch.Tensor. Defaults to False.
+        chunk_size (int): Size of chunks to read for VCF files. Defaults to 4096.
 
     Returns:
         tuple[torch.Tensor | np.ndarray, int, int]: (genotype matrix, N samples, M SNPs)
     """
     snp_reader = SNPReader()
-    G, N, M = snp_reader.read_data(tr_file, packed=packed)
+    G, N, M = snp_reader.read_data(tr_file, packed=packed, chunk_size=chunk_size)
     log.info(f"    Data contains {N} samples and {M} SNPs.")
    
     return G, N, M
@@ -146,8 +147,8 @@ def manage_gpu_memory(G: torch.Tensor | np.ndarray, device: torch.device, M: int
     Args:
         G (torch.Tensor | np.ndarray): Packed or unpacked genotype matrix.
         device (torch.device): Target computation device.
-        M (int): Number of individuals.
-        N (int): Number of SNPs.
+        M (int): Number of SNPs.
+        N (int): Number of individuals.
         K (int): Number of ancestral populations.
         chunk_size (int): Expected batch size for computations.
 

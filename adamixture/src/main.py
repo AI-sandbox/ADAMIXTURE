@@ -74,7 +74,7 @@ def main(args: argparse.Namespace, t0: float) -> None:
         # READ DATA (once):
         is_gpu = 'cuda' in args.device or 'mps' in args.device
         packed = 'cuda' in args.device # Only packed for CUDA
-        G, N, M = utils.read_data(args.data_path, packed=packed)
+        G, N, M = utils.read_data(args.data_path, packed=packed, chunk_size=args.chunk_size)
         
         for K in k_values:
             log.info(f"\n    Running on K = {K}.\n")
