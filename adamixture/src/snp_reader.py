@@ -2,6 +2,7 @@ import logging
 import numpy as np
 import torch
 import sys
+import time
 
 from .utils_c import tools
 from math import ceil
@@ -113,12 +114,11 @@ class SNPReader:
             num_vars = pgen_reader.get_variant_ct()
             num_samples = pgen_reader.get_raw_sample_ct()
 
-            calldata = np.empty((num_vars, 2 * num_samples), dtype=np.int32)
-            pgen_reader.read_alleles_range(0, num_vars, calldata)
-
-        G_raw = calldata[:, ::2].astype(np.int16) + calldata[:, 1::2].astype(np.int16)
-        G = np.ascontiguousarray(G_raw.astype(np.uint8))
-        G[G_raw >= 255] = 3
+            G_raw = np.empty((num_vars, num_samples), dtype=np.int8)
+            pgen_reader.read_range(0, num_vars, G_raw)
+            G_raw[G_raw == -9] = 3
+            G = G_raw.view(np.uint8)
+            
         M, N = G.shape
 
         if packed:
@@ -130,6 +130,34 @@ class SNPReader:
             
         return G, N, M
        
+    def _check_files_exist(self, file: str, extensions: list[str], match_any: bool = False):
+        """
+        Description:
+        Check if required files exist.
+
+        Args:
+            file (str): Path to the genotype file.
+            extensions (list[str]): List of extensions to check for.
+            match_any (bool): If True, check if any of the extensions exist. Defaults to False.
+        
+        Returns:
+            None
+        """
+        file_path = Path(file)
+        base_path = file_path
+        for _ in range(len(file_path.suffixes)):
+            base_path = base_path.with_suffix('')
+        
+        if match_any:
+            if not any(base_path.with_suffix(ext).exists() for ext in extensions):
+                log.error(f"    Error: Could not find any of these files: {extensions} for {base_path}")
+                sys.exit(1)
+        else:
+            missing = [str(base_path.with_suffix(ext)) for ext in extensions if not base_path.with_suffix(ext).exists()]
+            if missing:
+                log.error(f"    Error: Required files missing: {', '.join(missing)}")
+                sys.exit(1)
+
     def read_data(self, file: str, packed: bool, chunk_size: int) -> tuple[torch.Tensor | np.ndarray, int, int]:
         """
         Description:
@@ -144,13 +172,18 @@ class SNPReader:
         Returns:
             tuple[torch.Tensor | np.ndarray, int, int]: (genotype matrix, N individuals, M SNPs)
         """
-        file_extensions = Path(file).suffixes
-    
+        file_path = Path(file)
+        file_extensions = file_path.suffixes
+        start = time.time()
+        
         if '.bed' in file_extensions:
+            self._check_files_exist(file, ['.bed', '.fam', '.bim'])
             G, N, M = self._read_bed(file, packed)
         elif '.vcf' in file_extensions:
+            self._check_files_exist(file, ['.vcf', '.vcf.gz'], match_any=True)
             G, N, M = self._read_vcf(file, packed, chunk_size)
         elif '.pgen' in file_extensions:
+            self._check_files_exist(file, ['.pgen', '.psam', '.pvar'])
             G, N, M = self._read_pgen(file, packed)
         else:
             log.error("    Invalid format. Unrecognized file format. Make sure file ends with .bed, .pgen or .vcf .")
@@ -158,14 +191,17 @@ class SNPReader:
             
         if not packed:
             mean_val = tools.get_mean_unpacked(G)
-            if mean_val >= 1.0:
+            if mean_val >= 0.5:
                 log.info("    Flipping genotype encoding (unpacked).")
                 tools.flip_unpacked(G)
         else:
             M_bytes = G.shape[0]
             mean_val = tools.get_mean_packed(G.data_ptr(), M, N, M_bytes)
-            if mean_val >= 1.0:
+            if mean_val >= 0.5:
                 log.info("    Flipping genotype encoding (packed).")
-                tools.flip_packed(G.data_ptr(), M_bytes, N)
-            
+                tools.flip_packed(G.data_ptr(), M, N, M_bytes)
+        
+        end = time.time()
+        log.info(f"        Total time for reading={end - start:.3f}s")
+
         return G, N, M

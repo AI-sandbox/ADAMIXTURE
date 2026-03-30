@@ -37,7 +37,7 @@ dependencies = [
     "numpy>=2.0.0",
     "matplotlib>=3.5.0",
     "torch>=2.6.0",
-    "pgenlib>=0.93.0",
+    "pgenlib>=0.94.0",
     "ninja",
 ]
 

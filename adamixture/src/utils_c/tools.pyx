@@ -803,15 +803,17 @@ cpdef double get_mean_packed(uintptr_t G_ptr, size_t M, size_t N, size_t M_bytes
     return <double>total_sum / <double>total_count
 
 # Flip packed genotype encoding
-cpdef void flip_packed(uintptr_t G_ptr, size_t M_bytes, size_t N) noexcept nogil:
+cpdef void flip_packed(uintptr_t G_ptr, size_t M, size_t N, size_t M_bytes) noexcept nogil:
     """
     Description:
     Flips the genotype encoding in-place for a packed matrix across all samples.
+    Correctly handles padding bits in the last byte.
 
     Args:
         G_ptr (uintptr_t): Memory pointer to the 2-bit packed matrix.
-        M_bytes (size_t): Number of packed rows (ceil(M/4)).
+        M (size_t): Total number of SNPs.
         N (size_t): Number of individuals.
+        M_bytes (size_t): Number of packed rows (ceil(M/4)).
 
     Returns:
         None
@@ -835,10 +837,21 @@ cpdef void flip_packed(uintptr_t G_ptr, size_t M_bytes, size_t N) noexcept nogil
             res |= (flip_v << (k << 1))
         flip_tab[b] = <uint8_t>res
 
+    # Mask for last byte to zero out padding bits
+    cdef uint8_t last_mask = 0
+    cdef size_t snps_in_last = M % 4
+    if snps_in_last == 0:
+        snps_in_last = 4
+    for k in range(snps_in_last):
+        last_mask |= (0x03 << (k << 1))
+
     with nogil, parallel():
         for i in prange(N, schedule='guided'):
             for j in range(M_bytes):
-                G[j * N + i] = flip_tab[G[j * N + i]]
+                if j == M_bytes - 1:
+                    G[j * N + i] = flip_tab[G[j * N + i]] & last_mask
+                else:
+                    G[j * N + i] = flip_tab[G[j * N + i]]
 
 # Parse VCF allele digit
 cdef inline uint8_t _parse_gt_allele(const char* s, Py_ssize_t* pos) noexcept nogil:
@@ -858,15 +871,24 @@ cdef inline uint8_t _parse_gt_allele(const char* s, Py_ssize_t* pos) noexcept no
         char c
 
     c = s[pos[0]]
-    if c == 46 or c == 0:
-        pos[0] += 1
+    # Handle missing represented as '.', '-', or empty/null
+    if c == 46 or c == 45 or c == 0:
+        if c != 0:
+            pos[0] += 1
         return 255
+    
+    cdef Py_ssize_t start = pos[0]
     while True:
         c = s[pos[0]]
         if c < 48 or c > 57:
             break
         val = val * 10 + <uint8_t>(c - 48)
         pos[0] += 1
+    
+    if pos[0] == start:
+        # No digits and not a standard symbol -> treat as missing
+        # But we don't increment pos because it might be a separator
+        return 255
     return val
 
 # Parse VCF GT field
@@ -892,7 +914,7 @@ cdef inline uint8_t _parse_gt_field_direct(const char* line, Py_ssize_t* pos) no
 
     sep = line[pos[0]]
     if sep == 58 or sep == 9 or sep == 10 or sep == 0:
-        return a1 if a1 <= 2 else 3
+        return (a1 * 2) if a1 <= 1 else 3
 
     pos[0] += 1
     
@@ -1037,11 +1059,10 @@ def read_vcf_file(str filepath, int chunk_size):
     fh = gzip.open(filepath, 'rb') if is_gz else open(filepath, 'rb')
     try:
         for line in fh:
-            if line.startswith(b'##'):
-                continue
-            if line.startswith(b'#CHROM') or line.startswith(b'#chrom'):
-                parts = line.rstrip(b'\n').split(b'\t')
-                n_samples = len(parts) - 9
+            if line.startswith(b'#'):
+                if line.startswith(b'#CHROM') or line.startswith(b'#chrom'):
+                    parts = line.rstrip(b'\n').split(b'\t')
+                    n_samples = len(parts) - 9
                 continue
             n_variants += 1
     finally:
@@ -1153,11 +1174,10 @@ def read_vcf_file_packed(str filepath, int chunk_size):
     fh = gzip.open(filepath, 'rb') if is_gz else open(filepath, 'rb')
     try:
         for line in fh:
-            if line.startswith(b'##'):
-                continue
-            if line.startswith(b'#CHROM') or line.startswith(b'#chrom'):
-                parts = line.rstrip(b'\n').split(b'\t')
-                n_samples = len(parts) - 9
+            if line.startswith(b'#'):
+                if line.startswith(b'#CHROM') or line.startswith(b'#chrom'):
+                    parts = line.rstrip(b'\n').split(b'\t')
+                    n_samples = len(parts) - 9
                 continue
             n_variants += 1
     finally:
