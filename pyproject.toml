@@ -55,6 +55,7 @@ testing = [
 
 [project.scripts]
 adamixture = "adamixture.entry:main"
+adamixture-plot = "adamixture.plot_entry:main"
 
 [tool.setuptools]
 include-package-data = true

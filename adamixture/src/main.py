@@ -9,6 +9,7 @@ import torch
 
 from . import utils
 from ..model.adamixture import train
+from ..plot import plot_q_matrix
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
 log = logging.getLogger(__name__)
@@ -44,6 +45,25 @@ def fit_model(args: argparse.Namespace, G: torch.Tensor | np.ndarray, N: int, M:
     
     Path(save_dir).mkdir(parents=True, exist_ok=True)
     utils.write_outputs(Q, name, K, save_dir, P=None if args.no_freqs else P)
+    
+    if args.plot is not None:
+        labels = None
+        if args.labels and Path(args.labels).exists():
+            with open(args.labels, 'r') as f:
+                labels = [line.strip() for line in f if line.strip()]
+        
+        colors = None
+        if args.colors and Path(args.colors).exists():
+            with open(args.colors, 'r') as f:
+                colors = [line.strip() for line in f if line.strip()]
+            if len(colors) != K:
+                log.warning(f"    Number of colors in {args.colors} ({len(colors)}) does not match K={K}. Using default colors.")
+                colors = None
+        
+        plot_path = Path(save_dir) / f"{name}.{K}.{args.plot_format}"
+        log.info(f"    Generating plot: {plot_path}")
+        plot_q_matrix(Q, plot_path, dpi=args.plot_dpi, format=args.plot_format, 
+                     labels=labels, custom_colors=colors)
 
     return P, Q
 

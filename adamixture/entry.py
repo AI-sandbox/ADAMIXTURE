@@ -60,7 +60,24 @@ def parse_args(argv: List[str]) -> configargparse.Namespace:
     parser.add_argument('--tol_svd', type=float, default=1e-1, help='Convergence tolerance for SVD')
     parser.add_argument('--chunk_size', type=int, default=4096, help='Number of SNPs in chunk operations for SVD')
     
+    # Plotting arguments:
+    parser.add_argument('--plot', nargs='*', help='Generate plot of the Q matrix after training. Optional: [format (e.g. pdf)] [resolution (e.g. 300)]')
+    parser.add_argument('--labels', type=str, help='Path to population labels file (one label per sample)')
+    parser.add_argument('--colors', type=str, help='Path to custom colors file (one color per line)')
+    
     args = parser.parse_args(argv)
+    
+    # Process plotting arguments:
+    args.plot_format = 'png'
+    args.plot_dpi = 300
+    if args.plot is not None:
+        if len(args.plot) > 0:
+            args.plot_format = args.plot[0]
+        if len(args.plot) > 1:
+            try:
+                args.plot_dpi = int(args.plot[1])
+            except ValueError:
+                parser.error(f"Invalid resolution/DPI value: {args.plot[1]}. Must be an integer.")
     
     # Validation: need either --k or both --min_k and --max_k
     has_single = args.k is not None
@@ -205,6 +222,7 @@ def main() -> None:
     assert args.tol_als > 0, "ALS tolerance (tol_als) must be positive."
     assert args.tol_svd > 0, "SVD tolerance (tol_svd) must be positive."
     assert args.reg_adam >= 0, "Adam regularization (reg_adam) must be non-negative."
+    assert args.plot_dpi > 0, "Plot DPI must be positive."
 
     # CONTROL TIME:
     t0 = time.time()

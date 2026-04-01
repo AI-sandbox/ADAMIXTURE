@@ -133,6 +133,51 @@ Instead of running ADAMIXTURE for a single K, you can automatically sweep over a
 ```console
 $ adamixture --min_k 2 --max_k 10 --data_path snps_data.bed --save_dir SAVE_PATH --name snps_sweep
 ```
+
+## Plotting
+
+ADAMIXTURE includes native support for generating high-quality visualizations of ancestry proportions. Plots are optimized for biobank-scale data using rasterization for the data area, ensuring consistent performance and sharp text.
+
+### Single-run Plotting
+To generate a plot automatically after training, use the `--plot` flag:
+
+```console
+$ adamixture -k 8 --data_path data.bed --save_dir out/ --name test --plot pdf 300
+```
+Arguments for `--plot` are optional:
+- **Format** (e.g., `pdf`, `png`, `jpg`). Default: `png`.
+- **Resolution** (DPI, e.g., `300`). Default: `300`.
+
+#### Advanced Plotting Arguments
+The following flags are available for both `adamixture --plot` and `adamixture-plot`:
+- **Population Labels**: Use `--labels` to provide a file with one population name per sample. Samples will be grouped by population and then sorted by ancestry.
+- **Custom Colors**: Use `--colors` to provide a file with hex or named colors (one per line). The file must contain at least as many colors as the highest K value in your result.
+
+### Multi-run Plotting (`adamixture-plot`)
+For comparing multiple runs or different K values (similar to the `pong` tool), use the `adamixture-plot` command. 
+
+> [!NOTE]
+> This command is a standalone post-processing tool. It **does not retrain** the models; it only visualizes and aligns existing `.Q` matrices provided in a **filemap**.
+
+```console
+$ adamixture-plot --filemap project.filemap --labels populations.txt --colors my_palette.txt --output comparison.pdf
+```
+
+#### Filemap Format
+A filemap is a three-column, tab-delimited file. Each line describes a single Q matrix:
+1. **Unique ID**: Must contain at least one letter and cannot contain `#` or `.`.
+2. **K Value**: The number of clusters.
+3. **Path**: Path to the `.Q` file (relative to the filemap's directory).
+
+Example `project.filemap`:
+```text
+RunA_K3    3    results/run1.Q
+RunB_K5    5    results/run2.Q
+RunC_K5    5    results/run3.Q
+```
+
+> [!TIP]
+> **Cluster Alignment**: `adamixture-plot` automatically aligns clusters across runs of the same K using a greedy maximum-overlap algorithm, ensuring that same-colored bars represent the same ancestral components across different subplots.
 ## Other options
 
 - `--lr` (float, default: `0.005`):  
@@ -182,6 +227,15 @@ $ adamixture --min_k 2 --max_k 10 --data_path snps_data.bed --save_dir SAVE_PATH
 
 - `--max_k` (int):  
   Maximum K for a multi-K sweep (inclusive). Must be used together with `--min_k`.
+
+- `--plot` (args, optional):
+  Generate plot after training. Usage: `--plot [format] [resolution]`. e.g., `--plot pdf 300`.
+
+- `--labels` (str):
+  Path to population labels file (one label per line). Used for sorting and grouping in plots.
+
+- `--colors` (str):
+  Path to custom colors file (one color per line). Must match K (in `adamixture`) or max K (in `adamixture-plot`).
 
 
 - `--no_freqs` (flag):  
