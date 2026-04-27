@@ -2,11 +2,24 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 
-def plot_q_matrix(Q: np.ndarray, output_path: str | Path, dpi: int = 300, format: str = 'png', labels: list | None = None, custom_colors: list | None = None):
+def plot_q_matrix(Q: np.ndarray, output_path: str | Path, dpi: int = 300, format: str = 'png',
+                  labels: list | None = None, custom_colors: list | None = None) -> None:
     """
+    Description:
     Plots the Q matrix (ancestry proportions) as a stacked bar chart.
     Optimized for large datasets by using rasterization.
     If labels are provided, sorts samples by population and adds labels to the plot.
+
+    Args:
+        Q (np.ndarray): Ancestry proportion matrix (N x K).
+        output_path (str | Path): File path to save the plot.
+        dpi (int): Resolution in dots per inch. Defaults to 300.
+        format (str): Output format (e.g. 'png', 'pdf'). Defaults to 'png'.
+        labels (list | None): Population labels, one per sample. Defaults to None.
+        custom_colors (list | None): Custom colors, one per cluster. Defaults to None.
+
+    Returns:
+        None
     """
     n_samples, K = Q.shape
     
@@ -16,14 +29,11 @@ def plot_q_matrix(Q: np.ndarray, output_path: str | Path, dpi: int = 300, format
             labels = None
             
     if labels is not None:
-        # Sort by population label, then by dominant cluster within population
         dominant_cluster = np.argmax(Q, axis=1)
-        # Create a combined sort key
         sort_idx = np.lexsort((np.max(Q, axis=1), dominant_cluster, labels))
         Q_sorted = Q[sort_idx]
         labels_sorted = [labels[i] for i in sort_idx]
     else:
-        # Sort samples by their dominant cluster to make the plot cleaner
         dominant_cluster = np.argmax(Q, axis=1)
         sort_idx = np.lexsort((np.max(Q, axis=1), dominant_cluster))
         Q_sorted = Q[sort_idx]
@@ -31,12 +41,10 @@ def plot_q_matrix(Q: np.ndarray, output_path: str | Path, dpi: int = 300, format
     
     fig, ax = plt.subplots(figsize=(15, 5))
     
-    # Cumulative sum for stacking
     Q_cum = np.cumsum(Q_sorted, axis=1)
     x = np.arange(n_samples)
     zeros = np.zeros(n_samples)
     
-    # Standard colors (extending if needed) or custom colors
     if custom_colors is not None and len(custom_colors) >= K:
         colors = custom_colors[:K]
     else:
@@ -62,8 +70,6 @@ def plot_q_matrix(Q: np.ndarray, output_path: str | Path, dpi: int = 300, format
     ax.set_title(f"ADAMIXTURE Q-matrix (K={K})")
     
     if labels_sorted is not None:
-        # Add population labels on the x-axis
-        # Find boundaries of populations
         unique_labels = []
         label_positions = []
         current_label = labels_sorted[0]
@@ -72,7 +78,6 @@ def plot_q_matrix(Q: np.ndarray, output_path: str | Path, dpi: int = 300, format
             if lbl != current_label:
                 unique_labels.append(str(current_label))
                 label_positions.append((start_idx + i) / 2)
-                # Add vertical line for population boundary
                 ax.axvline(x=i, color='black', linestyle='-', linewidth=0.5)
                 start_idx = i
                 current_label = lbl
@@ -88,20 +93,26 @@ def plot_q_matrix(Q: np.ndarray, output_path: str | Path, dpi: int = 300, format
 
 def align_clusters_greedy(ref_Q: np.ndarray, query_Q: np.ndarray) -> np.ndarray:
     """
-    Aligns clusters of query_Q to ref_Q using a greedy maximum overlap approach.
-    Returns the permutation of columns for query_Q.
+    Description:
+    Aligns clusters of query_Q to ref_Q using a greedy minimum-cost approach
+    based on squared Euclidean distance between columns.
+
+    Args:
+        ref_Q (np.ndarray): Reference Q matrix (N x K).
+        query_Q (np.ndarray): Query Q matrix (N x K) to be aligned.
+
+    Returns:
+        np.ndarray: Permutation array mapping ref cluster indices to query cluster indices.
     """
     K = ref_Q.shape[1]
     assert query_Q.shape[1] == K
     
-    # Calculate pairwise costs (squared euclidean distance)
     cost_matrix = np.zeros((K, K))
     for i in range(K):
         for j in range(K):
             diff = ref_Q[:, i] - query_Q[:, j]
             cost_matrix[i, j] = np.dot(diff, diff)
 
-    # Greedy assignment based on lowest cost
     permutation = np.zeros(K, dtype=int)
     ref_indices, query_indices = [], []
     sorted_costs = np.argsort(cost_matrix.flatten())

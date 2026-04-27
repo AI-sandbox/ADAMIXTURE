@@ -6,7 +6,18 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 from .plot import plot_q_matrix, align_clusters_greedy
 
-def parse_filemap(filemap_path):
+def parse_filemap(filemap_path: str) -> list[dict]:
+    """
+    Description:
+    Parses a tab-delimited filemap containing run definitions for multi-run plotting.
+    Each line must have: run_id, K, path_to_Q_matrix.
+
+    Args:
+        filemap_path (str): Path to the filemap file.
+
+    Returns:
+        list[dict]: List of dicts with keys 'id' (str), 'K' (int), 'path' (str).
+    """
     runs = []
     filemap_dir = Path(filemap_path).parent
     with open(filemap_path, 'r') as f:
@@ -17,7 +28,6 @@ def parse_filemap(filemap_path):
             parts = line.split('\t')
             if len(parts) >= 3:
                 run_id = parts[0]
-                # ID validation: at least one letter, no # or .
                 if not any(c.isalpha() for c in run_id):
                     print(f"Error: Run ID '{run_id}' must contain at least one letter.")
                     sys.exit(1)
@@ -31,7 +41,6 @@ def parse_filemap(filemap_path):
                     print(f"Error: K value '{parts[1]}' must be an integer.")
                     sys.exit(1)
                     
-                # Path relative to filemap
                 q_path = parts[2]
                 full_q_path = filemap_dir / q_path
                 runs.append({'id': run_id, 'K': K, 'path': str(full_q_path)})
@@ -40,8 +49,17 @@ def parse_filemap(filemap_path):
                 sys.exit(1)
     return runs
 
-def load_labels(labels_path):
-    # One label per line
+def load_labels(labels_path: str | None) -> list[str] | None:
+    """
+    Description:
+    Loads population labels from a file (one label per line).
+
+    Args:
+        labels_path (str | None): Path to the labels file, or None to skip.
+
+    Returns:
+        list[str] | None: List of label strings, or None if unavailable.
+    """
     labels = []
     if not labels_path or not os.path.exists(labels_path):
         return None
@@ -49,7 +67,19 @@ def load_labels(labels_path):
         labels = [line.strip() for line in f if line.strip()]
     return labels
 
-def main():
+def main() -> None:
+    """
+    Description:
+    Entry point for the ADAMIXTURE multi-run plotting CLI. Loads Q matrices
+    from a filemap, optionally aligns clusters across runs of the same K,
+    and produces a combined stacked bar chart plot.
+
+    Args:
+        None
+
+    Returns:
+        None
+    """
     parser = argparse.ArgumentParser(description='ADAMIXTURE multi-run plotting tool.')
     parser.add_argument('-m', '--filemap', required=True, help='Path to filemap (run_id\tK\tpath)')
     parser.add_argument('-l', '--labels', help='Path to population labels file')
@@ -67,6 +97,12 @@ def main():
 
     labels = load_labels(args.labels)
     
+    # Load all Q matrices
+    all_qs: list[dict] = []
+    for run in runs_info:
+        Q = np.loadtxt(run['path'])
+        all_qs.append({'id': run['id'], 'K': run['K'], 'Q': Q})
+
     custom_colors = None
     max_k = max(run['K'] for run in all_qs)
     if args.colors and os.path.exists(args.colors):
@@ -76,14 +112,7 @@ def main():
             print(f"Error: Provided colors file has {len(custom_colors)} colors, but highest K in filemap is {max_k}.")
             sys.exit(1)
 
-    # Load all Q matrices
-    all_qs = []
-    for run in runs_info:
-        Q = np.loadtxt(run['path'])
-        all_qs.append({'id': run['id'], 'K': run['K'], 'Q': Q})
-
     num_runs = len(all_qs)
-    # Sort runs by K to match pong's behavior
     all_qs.sort(key=lambda x: x['K'])
 
     # Align clusters across runs of the same K
@@ -94,7 +123,6 @@ def main():
             perm = align_clusters_greedy(ref_Q, curr_Q)
             all_qs[i]['Q'] = curr_Q[:, perm]
 
-    # Plotting
     fig, axes = plt.subplots(nrows=num_runs, ncols=1, figsize=(15, 3 * num_runs), squeeze=False)
     axes = axes.flatten()
 
@@ -103,7 +131,6 @@ def main():
         Q = run['Q']
         n_samples, K = Q.shape
         
-        # Sort by population if labels provided
         if labels is not None:
             if len(labels) == n_samples:
                 dominant_cluster = np.argmax(Q, axis=1)
@@ -115,13 +142,11 @@ def main():
                 Q_plot = Q
                 labels_plot = None
         else:
-            # Fallback sort by cluster
             dominant_cluster = np.argmax(Q, axis=1)
             sort_idx = np.lexsort((np.max(Q, axis=1), dominant_cluster))
             Q_plot = Q[sort_idx]
             labels_plot = None
 
-        # Use standard or custom colors
         if custom_colors is not None and len(custom_colors) >= K:
             colors = custom_colors[:K]
         else:
@@ -142,8 +167,6 @@ def main():
         ax.set_ylabel(f"{run['id']}\n(K={K})", rotation=0, ha='right', va='center')
         
         if labels_plot is not None:
-            # Add population boundaries and labels for the bottom plot or all? 
-            # Pong usually does it for all.
             current_label = labels_plot[0]
             start_idx = 0
             label_positions = []

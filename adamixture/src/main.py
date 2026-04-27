@@ -95,7 +95,9 @@ def main(args: argparse.Namespace, t0: float) -> None:
         is_gpu = 'cuda' in args.device or 'mps' in args.device
         packed = 'cuda' in args.device # Only packed for CUDA
         G, N, M = utils.read_data(args.data_path, packed=packed, chunk_size=args.chunk_size)
-        
+
+        trained: dict[int, tuple[np.ndarray, np.ndarray]] = {}
+
         for K in k_values:
             log.info(f"\n    Running on K = {K}.\n")
             
@@ -103,9 +105,31 @@ def main(args: argparse.Namespace, t0: float) -> None:
             
             # TRAIN MODEL:
             P, Q = fit_model(args, G, N, M, K)
+            if args.cv:
+                trained[K] = (P, Q)
             
             log.info(f"\n    K={K} completed in {time.time() - t_k:.2f} seconds.\n")
         
+        # CROSS-VALIDATION (after all training, on CPU with unpacked G):
+        cv_results: dict[int, float] = {}
+        if args.cv and trained:
+            if not isinstance(G, np.ndarray):
+                del G
+                G, _, _ = utils.read_data(args.data_path, packed=False, chunk_size=args.chunk_size)
+
+            from .cv import run_cross_validation
+            for K, (P, Q) in sorted(trained.items()):
+                log.info(f"\n    Running {int(args.cv)}-fold CV on genotype entries for K={K}...")
+                cv_results[K] = run_cross_validation(args, G, N, M, K, P, Q)
+
+            log.info("")
+            log.info("    ---- Cross-validation summary ----")
+            for k_val, idx in sorted(cv_results.items()):
+                log.info(f"    K={k_val}: CV index = {idx:.4f}")
+            best_k = min(cv_results, key=cv_results.get)
+            log.info(f"    Best K = {best_k} (CV index = {cv_results[best_k]:.4f})")
+            log.info("    ----------------------------------")
+
         t1 = time.time()
         log.info("")
         log.info(f"    Total elapsed time: {t1-t0:.2f} seconds.")

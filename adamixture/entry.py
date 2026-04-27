@@ -59,6 +59,20 @@ def parse_args(argv: List[str]) -> configargparse.Namespace:
     parser.add_argument('--power', type=int, default=5, help='Number of power iterations for SVD')
     parser.add_argument('--tol_svd', type=float, default=1e-1, help='Convergence tolerance for SVD')
     parser.add_argument('--chunk_size', type=int, default=4096, help='Number of SNPs in chunk operations for SVD')
+    parser.add_argument(
+        '--cv',
+        nargs='?',
+        const=5,
+        default=0,
+        type=int,
+        help='Enable v-fold cross-validation on genotype entries (default folds when flag is present: 5)'
+    )
+    parser.add_argument(
+        '--cv_max_iter',
+        type=int,
+        default=2,
+        help='Fixed number of warm-start polishing iterations per CV fold'
+    )
     
     # Plotting arguments:
     parser.add_argument('--plot', nargs='*', help='Generate plot of the Q matrix after training. Optional: [format (e.g. pdf)] [resolution (e.g. 300)]')
@@ -223,6 +237,10 @@ def main() -> None:
     assert args.tol_svd > 0, "SVD tolerance (tol_svd) must be positive."
     assert args.reg_adam >= 0, "Adam regularization (reg_adam) must be non-negative."
     assert args.plot_dpi > 0, "Plot DPI must be positive."
+    assert args.cv >= 0, "CV folds (cv) must be >= 0 (0 disables CV)."
+    if args.cv:
+        assert args.cv >= 2, "CV folds (cv) must be at least 2 when CV is enabled."
+    assert args.cv_max_iter >= 1, "CV max iterations (cv_max_iter) must be at least 1."
 
     # CONTROL TIME:
     t0 = time.time()
