@@ -6,12 +6,11 @@ import numpy as np
 import torch
 
 from ..model.em_adam import adamStep
-from .utils_c import tools
 from . import utils
+from .utils_c import tools
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
 log = logging.getLogger(__name__)
-
 
 def _build_folds(non_missing_flat: np.ndarray, n_folds: int, seed: int) -> list[np.ndarray]:
     """
@@ -35,16 +34,8 @@ def _build_folds(non_missing_flat: np.ndarray, n_folds: int, seed: int) -> list[
     folds = [shuffled[fold_ids == fold] for fold in range(n_folds)]
     return folds
 
-
-def _polish_fold(
-    G: np.ndarray,
-    P_init: np.ndarray,
-    Q_init: np.ndarray,
-    args: Namespace,
-    M: int,
-    N: int,
-    K: int,
-) -> tuple[np.ndarray, np.ndarray]:
+def _polish_fold(G: np.ndarray, P_init: np.ndarray, Q_init: np.ndarray,
+                args: Namespace, M: int, N: int, K: int) -> tuple[np.ndarray, np.ndarray]:
     """
     Description:
     Runs a fixed number of Adam-EM polishing iterations on CPU,
@@ -86,18 +77,9 @@ def _polish_fold(
 
     return P, Q
 
-
-def _polish_fold_gpu(
-    G: torch.Tensor,
-    P_init: torch.Tensor,
-    Q_init: torch.Tensor,
-    args: Namespace,
-    M: int,
-    N: int,
-    K: int,
-    device: torch.device,
-    threads_per_block: int,
-) -> tuple[torch.Tensor, torch.Tensor]:
+def _polish_fold_gpu(G: torch.Tensor, P_init: torch.Tensor, Q_init: torch.Tensor,
+                    args: Namespace, M: int, N: int, K: int,
+                    device: torch.device, threads_per_block: int) -> tuple[torch.Tensor, torch.Tensor]:
     """
     Description:
     Runs a fixed number of Adam-EM polishing iterations on GPU,
@@ -138,15 +120,9 @@ def _polish_fold_gpu(
     del optimizer
     return P, Q
 
-
-def _deviance_squared_sum_gpu(
-    saved_values: torch.Tensor,
-    held_out_entries: torch.Tensor,
-    P: torch.Tensor,
-    Q: torch.Tensor,
-    N: int,
-    chunk_size: int = 1_000_000,
-) -> float:
+def _deviance_squared_sum_gpu(saved_values: torch.Tensor, held_out_entries: torch.Tensor,
+                            P: torch.Tensor, Q: torch.Tensor, N: int,
+                            chunk_size: int = 1_000_000) -> float:
     """
     Description:
     Computes the sum of squared binomial deviance residuals entirely on GPU.
@@ -188,15 +164,8 @@ def _deviance_squared_sum_gpu(
 
     return total.item()
 
-
-def _find_non_missing_packed(
-    G: torch.Tensor,
-    M: int,
-    N: int,
-    device: torch.device,
-    threads_per_block: int,
-    chunk_size: int,
-) -> np.ndarray:
+def _find_non_missing_packed(G: torch.Tensor, M: int, N: int, device: torch.device,
+                            threads_per_block: int, chunk_size: int) -> np.ndarray:
     """
     Description:
     Scans a packed genotype tensor in chunks to find all non-missing
@@ -228,16 +197,8 @@ def _find_non_missing_packed(
 
     return np.concatenate(parts) if parts else np.array([], dtype=np.int64)
 
-
-def run_cross_validation(
-    args: Namespace,
-    G: np.ndarray,
-    N: int,
-    M: int,
-    K: int,
-    P_global: np.ndarray | torch.Tensor,
-    Q_global: np.ndarray | torch.Tensor,
-) -> float:
+def run_cross_validation(args: Namespace, G: np.ndarray, N: int, M: int, K: int,
+                        P_global: np.ndarray | torch.Tensor, Q_global: np.ndarray | torch.Tensor) -> float:
     """
     Description:
     Performs v-fold cross-validation on genotype entries. Each fold masks a random
@@ -249,8 +210,7 @@ def run_cross_validation(
 
     Args:
         args (Namespace): Parsed command-line arguments (cv, seed, lr, etc.).
-        G (np.ndarray): Unpacked genotype matrix (M x N, uint8). Modified in-place per fold
-                        and restored before scoring.
+        G (np.ndarray): Unpacked genotype matrix (M x N, uint8).
         N (int): Number of individuals.
         M (int): Number of SNPs.
         K (int): Number of ancestral populations.
@@ -265,9 +225,7 @@ def run_cross_validation(
     if isinstance(Q_global, torch.Tensor):
         Q_global = Q_global.detach().cpu().numpy()
     if G.shape != (M, N):
-        raise ValueError(
-            f"CV requires an unpacked genotype matrix with shape {(M, N)}, got {G.shape}."
-        )
+        raise ValueError(f"CV requires an unpacked genotype matrix with shape {(M, N)}, got {G.shape}.")
 
     non_missing_flat = np.flatnonzero(G != 3)
     n_non_missing = int(non_missing_flat.size)
@@ -305,18 +263,9 @@ def run_cross_validation(
     log.info(f"    CV index for K={K}: {cv_index:.4f}")
     return cv_index
 
-
-def run_cross_validation_gpu(
-    args: Namespace,
-    G: torch.Tensor,
-    N: int,
-    M: int,
-    K: int,
-    P_global: torch.Tensor,
-    Q_global: torch.Tensor,
-    device: torch.device,
-    threads_per_block: int,
-) -> float:
+def run_cross_validation_gpu(args: Namespace, G: torch.Tensor, N: int, M: int, K: int,
+                            P_global: torch.Tensor, Q_global: torch.Tensor,
+                            device: torch.device, threads_per_block: int) -> float:
     """
     Description:
     Performs v-fold cross-validation directly on the packed GPU genotype tensor.

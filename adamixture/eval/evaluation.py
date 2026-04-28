@@ -1,7 +1,8 @@
 import argparse
+import logging
 import os
 import sys
-import logging
+
 import numpy as np
 
 from ..src import utils
@@ -14,7 +15,7 @@ log = logging.getLogger("AncestryEval")
 def set_numerical_backends(n_threads: int) -> None:
     """
     Description:
-    Restricts thread usage for numerical libraries (OMP, MKL, OpenBLAS, NumExpr) 
+    Restricts thread usage for numerical libraries (OMP, MKL, OpenBLAS, NumExpr)
     to prevent over-subscription of CPU resources.
 
     Args:
@@ -25,8 +26,8 @@ def set_numerical_backends(n_threads: int) -> None:
     """
     n_str = str(n_threads)
     keys = [
-        "MKL_NUM_THREADS", "MKL_MAX_THREADS", "OMP_NUM_THREADS", 
-        "OMP_MAX_THREADS", "NUMEXPR_NUM_THREADS", "NUMEXPR_MAX_THREADS", 
+        "MKL_NUM_THREADS", "MKL_MAX_THREADS", "OMP_NUM_THREADS",
+        "OMP_MAX_THREADS", "NUMEXPR_NUM_THREADS", "NUMEXPR_MAX_THREADS",
         "OPENBLAS_NUM_THREADS", "OPENBLAS_MAX_THREADS"
     ]
     for key in keys:
@@ -35,7 +36,7 @@ def set_numerical_backends(n_threads: int) -> None:
 def parse_input() -> argparse.Namespace:
     """
     Description:
-    Configures and executes the command-line argument parser for the 
+    Configures and executes the command-line argument parser for the
     evaluation script.
 
     Args:
@@ -45,14 +46,14 @@ def parse_input() -> argparse.Namespace:
         argparse.Namespace: Parsed arguments object containing file paths and flags.
     """
     parser = argparse.ArgumentParser(description="Evaluation metrics for ancestry inference.")
-    
+
     # Input Data Group
     io_group = parser.add_argument_group("Input/Output")
     io_group.add_argument("--qfile", required=True, help="Estimated ancestry proportions")
     io_group.add_argument("--data_path", help="PLINK dataset prefix")
     io_group.add_argument("--pfile", help="Allele frequency file")
     io_group.add_argument("--tfile", help="Ground truth proportions (for validation)")
-    
+
     # Configuration Group
     cfg_group = parser.add_argument_group("Configuration")
     cfg_group.add_argument("--threads", type=int, default=1, help="CPU cores to use")
@@ -93,7 +94,7 @@ def load_proportions(filepath: str, bound: float) -> np.ndarray:
     # Ensure shape is (Samples x K)
     if mat.shape[1] > mat.shape[0]:
         mat = np.ascontiguousarray(mat.T)
-    
+
     # Numerical stability
     mat.clip(min=bound, max=1.0 - bound, out=mat)
     # Row-wise normalization
@@ -103,7 +104,7 @@ def load_proportions(filepath: str, bound: float) -> np.ndarray:
 def align_latent_factors(est_props: np.ndarray, true_props: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """
     Description:
-    Solves the label switching problem by matching columns between estimated and 
+    Solves the label switching problem by matching columns between estimated and
     true matrices using a greedy assignment based on Euclidean distances.
 
     Args:
@@ -134,7 +135,7 @@ def align_latent_factors(est_props: np.ndarray, true_props: np.ndarray) -> tuple
         if len(est_indices) == K:
             break
 
-    return (np.ascontiguousarray(est_props[:, est_indices]), 
+    return (np.ascontiguousarray(est_props[:, est_indices]),
             np.ascontiguousarray(true_props[:, true_indices]))
 
 def run_validation(args: argparse.Namespace, est_props: np.ndarray) -> None:
@@ -151,9 +152,9 @@ def run_validation(args: argparse.Namespace, est_props: np.ndarray) -> None:
     """
     true_props = np.loadtxt(args.tfile, dtype=float)
     N, K = true_props.shape
-    
+
     # Align the latent components (clusters)
-    
+
     aligned_est, aligned_true = align_latent_factors(est_props, true_props)
 
     if args.rmse:
@@ -170,7 +171,7 @@ def run_validation(args: argparse.Namespace, est_props: np.ndarray) -> None:
 def run_fitting_eval(args: argparse.Namespace, est_props: np.ndarray) -> None:
     """
     Description:
-    Calculates the Log-Likelihood of the model given the original genotype data 
+    Calculates the Log-Likelihood of the model given the original genotype data
     and the inferred allele frequencies.
 
     Args:
@@ -181,7 +182,7 @@ def run_fitting_eval(args: argparse.Namespace, est_props: np.ndarray) -> None:
         None
     """
     K = est_props.shape[1]
-    
+
     # Load Genotypes
     genotypes_data = utils.read_data(args.data_path)
     genotypes = genotypes_data[0]
@@ -191,7 +192,7 @@ def run_fitting_eval(args: argparse.Namespace, est_props: np.ndarray) -> None:
     freqs = np.loadtxt(args.pfile, dtype=float)
     if args.inverse:
         freqs = 1.0 - freqs
-        
+
     # Sanity checks
     assert freqs.shape == (M, K), f"Mismatch: P-file {freqs.shape} vs Data {(M, K)}"
     freqs.clip(min=args.bound, max=1.0 - args.bound, out=freqs)
@@ -202,7 +203,7 @@ def run_fitting_eval(args: argparse.Namespace, est_props: np.ndarray) -> None:
 def main() -> None:
     """
     Description:
-    Main execution flow for the evaluation module. Parses arguments and 
+    Main execution flow for the evaluation module. Parses arguments and
     triggers either validation metrics or model fitting metrics.
 
     Args:

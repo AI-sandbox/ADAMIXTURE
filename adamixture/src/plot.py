@@ -1,6 +1,13 @@
-import numpy as np
-import matplotlib.pyplot as plt
+import logging
+import sys
 from pathlib import Path
+
+import matplotlib.pyplot as plt
+import numpy as np
+
+logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
+log = logging.getLogger(__name__)
+
 
 def plot_q_matrix(Q: np.ndarray, output_path: str | Path, dpi: int = 300, format: str = 'png',
                   labels: list | None = None, custom_colors: list | None = None) -> None:
@@ -22,12 +29,12 @@ def plot_q_matrix(Q: np.ndarray, output_path: str | Path, dpi: int = 300, format
         None
     """
     n_samples, K = Q.shape
-    
+
     if labels is not None:
         if len(labels) != n_samples:
-            print(f"Warning: Number of labels ({len(labels)}) does not match number of samples ({n_samples}). Ignoring labels.")
+            log.warning(f"    Warning: Number of labels ({len(labels)}) does not match number of samples ({n_samples}). Ignoring labels.")
             labels = None
-            
+
     if labels is not None:
         dominant_cluster = np.argmax(Q, axis=1)
         sort_idx = np.lexsort((np.max(Q, axis=1), dominant_cluster, labels))
@@ -38,23 +45,23 @@ def plot_q_matrix(Q: np.ndarray, output_path: str | Path, dpi: int = 300, format
         sort_idx = np.lexsort((np.max(Q, axis=1), dominant_cluster))
         Q_sorted = Q[sort_idx]
         labels_sorted = None
-    
+
     fig, ax = plt.subplots(figsize=(15, 5))
-    
+
     Q_cum = np.cumsum(Q_sorted, axis=1)
     x = np.arange(n_samples)
     zeros = np.zeros(n_samples)
-    
+
     if custom_colors is not None and len(custom_colors) >= K:
         colors = custom_colors[:K]
     else:
         cmap = plt.colormaps.get_cmap('tab20')
         colors = cmap(np.linspace(0, 1, K))
-    
+
     for j in range(K):
         lower = Q_cum[:, j - 1] if j > 0 else zeros
         upper = Q_cum[:, j]
-        
+
         ax.fill_between(
             x, lower, upper,
             facecolor=colors[j],
@@ -62,13 +69,13 @@ def plot_q_matrix(Q: np.ndarray, output_path: str | Path, dpi: int = 300, format
             linewidth=0,
             rasterized=True
         )
-        
+
     ax.set_xlim(0, n_samples)
     ax.set_ylim(0, 1)
     ax.set_xlabel("Samples")
     ax.set_ylabel("Ancestry Proportions")
     ax.set_title(f"ADAMIXTURE Q-matrix (K={K})")
-    
+
     if labels_sorted is not None:
         unique_labels = []
         label_positions = []
@@ -83,10 +90,10 @@ def plot_q_matrix(Q: np.ndarray, output_path: str | Path, dpi: int = 300, format
                 current_label = lbl
         unique_labels.append(str(current_label))
         label_positions.append((start_idx + n_samples) / 2)
-        
+
         ax.set_xticks(label_positions)
         ax.set_xticklabels(unique_labels, rotation=45, ha='right')
-    
+
     plt.tight_layout()
     fig.savefig(output_path, dpi=dpi, format=format, bbox_inches='tight')
     plt.close(fig)
@@ -106,7 +113,7 @@ def align_clusters_greedy(ref_Q: np.ndarray, query_Q: np.ndarray) -> np.ndarray:
     """
     K = ref_Q.shape[1]
     assert query_Q.shape[1] == K
-    
+
     cost_matrix = np.zeros((K, K))
     for i in range(K):
         for j in range(K):
@@ -125,5 +132,5 @@ def align_clusters_greedy(ref_Q: np.ndarray, query_Q: np.ndarray) -> np.ndarray:
             permutation[r] = c
         if len(ref_indices) == K:
             break
-            
+
     return permutation

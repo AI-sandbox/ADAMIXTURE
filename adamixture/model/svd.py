@@ -1,6 +1,7 @@
 import logging
 import sys
 import time
+
 import numpy as np
 
 from ..src.utils_c import tools
@@ -11,7 +12,7 @@ log = logging.getLogger(__name__)
 def eigSVD(X: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Description:
-    Computes the Singular Value Decomposition (SVD) of a matrix X using 
+    Computes the Singular Value Decomposition (SVD) of a matrix X using
     eigen-decomposition of its covariance (X^T @ X).
 
     Args:
@@ -25,7 +26,7 @@ def eigSVD(X: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     U = X @ (V * (1.0 / S))
     return np.ascontiguousarray(U[:, ::-1]), np.ascontiguousarray(S[::-1]), np.ascontiguousarray(V[:, ::-1])
 
-def RSVD(G: np.ndarray, N: int, M: int, f: np.ndarray, k: int, seed: int, 
+def RSVD(G: np.ndarray, N: int, M: int, f: np.ndarray, k: int, seed: int,
         power: int, tol: float, chunk: int) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Description:
@@ -48,12 +49,12 @@ def RSVD(G: np.ndarray, N: int, M: int, f: np.ndarray, k: int, seed: int,
     """
     t0 = time.time()
     rng = np.random.default_rng(seed)
-    
+
     # Execution parameters
     n_batches = int(np.ceil(M / chunk))
     alpha = 0.0
     k_prime = max(k + 10, 20)
-    
+
     # Internal buffers
     accum_mat = np.zeros((N, k_prime), dtype=np.float32)
     gen_buffer = np.zeros((chunk, N), dtype=np.float32)
@@ -69,7 +70,7 @@ def RSVD(G: np.ndarray, N: int, M: int, f: np.ndarray, k: int, seed: int,
             gen_buffer = np.zeros((n_active, N), dtype=np.float32)
         tools.decompress_block(G, gen_buffer, f, start_idx)
         accum_mat += gen_buffer.T @ proj_basis[start_idx : (start_idx + n_active)]
-    
+
     orth_matrix, _, _ = eigSVD(accum_mat)
     accum_mat.fill(0.0)
     log.info(f"        time={time.time() - t_prime:.4f}s")
@@ -87,11 +88,11 @@ def RSVD(G: np.ndarray, N: int, M: int, f: np.ndarray, k: int, seed: int,
             tools.decompress_block(G, gen_buffer, f, start_idx)
             proj_basis[start_idx : (start_idx + n_active)] = gen_buffer @ orth_matrix
             accum_mat += gen_buffer.T @ proj_basis[start_idx : (start_idx + n_active)]
-        
+
         accum_mat -= alpha * orth_matrix
         orth_matrix, s_vals, _ = eigSVD(accum_mat)
         accum_mat.fill(0.0)
-        
+
         if i > 0:
             s_current = s_vals + alpha
             rel_diff = np.abs(s_current - singular_vals[:len(s_current)]) / np.maximum(s_current, 1e-12)
@@ -106,7 +107,7 @@ def RSVD(G: np.ndarray, N: int, M: int, f: np.ndarray, k: int, seed: int,
         # Dynamic shift update
         if s_vals[-1] > alpha:
             alpha = 0.5 * (s_vals[-1] + alpha)
-            
+
     log.info(f"        time={time.time() - t_power:.4f}s")
 
     # 3) Build projection:
@@ -133,6 +134,6 @@ def RSVD(G: np.ndarray, N: int, M: int, f: np.ndarray, k: int, seed: int,
     V = np.ascontiguousarray(np.dot(orth_matrix, v_cond[:, :k]))
 
     total_time = time.time() - t0
-    log.info(f"\n    Total time for SVD={total_time:.3f}s\n")
+    log.info(f"\n    Total time for SVD={total_time:.3f}s")
 
     return U, S, V

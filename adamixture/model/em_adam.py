@@ -1,16 +1,17 @@
-import time
-import sys
-import numpy as np
 import logging
+import sys
+import time
 
-from ..src.utils_c import tools, em
+import numpy as np
+
+from ..src.utils_c import em, tools
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
 log = logging.getLogger(__name__)
 
-def adamStep(G: np.ndarray, P0: np.ndarray, Q0: np.ndarray, T: np.ndarray, P1: np.ndarray, 
-            Q1: np.ndarray, q_bat: np.ndarray, K: int, M: int, N: int, m_P: np.ndarray, 
-            v_P: np.ndarray, m_Q: np.ndarray, v_Q: np.ndarray, t: list, lr: float, beta1: float, 
+def adamStep(G: np.ndarray, P0: np.ndarray, Q0: np.ndarray, T: np.ndarray, P1: np.ndarray,
+            Q1: np.ndarray, q_bat: np.ndarray, K: int, M: int, N: int, m_P: np.ndarray,
+            v_P: np.ndarray, m_Q: np.ndarray, v_Q: np.ndarray, t: list, lr: float, beta1: float,
             beta2: float, epsilon: float) -> None:
     """
     Description:
@@ -43,16 +44,16 @@ def adamStep(G: np.ndarray, P0: np.ndarray, Q0: np.ndarray, T: np.ndarray, P1: n
     # EM Step:
     em.P_step(G, P0, P1, Q0, T, q_bat, K, M, N)
     em.Q_step(Q0, Q1, T, q_bat, K, N)
-    
+
     # Adam update using the computed pseudo-gradients:
     t_val = t[0] + 1
     em.adamUpdateP(P0, P1, m_P, v_P, lr, beta1, beta2, epsilon, t_val, M, K)
     em.adamUpdateQ(Q0, Q1, m_Q, v_Q, lr, beta1, beta2, epsilon, t_val, N, K)
-    
+
     # Update the global iteration counter for Adam bias correction:
     t[0] = t_val
 
-def emStep(G: np.ndarray, P0: np.ndarray, Q0: np.ndarray, T: np.ndarray, P1: np.ndarray, 
+def emStep(G: np.ndarray, P0: np.ndarray, Q0: np.ndarray, T: np.ndarray, P1: np.ndarray,
            Q1: np.ndarray, q_bat: np.ndarray, K: int, M: int, N: int) -> None:
     """
     Description:
@@ -78,7 +79,7 @@ def emStep(G: np.ndarray, P0: np.ndarray, Q0: np.ndarray, T: np.ndarray, P1: np.
     memoryview(P0.ravel())[:] = memoryview(P1.ravel())
     memoryview(Q0.ravel())[:] = memoryview(Q1.ravel())
 
-def optimize_parameters(G: np.ndarray, P: np.ndarray, Q: np.ndarray, lr: float, 
+def optimize_parameters(G: np.ndarray, P: np.ndarray, Q: np.ndarray, lr: float,
                         beta1: float, beta2: float, reg_adam: float, max_iter: int,
                         check: int, K: int, M: int, N: int, lr_decay: float, min_lr: float,
                         patience_adam: int, tol_adam: float) -> tuple[np.ndarray, np.ndarray]:
@@ -127,7 +128,7 @@ def optimize_parameters(G: np.ndarray, P: np.ndarray, Q: np.ndarray, lr: float,
     wait_lr = 0
 
     ts = time.time()
-    
+
     # Accelerated priming iteration
     ts_priming = time.time()
     emStep(G, P, Q, T, P1, Q1, q_bat, K, M, N)
@@ -160,7 +161,7 @@ def optimize_parameters(G: np.ndarray, P: np.ndarray, Q: np.ndarray, lr: float,
                 wait_lr = 0
             else:
                 wait_lr += 1
-                
+
                 if wait_lr >= patience_adam:
                     old_lr = lr
                     lr = max(lr * lr_decay, min_lr)

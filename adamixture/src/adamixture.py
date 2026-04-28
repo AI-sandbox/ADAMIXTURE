@@ -1,32 +1,23 @@
 import logging
-import numpy as np
 import sys
+
+import numpy as np
 import torch
 
-from ..model.em_adam import optimize_parameters
-from ..model.em_adam_gpu import optimize_parameters_gpu
 from ..model.als import ALS
 from ..model.als_gpu import ALS_gpu
+from ..model.em_adam import optimize_parameters
+from ..model.em_adam_gpu import optimize_parameters_gpu
 from ..model.svd import RSVD
 from ..model.svd_gpu import SVD_gpu
-from .utils_c import tools
 from . import utils
+from .utils_c import tools
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
 log = logging.getLogger(__name__)
 
-
-def setup(
-    G: torch.Tensor | np.ndarray,
-    N: int,
-    M: int,
-    K_max: int,
-    seed: int,
-    power: int,
-    tol_svd: float,
-    chunk_size: int,
-    device: str = 'cpu',
-) -> tuple:
+def setup(G: torch.Tensor | np.ndarray, N: int, M: int, K_max: int, seed: int, power: int,
+          tol_svd: float, chunk_size: int, device: str) -> tuple:
     """
     Description:
     One-time initialisation shared across all K values in a sweep:
@@ -77,38 +68,13 @@ def setup(
         U, S, V = SVD_gpu(G, N, M, f, K_max, seed, power, tol_svd,
                           chunk_size, device_obj, threads_per_block)
 
-        torch.set_float32_matmul_precision('medium')
-        torch.set_flush_denormal(True)
-
     return device_obj, threads_per_block, f, U, S, V, G
 
 
-def train_k(
-    G: torch.Tensor | np.ndarray,
-    N: int,
-    M: int,
-    K: int,
-    U_max: np.ndarray | torch.Tensor,
-    S_max: np.ndarray | torch.Tensor,
-    V_max: np.ndarray | torch.Tensor,
-    f: np.ndarray | torch.Tensor,
-    seed: int,
-    lr: float,
-    beta1: float,
-    beta2: float,
-    reg_adam: float,
-    max_iter: int,
-    check: int,
-    max_als: int,
-    tol_als: float,
-    lr_decay: float,
-    min_lr: float,
-    chunk_size: int,
-    patience_adam: int,
-    tol_adam: float,
-    device_obj: torch.device,
-    threads_per_block: int,
-) -> tuple[np.ndarray, np.ndarray] | tuple[torch.Tensor, torch.Tensor]:
+def train_k(G: torch.Tensor | np.ndarray, N: int, M: int, K: int, U_max: np.ndarray | torch.Tensor, S_max: np.ndarray | torch.Tensor,
+        V_max: np.ndarray | torch.Tensor, f: np.ndarray | torch.Tensor, seed: int, lr: float, beta1: float, beta2: float, reg_adam: float,
+        max_iter: int, check: int, max_als: int, tol_als: float, lr_decay: float, min_lr: float, chunk_size: int, patience_adam: int, tol_adam: float,
+        device_obj: torch.device, threads_per_block: int) -> tuple[np.ndarray, np.ndarray] | tuple[torch.Tensor, torch.Tensor]:
     """
     Description:
     Trains ADAMIXTURE for a single K value, using pre-computed SVD results.
@@ -149,7 +115,7 @@ def train_k(
 
     if device_obj.type == 'cpu':
         log.info("    Running ALS...")
-        P, Q = ALS(G, U, S, V, f, seed, M, N, K, max_als, tol_als)
+        P, Q = ALS(U, S, V, f, seed, M, N, K, max_als, tol_als)
 
         logl = tools.loglikelihood(G, P, Q)
         log.info(f"    Initial log-likelihood for K={K}: {logl:.1f}.")
@@ -165,7 +131,7 @@ def train_k(
             V_cpu = V.cpu().numpy()
             f_cpu = f.cpu().numpy()
             G_cpu = G.cpu().numpy() if isinstance(G, torch.Tensor) else G
-            P_np, Q_np = ALS(G_cpu, U_cpu, S_cpu, V_cpu, f_cpu, seed, M, N, K, max_als, tol_als)
+            P_np, Q_np = ALS(U_cpu, S_cpu, V_cpu, f_cpu, seed, M, N, K, max_als, tol_als)
             P = torch.from_numpy(P_np).to(device_obj, dtype=torch.float32)
             Q = torch.from_numpy(Q_np).to(device_obj, dtype=torch.float32)
             del U_cpu, S_cpu, V_cpu, f_cpu, G_cpu, P_np, Q_np
@@ -174,8 +140,7 @@ def train_k(
             U_k = U.contiguous()
             S_k = S.contiguous()
             V_k = V.contiguous()
-            P, Q = ALS_gpu(G, U_k, S_k, V_k, f, seed, M, N, K, max_als, tol_als,
-                           device_obj, chunk_size)
+            P, Q = ALS_gpu(U_k, S_k, V_k, f, seed, M, K, max_als, tol_als, device_obj)
 
         if device_obj.type == 'cuda':
             torch.cuda.empty_cache()
@@ -188,5 +153,4 @@ def train_k(
         P, Q = optimize_parameters_gpu(G, P, Q, lr, beta1, beta2, reg_adam, max_iter,
                                        check, M, N, lr_decay, min_lr, patience_adam, tol_adam,
                                        device_obj, chunk_size, threads_per_block)
-
     return P, Q

@@ -2,8 +2,9 @@ import argparse
 import logging
 import sys
 import time
-from pathlib import Path
 from argparse import ArgumentError, ArgumentTypeError
+from pathlib import Path
+
 import numpy as np
 import torch
 
@@ -14,8 +15,7 @@ from .plot import plot_q_matrix
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
 log = logging.getLogger(__name__)
 
-
-def main(args: argparse.Namespace, t0: float) -> None:
+def main(args: argparse.Namespace, t0: float) -> int:
     """
     Description:
     The core training loop coordinator. It reads data once, performs one-time
@@ -27,7 +27,7 @@ def main(args: argparse.Namespace, t0: float) -> None:
         t0 (float): Program start time for total execution measurement.
 
     Returns:
-        None
+        int: Exit code (0 for success).
     """
     try:
         if args.min_k is not None and args.max_k is not None:
@@ -72,12 +72,12 @@ def main(args: argparse.Namespace, t0: float) -> None:
             if args.plot is not None:
                 labels = None
                 if args.labels and Path(args.labels).exists():
-                    with open(args.labels, 'r') as fh:
+                    with open(args.labels) as fh:
                         labels = [line.strip() for line in fh if line.strip()]
 
                 colors = None
                 if args.colors and Path(args.colors).exists():
-                    with open(args.colors, 'r') as fh:
+                    with open(args.colors) as fh:
                         colors = [line.strip() for line in fh if line.strip()]
                     if len(colors) != K:
                         log.warning(f"    Number of colors in {args.colors} ({len(colors)}) does not match K={K}. Using default colors.")
@@ -104,9 +104,7 @@ def main(args: argparse.Namespace, t0: float) -> None:
                 from .cv import run_cross_validation_gpu
                 for K, (P, Q) in sorted(trained.items()):
                     log.info(f"\n    Running {int(args.cv)}-fold CV on genotype entries for K={K}...")
-                    cv_results[K] = run_cross_validation_gpu(
-                        args, G, N, M, K, P, Q, device_obj, threads_per_block,
-                    )
+                    cv_results[K] = run_cross_validation_gpu(args, G, N, M, K, P, Q, device_obj, threads_per_block)
             else:
                 if isinstance(G, torch.Tensor):
                     G = np.ascontiguousarray(G.numpy())
@@ -122,18 +120,17 @@ def main(args: argparse.Namespace, t0: float) -> None:
             log.info("    ----------------------------------")
 
         t1 = time.time()
-        log.info("")
-        log.info(f"    Total elapsed time: {t1-t0:.2f} seconds.")
-        log.info("")
+        log.info(f"\n    Total elapsed time: {t1 - t0:.2f} seconds.\n")
 
         logging.shutdown()
+        return 0
 
     except (ArgumentError, ArgumentTypeError) as e:
-        log.error(f"    Error parsing arguments")
+        log.error(f"    Error parsing arguments: {e}")
         logging.shutdown()
-        raise e
+        return 1
 
     except Exception as e:
-        log.error(f"Unexpected error: {e}")
+        log.error(f"    Unexpected error: {e}")
         logging.shutdown()
-        raise
+        return 1

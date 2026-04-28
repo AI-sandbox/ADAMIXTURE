@@ -1,11 +1,11 @@
-from setuptools import setup, Extension
-from Cython.Build import cythonize
-
-import numpy
+import logging
 import os
 import platform
 import sys
-import logging
+
+import numpy
+from Cython.Build import cythonize
+from setuptools import Extension, setup
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
 log = logging.getLogger(__name__)
@@ -26,7 +26,7 @@ elif system == "Darwin":  # macOS
         if os.path.exists(p):
             omp_path = p
             break
-    
+
     if omp_path:
         compile_args = ['-Xpreprocessor', '-fopenmp', '-O3', '-ffast-math', '-fno-wrapv']
         link_args = ['-lomp', '-lm', f'-L{omp_path}/lib']
@@ -38,7 +38,7 @@ elif system == "Darwin":  # macOS
         log.error("Please install it via Homebrew: brew install libomp")
         log.error("="*80 + "\n")
         sys.exit(1)
-    
+
     os.environ["CC"] = "clang"
     os.environ["CXX"] = "clang++"
 elif system == "Windows":

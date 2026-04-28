@@ -1,10 +1,17 @@
-import os
-import sys
 import argparse
-import numpy as np
-import matplotlib.pyplot as plt
+import logging
+import sys
 from pathlib import Path
+
+import matplotlib.pyplot as plt
+import numpy as np
+
 from .src.plot import align_clusters_greedy
+
+# Global logging configuration
+logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
+log = logging.getLogger(__name__)
+
 
 def parse_filemap(filemap_path: str) -> list[dict]:
     """
@@ -19,8 +26,13 @@ def parse_filemap(filemap_path: str) -> list[dict]:
         list[dict]: List of dicts with keys 'id' (str), 'K' (int), 'path' (str).
     """
     runs = []
-    filemap_dir = Path(filemap_path).parent
-    with open(filemap_path, 'r') as f:
+    filemap_path_obj = Path(filemap_path)
+    if not filemap_path_obj.exists():
+        log.error(f"    Error: Filemap not found: {filemap_path}")
+        sys.exit(1)
+
+    filemap_dir = filemap_path_obj.parent
+    with open(filemap_path) as f:
         for line in f:
             line = line.strip()
             if not line or line.startswith('#'):
@@ -29,23 +41,23 @@ def parse_filemap(filemap_path: str) -> list[dict]:
             if len(parts) >= 3:
                 run_id = parts[0]
                 if not any(c.isalpha() for c in run_id):
-                    print(f"Error: Run ID '{run_id}' must contain at least one letter.")
+                    log.error(f"    Error: Run ID '{run_id}' must contain at least one letter.")
                     sys.exit(1)
                 if '#' in run_id or '.' in run_id:
-                    print(f"Error: Run ID '{run_id}' cannot contain '#' or '.'.")
+                    log.error(f"    Error: Run ID '{run_id}' cannot contain '#' or '.'.")
                     sys.exit(1)
-                
+
                 try:
                     K = int(parts[1])
                 except ValueError:
-                    print(f"Error: K value '{parts[1]}' must be an integer.")
+                    log.error(f"    Error: K value '{parts[1]}' must be an integer.")
                     sys.exit(1)
-                    
+
                 q_path = parts[2]
                 full_q_path = filemap_dir / q_path
                 runs.append({'id': run_id, 'K': K, 'path': str(full_q_path)})
             else:
-                print(f"Error: Filemap line must be tab-delimited with 3 columns: {line}")
+                log.error(f"    Error: Filemap line must be tab-delimited with 3 columns: {line}")
                 sys.exit(1)
     return runs
 
@@ -60,10 +72,12 @@ def load_labels(labels_path: str | None) -> list[str] | None:
     Returns:
         list[str] | None: List of label strings, or None if unavailable.
     """
-    labels = []
-    if not labels_path or not os.path.exists(labels_path):
+    if not labels_path:
         return None
-    with open(labels_path, 'r') as f:
+    labels_path_obj = Path(labels_path)
+    if not labels_path_obj.exists():
+        return None
+    with open(labels_path) as f:
         labels = [line.strip() for line in f if line.strip()]
     return labels
 
@@ -92,11 +106,11 @@ def main() -> None:
 
     runs_info = parse_filemap(args.filemap)
     if not runs_info:
-        print("Error: No valid runs found in filemap.")
+        log.error("    Error: No valid runs found in filemap.")
         sys.exit(1)
 
     labels = load_labels(args.labels)
-    
+
     # Load all Q matrices
     all_qs: list[dict] = []
     for run in runs_info:
@@ -105,12 +119,14 @@ def main() -> None:
 
     custom_colors = None
     max_k = max(run['K'] for run in all_qs)
-    if args.colors and os.path.exists(args.colors):
-        with open(args.colors, 'r') as f:
-            custom_colors = [line.strip() for line in f if line.strip()]
-        if len(custom_colors) < max_k:
-            print(f"Error: Provided colors file has {len(custom_colors)} colors, but highest K in filemap is {max_k}.")
-            sys.exit(1)
+    if args.colors:
+        colors_path = Path(args.colors)
+        if colors_path.exists():
+            with open(colors_path) as f:
+                custom_colors = [line.strip() for line in f if line.strip()]
+            if len(custom_colors) < max_k:
+                log.error(f"    Error: Provided colors file has {len(custom_colors)} colors, but highest K in filemap is {max_k}.")
+                sys.exit(1)
 
     num_runs = len(all_qs)
     all_qs.sort(key=lambda x: x['K'])
@@ -130,7 +146,7 @@ def main() -> None:
         ax = axes[i]
         Q = run['Q']
         n_samples, K = Q.shape
-        
+
         if labels is not None:
             if len(labels) == n_samples:
                 dominant_cluster = np.argmax(Q, axis=1)
@@ -138,7 +154,7 @@ def main() -> None:
                 Q_plot = Q[sort_idx]
                 labels_plot = [labels[idx] for idx in sort_idx]
             else:
-                print(f"Warning: Label count mismatch for run {run['id']}. Skipping sort.")
+                log.warning(f"    Warning: Label count mismatch for run {run['id']}. Skipping sort.")
                 Q_plot = Q
                 labels_plot = None
         else:
@@ -152,20 +168,20 @@ def main() -> None:
         else:
             cmap = plt.colormaps.get_cmap('tab20')
             colors = cmap(np.linspace(0, 1, K))
-            
+
         Q_cum = np.cumsum(Q_plot, axis=1)
         x = np.arange(n_samples)
         zeros = np.zeros(n_samples)
-        
+
         for j in range(K):
             lower = Q_cum[:, j - 1] if j > 0 else zeros
             upper = Q_cum[:, j]
             ax.fill_between(x, lower, upper, facecolor=colors[j], edgecolor='none', linewidth=0, rasterized=True)
-            
+
         ax.set_xlim(0, n_samples)
         ax.set_ylim(0, 1)
         ax.set_ylabel(f"{run['id']}\n(K={K})", rotation=0, ha='right', va='center')
-        
+
         if labels_plot is not None:
             current_label = labels_plot[0]
             start_idx = 0
@@ -180,7 +196,7 @@ def main() -> None:
                     current_label = lbl
             unique_labels.append(str(current_label))
             label_positions.append((start_idx + n_samples) / 2)
-            
+
             if i == num_runs - 1:
                 ax.set_xticks(label_positions)
                 ax.set_xticklabels(unique_labels, rotation=45, ha='right')
@@ -193,12 +209,12 @@ def main() -> None:
             ax.set_xlabel("Samples")
 
     plt.tight_layout()
-    output_path = f"{args.output}"
-    if not output_path.endswith(f".{args.format}"):
-        output_path = f"{os.path.splitext(output_path)[0]}.{args.format}"
-        
+    output_path = Path(args.output)
+    if output_path.suffix != f".{args.format}":
+        output_path = output_path.with_suffix(f".{args.format}")
+
     fig.savefig(output_path, dpi=args.dpi, format=args.format, bbox_inches='tight')
-    print(f"Multi-run plot saved to: {output_path}")
+    log.info(f"    Multi-run plot saved to: {output_path}")
     plt.close(fig)
 
 if __name__ == '__main__':

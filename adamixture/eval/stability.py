@@ -2,6 +2,7 @@ import argparse
 import itertools
 import logging
 import sys
+
 import numpy as np
 
 # Global logging configuration
@@ -21,12 +22,12 @@ def load_proportions(filepath: str) -> np.ndarray:
     except Exception as e:
         log.error(f"Error loading {filepath}: {e}")
         sys.exit(1)
-        
+
     # Ensure shape is (Samples x K)
     # Common convention: Samples > K
     if mat.shape[1] > mat.shape[0]:
         mat = np.ascontiguousarray(mat.T)
-    
+
     # Row-wise normalization
     row_sums = np.sum(mat, axis=1, keepdims=True)
     # To avoid division by zero
@@ -36,7 +37,7 @@ def load_proportions(filepath: str) -> np.ndarray:
 
 def align_matrices(Q1: np.ndarray, Q2: np.ndarray) -> np.ndarray:
     """
-    Matches columns of Q2 to Q1 using a greedy assignment based on 
+    Matches columns of Q2 to Q1 using a greedy assignment based on
     squared Euclidean distance (minimizing Frobenius distance).
     """
     K = Q1.shape[1]
@@ -64,9 +65,9 @@ def align_matrices(Q1: np.ndarray, Q2: np.ndarray) -> np.ndarray:
 
     # Reorder according to Q1's original order [0, 1, ..., K-1]
     # To do this, we sort pairs by q1_indices
-    alignment = sorted(zip(q1_indices, q2_indices))
+    alignment = sorted(zip(q1_indices, q2_indices, strict=False))
     final_q2_order = [p[1] for p in alignment]
-    
+
     return np.ascontiguousarray(Q2[:, final_q2_order])
 
 def calculate_correlations(Q1: np.ndarray, Q2_aligned: np.ndarray) -> float:
@@ -94,17 +95,17 @@ def parse_args():
 
 def main():
     args = parse_args()
-    
+
     if len(args.qfiles) < 2:
         log.error("Error: At least two Q files are required to calculate stability.")
         sys.exit(1)
 
     log.info(f"Loading {len(args.qfiles)} Q matrices...")
-    
+
     matrices = []
     for f in args.qfiles:
         matrices.append(load_proportions(f))
-        
+
     # Verify same shape
     reference_shape = matrices[0].shape
     for i, mat in enumerate(matrices):
@@ -112,34 +113,34 @@ def main():
             log.error(f"Shape mismatch: '{args.qfiles[i]}' has shape {mat.shape}, "
                       f"but '{args.qfiles[0]}' has shape {reference_shape}.")
             sys.exit(1)
-            
+
     num_runs = len(matrices)
     log.info(f"Shape verified: {reference_shape[0]} samples, {reference_shape[1]} clusters (K).")
     log.info("-" * 50)
-    
+
     all_corrs = []
     all_frobs = []
-    
+
     # Pairwise comparison
     pairs = list(itertools.combinations(range(num_runs), 2))
     log.info(f"Performing {len(pairs)} pairwise comparisons...")
-    
+
     for i, j in pairs:
         Q_ref = matrices[i]
         Q_target = matrices[j]
-        
+
         # Align target to ref
         Q_target_aligned = align_matrices(Q_ref, Q_target)
-        
+
         corr = calculate_correlations(Q_ref, Q_target_aligned)
         frob = calculate_frobenius(Q_ref, Q_target_aligned)
-        
+
         all_corrs.append(corr)
         all_frobs.append(frob)
-        
+
         log.info(f"Pair ({args.qfiles[i]}, {args.qfiles[j]}): "
                  f"Mean Corr = {corr:.6f}, Frobenius Dist = {frob:.6f}")
-        
+
     log.info("-" * 50)
     log.info("FINAL SUMMARY:")
     log.info(f"Average Pairwise Correlation: {np.mean(all_corrs):.6f} (± {np.std(all_corrs):.6f})")
