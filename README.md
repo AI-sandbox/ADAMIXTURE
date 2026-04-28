@@ -28,7 +28,7 @@ The successful usage of this package requires a computer with enough RAM to be a
 
 ### Software requirements
 
-We recommend creating a fresh Python 3.10+ virtual environment. For a faster installation experience, we highly recommend using [uv](https://github.com/astral-sh/uv) (or `pixi`). Alternatively, you can use `virtualenv` or `conda`.
+We recommend creating a fresh Python 3.10+ virtual environment. For a faster installation experience, we highly recommend using [uv](https://github.com/astral-sh/uv).
 
 > [!IMPORTANT]  
 > If you plan to use GPU acceleration, ensure that the CUDA toolkit is correctly loaded (e.g., `module load cuda`) **before** starting the installation. This ensures that the dependencies and internal components are correctly configured for your hardware.
@@ -40,12 +40,6 @@ $ source .venv/bin/activate
 $ uv pip install adamixture
 ```
 
-Or using `virtualenv`:
-```console
-$ virtualenv --python=python3.10 ~/venv/nadmenv
-$ source ~/venv/nadmenv/bin/activate
-(nadmenv) $ pip install adamixture
-```
 
 > [!IMPORTANT]
 > **macOS Users**: ADAMIXTURE requires OpenMP for parallel processing. You **must** install `libomp` (e.g., via Homebrew) before installing the package, otherwise the compilation will fail:
@@ -58,18 +52,12 @@ $ source ~/venv/nadmenv/bin/activate
 The package can be easily installed in at most a few minutes using `pip` (make sure to add the `--upgrade` flag if updating the version):
 
 ```console
-(nadmenv) $ pip install adamixture
+$ pip install adamixture
 ```
 
 ## Running ADAMIXTURE
 
 To train a model, simply invoke the following commands from the root directory of the project. For more info about all the arguments, please run `adamixture --help`. Note that **BED**, **VCF** and **PGEN** are supported:
-
-> [!TIP]
-> **GPU Acceleration**: Using GPUs greatly speeds up processing and is highly recommended for large datasets. You can specify the hardware to use with the `--device` parameter:
-> - For NVIDIA GPUs, use `--device gpu` (requires CUDA).
-> - For macOS users with Apple Silicon (M1/M2/M3/M4/M5), use `--device mps` to enable Metal Performance Shaders (MPS) acceleration. 
-> - Note that biobank-scale datasets are best handled on dedicated CUDA-capable GPUs due to high RAM requirements. 
 
 As an example, the following ADMIXTURE call
 
@@ -115,8 +103,11 @@ To leverage GPU acceleration (highly recommended for large datasets), use the `-
   $ adamixture -k 8 --data_path data.bed --save_dir out/ --name test --device mps
   ```
 
-> [!NOTE]  
-> Biobank-scale datasets are best handled on dedicated CUDA-capable GPUs.
+> [!TIP]
+> **GPU Acceleration**: Using GPUs greatly speeds up processing and is highly recommended for large datasets. You can specify the hardware to use with the `--device` parameter:
+> - For NVIDIA GPUs, use `--device gpu` (requires CUDA).
+> - For macOS users with Apple Silicon (M1/M2/M3/M4/M5), use `--device mps` to enable Metal Performance Shaders (MPS) acceleration. 
+> - Note that biobank-scale datasets are best handled on dedicated CUDA-capable GPUs due to high RAM requirements. 
 
 > [!TIP]
 > **Biobank-Scale Execution & High K Values**: For large-scale datasets (e.g., UK Biobank, All of Us) with high K values, we recommend the following parameter settings for optimal convergence and performance:
@@ -133,6 +124,16 @@ Instead of running ADAMIXTURE for a single K, you can automatically sweep over a
 ```console
 $ adamixture --min_k 2 --max_k 10 --data_path snps_data.bed --save_dir SAVE_PATH --name snps_sweep
 ```
+
+## Cross-validation
+
+**ADAMIXTURE** includes an internal cross-validation (CV) procedure to help estimate the most appropriate number of ancestral populations ($K$). To enable it, use the `--cv` flag:
+
+```console
+$ adamixture -k 8 --cv 5 --data_path data.bed --save_dir out/ --name test
+```
+
+When enabled, a fraction of the genotype entries is masked during training, and the prediction error (cross-validation error) for these masked entries is calculated. The $K$ with the lowest CV error, or the one where the error curve starts to flatten (the "elbow" point), is typically considered the most optimal.
 
 ## Plotting
 
@@ -153,7 +154,7 @@ The following flags are available for both `adamixture --plot` and `adamixture-p
 - **Population Labels**: Use `--labels` to provide a file with one population name per sample. Samples will be grouped by population and then sorted by ancestry.
 - **Custom Colors**: Use `--colors` to provide a file with hex or named colors (one per line). The file must contain at least as many colors as the highest K value in your result.
 
-### Multi-run Plotting (`adamixture-plot`)
+### Multi-run Plotting
 For comparing multiple runs or different K values (similar to the `pong` tool), use the `adamixture-plot` command. 
 
 > [!NOTE]
@@ -228,6 +229,9 @@ RunC_K5    5    results/run3.Q
 - `--max_k` (int):  
   Maximum K for a multi-K sweep (inclusive). Must be used together with `--min_k`.
 
+- `--cv` (int, default: `0`):  
+  Enable v-fold cross-validation on genotype entries. If specified without a value (e.g., `--cv`), it defaults to 5-fold CV.
+
 - `--plot` (args, optional):
   Generate plot after training. Usage: `--plot [format] [resolution]`. e.g., `--plot pdf 300`.
 
@@ -236,7 +240,6 @@ RunC_K5    5    results/run3.Q
 
 - `--colors` (str):
   Path to custom colors file (one color per line). Must match K (in `adamixture`) or max K (in `adamixture-plot`).
-
 
 - `--no_freqs` (flag):  
   If set, the P (allele frequencies) matrix is not saved to disk. Only the Q (admixture proportions) file will be written.
@@ -266,10 +269,6 @@ RunC_K5    5    results/run3.Q
   Number of CPU threads used during execution.
 
 
-## License
-
-This project is licensed under the BSD 3-Clause License - see the [LICENSE](LICENSE) file for details.
-
 ## Troubleshooting
 
 ### CUDA issues
@@ -283,12 +282,9 @@ Simply installing `nvcc` using conda or mamba should fix it:
 $ conda install -c nvidia nvcc
 ```
 
-### macOS compilation issues
-If you get errors related to OpenMP (OMP) during installation on macOS, ensure you have `libomp` installed via Homebrew:
+## License
 
-```console
-$ brew install libomp
-```
+This project is licensed under the BSD 3-Clause License - see the [LICENSE](LICENSE) file for details.
 
 ## Cite
 
