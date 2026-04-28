@@ -127,7 +127,7 @@ $ adamixture --min_k 2 --max_k 10 --data_path snps_data.bed --save_dir SAVE_PATH
 
 ## Cross-validation
 
-**ADAMIXTURE** includes an internal cross-validation (CV) procedure to help estimate the most appropriate number of ancestral populations ($K$). To enable it, use the `--cv` flag:
+ADAMIXTURE includes an internal cross-validation (CV) procedure to help estimate the most appropriate number of ancestral populations ($K$). To enable it, use the `--cv` flag:
 
 ```console
 $ adamixture -k 8 --cv 5 --data_path data.bed --save_dir out/ --name test
@@ -137,7 +137,7 @@ When enabled, a fraction of the genotype entries is masked during training, and 
 
 ## Plotting
 
-ADAMIXTURE includes native support for generating high-quality visualizations of ancestry proportions. Plots are optimized for biobank-scale data using rasterization for the data area, ensuring consistent performance and sharp text.
+ADAMIXTURE includes native support for generating high-quality visualizations of ancestry proportions. Inspired by [**pong**](https://github.com/ramachandran-lab/pong), it automatically aligns clusters across runs of the same K using a greedy maximum-overlap algorithm, ensuring that same-colored bars represent the same ancestral components across different subplots.
 
 ### Single-run Plotting
 To generate a plot automatically after training, use the `--plot` flag:
@@ -177,8 +177,6 @@ RunB_K5    5    results/run2.Q
 RunC_K5    5    results/run3.Q
 ```
 
-> [!TIP]
-> **Cluster Alignment**: `adamixture-plot` automatically aligns clusters across runs of the same K using a greedy maximum-overlap algorithm, ensuring that same-colored bars represent the same ancestral components across different subplots.
 ## Other options
 
 - `--lr` (float, default: `0.005`):  
