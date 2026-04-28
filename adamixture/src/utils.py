@@ -6,14 +6,14 @@ import numpy as np
 
 from pathlib import Path
 
-from typing import Callable, Tuple
+from typing import Callable
 from .snp_reader import SNPReader
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
 log = logging.getLogger(__name__)
 
 
-def read_data(tr_file: str, packed: bool = False, chunk_size: int = 4096) -> tuple[torch.Tensor | np.ndarray, int, int]:
+def read_data(tr_file: str, packed: bool = False, chunk_size: int = 4096, verbose: bool = True) -> tuple[torch.Tensor | np.ndarray, int, int]:
     """
     Description:
     Reads SNP data from a file (BED, VCF, etc.) and returns the genotype matrix and dimensions.
@@ -22,13 +22,15 @@ def read_data(tr_file: str, packed: bool = False, chunk_size: int = 4096) -> tup
         tr_file (str): Path to the SNP data file.
         packed (bool): If True, return a 2-bit packed torch.Tensor. Defaults to False.
         chunk_size (int): Size of chunks to read for VCF files. Defaults to 4096.
+        verbose (bool): If True, log the number of samples and SNPs. Defaults to True.
 
     Returns:
         tuple[torch.Tensor | np.ndarray, int, int]: (genotype matrix, N samples, M SNPs)
     """
     snp_reader = SNPReader()
     G, N, M = snp_reader.read_data(tr_file, packed=packed, chunk_size=chunk_size)
-    log.info(f"    Data contains {N} samples and {M} SNPs.")
+    if verbose:
+        log.info(f"    Data contains {N} samples and {M} SNPs.")
    
     return G, N, M
 
@@ -228,11 +230,26 @@ def load_extensions(device: torch.device) -> None:
             log.error(f"CUDA source file not found: {source_path}")
             return
 
+        bvls_path = os.path.abspath(os.path.join(current_dir, "utils_c", "bvls_kernel.cu"))
+        cv_mask_path = os.path.abspath(os.path.join(current_dir, "utils_c", "cv_mask_kernel.cu"))
+
         log.info("    Loading CUDA extensions...")
         load(name="pack2bit", 
              sources=[source_path], 
              verbose=False, keep_intermediates=False, 
              extra_cuda_cflags=['-O3', '--use_fast_math'], extra_cflags=['-O3'])
+        
+        if os.path.exists(bvls_path):
+            load(name="bvls_kernel",
+                 sources=[bvls_path],
+                 verbose=False, keep_intermediates=False,
+                 extra_cuda_cflags=['-O3'], extra_cflags=['-O3'])
+
+        if os.path.exists(cv_mask_path):
+            load(name="cv_mask_kernel",
+                 sources=[cv_mask_path],
+                 verbose=False, keep_intermediates=False,
+                 extra_cuda_cflags=['-O3'], extra_cflags=['-O3'])
 
 def get_unpacker(device: torch.device, threads_per_block: int) -> Callable[[torch.Tensor, int, int, int], torch.Tensor]:
     """
@@ -285,14 +302,6 @@ def get_logl_calculator(device: torch.device) -> Callable[[torch.Tensor, torch.T
     def logl_gpu_wrapped(G: torch.Tensor, P: torch.Tensor, Q: torch.Tensor, M: int, N: int, batch_size: int, threads_per_block: int) -> float:
         return loglikelihood_gpu(G, P, Q, M, N, batch_size, device, threads_per_block)
     return logl_gpu_wrapped
-
-def _unpack_chunk_uint8(G: torch.Tensor, start_idx: int, actual_chunk_size: int, M: int, device: torch.device, threads_per_block: int) -> torch.Tensor:
-    """
-    Description:
-    Legacy wrapper for get_unpacker for backward compatibility.
-    """
-    unpacker = get_unpacker(device, threads_per_block)
-    return unpacker(G, start_idx, actual_chunk_size, M)
 
 def get_centering_unpacker(device: torch.device, threads_per_block: int) -> Callable[[torch.Tensor, torch.Tensor, int, int, int], torch.Tensor]:
     """

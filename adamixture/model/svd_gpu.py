@@ -28,7 +28,7 @@ def eigSVD_gpu(C: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tenso
     else:
         D, V = torch.linalg.eigh(cov)
         
-    S = torch.sqrt(torch.clamp(D, min=1e-12))
+    S = torch.sqrt(D)
     U = (C.transpose(-2, -1) @ V) / S
     
     idx = torch.arange(V.shape[1]-1, -1, -1, device=device)

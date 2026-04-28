@@ -3,7 +3,7 @@ import sys
 import time
 import numpy as np
 
-from .utils_c import tools
+from ..src.utils_c import tools
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
 log = logging.getLogger(__name__)
@@ -78,7 +78,6 @@ def RSVD(G: np.ndarray, N: int, M: int, f: np.ndarray, k: int, seed: int,
     log.info("    2) Power iterations...")
     t_power = time.time()
     singular_vals = np.zeros(k_prime, dtype=np.float32)
-    shift_offset = 0
     for i in range(power):
         for w in range(n_batches):
             start_idx = w * chunk
@@ -96,7 +95,7 @@ def RSVD(G: np.ndarray, N: int, M: int, f: np.ndarray, k: int, seed: int,
         if i > 0:
             s_current = s_vals + alpha
             rel_diff = np.abs(s_current - singular_vals[:len(s_current)]) / np.maximum(s_current, 1e-12)
-            max_err = np.max(rel_diff[shift_offset : k + shift_offset])
+            max_err = np.max(rel_diff[:k])
             if max_err < tol:
                 log.info(f"        Converged at iteration {i}.")
                 break

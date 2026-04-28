@@ -29,55 +29,42 @@ def parse_args(argv: List[str]) -> configargparse.Namespace:
         config_file_parser_class=configargparse.YAMLConfigFileParser
     )
 
-    parser.add_argument('--lr', type=float, default=0.005, help='Learning rate')
-    parser.add_argument('--beta1', type=float, default=0.80, help='Adam beta1 (1st moment decay)')
-    parser.add_argument('--beta2', type=float, default=0.88, help='Adam beta2 (2nd moment decay)')
-    parser.add_argument('--reg_adam', type=float, default=1e-8, help='Adam epsilon for numerical stability')
+    parser.add_argument('--lr', type=float, default=0.005, help='Learning rate (default: 0.005).')
+    parser.add_argument('--beta1', type=float, default=0.80, help='Adam beta1 (1st moment decay) (default: 0.80).')
+    parser.add_argument('--beta2', type=float, default=0.88, help='Adam beta2 (2nd moment decay) (default: 0.88).')
+    parser.add_argument('--reg_adam', type=float, default=1e-8, help='Adam epsilon for numerical stability (default: 1e-8).')
     
-    parser.add_argument('--lr_decay', type=float, default=0.5, help='Learning rate decay factor')
-    parser.add_argument('--min_lr', type=float, default=1e-4, help='Minimum learning rate value')
-    parser.add_argument('--patience_adam', type=int, default=3, help='Patience for reducing the learning rate in Adam-EM')
-    parser.add_argument('--tol_adam', type=float, default=0.1, help='Tolerance for stopping the Adam-EM algorithm')
+    parser.add_argument('--lr_decay', type=float, default=0.5, help='Learning rate decay factor (default: 0.5).')
+    parser.add_argument('--min_lr', type=float, default=1e-4, help='Minimum learning rate value (default: 1e-4).')
+    parser.add_argument('--patience_adam', type=int, default=3, help='Patience for reducing the learning rate in Adam-EM (default: 3).')
+    parser.add_argument('--tol_adam', type=float, default=0.1, help='Tolerance for stopping the Adam-EM algorithm (default: 0.1).')
 
-    parser.add_argument('-s', '--seed', required=False, type=int, default=42, help='Seed')
+    parser.add_argument('-s', '--seed', required=False, type=int, default=42, help='Seed (default: 42).')
     parser.add_argument('-k', '--k', required=False, type=int, help='Number of populations/clusters (single run).')
     parser.add_argument('--min_k', required=False, type=int, help='Minimum K for multi-K sweep (inclusive).')
     parser.add_argument('--max_k', required=False, type=int, help='Maximum K for multi-K sweep (inclusive).')
     
-    parser.add_argument('--save_dir', required=True, type=str, help='Save model in this directory')
-    parser.add_argument('--data_path', required=True, type=str, help='Path containing the main data')
-    parser.add_argument('--name', required=True, type=str, help='Experiment/model name')
-    parser.add_argument('-t', '--threads', required=False, default=1, type=int, help='Number of threads to be used in the execution.')
-    parser.add_argument('--device', required=False, default='cpu', choices=['cpu', 'gpu', 'mps'], help='Device to use (cpu, gpu, mps)')
+    parser.add_argument('--save_dir', required=True, type=str, help='Save model in this directory.')
+    parser.add_argument('--data_path', required=True, type=str, help='Path containing the main data.')
+    parser.add_argument('--name', required=True, type=str, help='Experiment/model name.')
+    parser.add_argument('-t', '--threads', required=False, default=1, type=int, help='Number of threads to be used in the execution (default: 1).')
+    parser.add_argument('--device', required=False, default='cpu', choices=['cpu', 'gpu', 'mps'], help='Device to use (cpu, gpu, mps) (default: cpu).')
     
-    parser.add_argument('--max_iter', type=int, default=10000, help='Maximum number of iterations for Adam EM')
-    parser.add_argument('--check', type=int, default=5, help='Frequency of log-likelihood checks')
-    parser.add_argument('--no_freqs', action='store_true', default=False, help='Do not save the P (allele frequencies) matrix')
+    parser.add_argument('--max_iter', type=int, default=10000, help='Maximum number of iterations for Adam EM (default: 10000).')
+    parser.add_argument('--check', type=int, default=5, help='Frequency of log-likelihood checks (default: 5).')
+    parser.add_argument('--no_freqs', action='store_true', default=False, help='Do not save the P (allele frequencies) matrix (default: False).')
     
-    parser.add_argument('--max_als', type=int, default=1000, help='Maximum number of iterations for ALS')
-    parser.add_argument('--tol_als', type=float, default=1e-4, help='Convergence tolerance for ALS')
-    parser.add_argument('--power', type=int, default=5, help='Number of power iterations for SVD')
-    parser.add_argument('--tol_svd', type=float, default=1e-1, help='Convergence tolerance for SVD')
-    parser.add_argument('--chunk_size', type=int, default=4096, help='Number of SNPs in chunk operations for SVD')
-    parser.add_argument(
-        '--cv',
-        nargs='?',
-        const=5,
-        default=0,
-        type=int,
-        help='Enable v-fold cross-validation on genotype entries (default folds when flag is present: 5)'
-    )
-    parser.add_argument(
-        '--cv_max_iter',
-        type=int,
-        default=2,
-        help='Fixed number of warm-start polishing iterations per CV fold'
-    )
+    parser.add_argument('--max_als', type=int, default=1000, help='Maximum number of iterations for ALS (default: 1000).')
+    parser.add_argument('--tol_als', type=float, default=1e-4, help='Convergence tolerance for ALS (default: 1e-4).')
+    parser.add_argument('--power', type=int, default=5, help='Number of power iterations for SVD (default: 5).')
+    parser.add_argument('--tol_svd', type=float, default=1e-1, help='Convergence tolerance for SVD (default: 1e-1).')
+    parser.add_argument('--chunk_size', type=int, default=4096, help='Number of SNPs in chunk operations for SVD (default: 4096).')
+    parser.add_argument('--cv', nargs='?', const=5, default=0, type=int, help='Enable v-fold cross-validation on genotype entries (default: 5).')
     
     # Plotting arguments:
-    parser.add_argument('--plot', nargs='*', help='Generate plot of the Q matrix after training. Optional: [format (e.g. pdf)] [resolution (e.g. 300)]')
-    parser.add_argument('--labels', type=str, help='Path to population labels file (one label per sample)')
-    parser.add_argument('--colors', type=str, help='Path to custom colors file (one color per line)')
+    parser.add_argument('--plot', nargs='*', help='Generate plot of the Q matrix after training (Optional: [format] [resolution]).')
+    parser.add_argument('--labels', type=str, help='Path to population labels file (one label per sample).')
+    parser.add_argument('--colors', type=str, help='Path to custom colors file (one color per line).')
     
     args = parser.parse_args(argv)
     
@@ -240,7 +227,6 @@ def main() -> None:
     assert args.cv >= 0, "CV folds (cv) must be >= 0 (0 disables CV)."
     if args.cv:
         assert args.cv >= 2, "CV folds (cv) must be at least 2 when CV is enabled."
-    assert args.cv_max_iter >= 1, "CV max iterations (cv_max_iter) must be at least 1."
 
     # CONTROL TIME:
     t0 = time.time()
@@ -267,6 +253,13 @@ def main() -> None:
         if not torch.cuda.is_available():
             log.error("    GPU requested via --device gpu but CUDA is not available.")
             sys.exit(1)
+
+        # GPU LIMITS (MAX_K=64 in CUDA kernels):
+        if args.k is not None:
+            assert args.k <= 64, f"    Error: K={args.k} exceeds the current GPU limit (MAX_K=64)."
+        if args.max_k is not None:
+            assert args.max_k <= 64, f"    Error: max_k={args.max_k} exceeds the current GPU limit (MAX_K=64)."
+
         args.device = 'cuda'
     elif args.device == 'mps':
         if not torch.backends.mps.is_available():
@@ -279,6 +272,7 @@ def main() -> None:
     except Exception as e:
         log.error(f"    Invalid or unavailable device '{args.device}': {e}")
         sys.exit(1)
+
 
     # CONTROL INDUCTOR CONFIG:
     if args.device == 'mps':

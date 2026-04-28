@@ -1214,3 +1214,132 @@ def read_vcf_file_packed(str filepath, int chunk_size):
         fh.close()
 
     return np.asarray(G_packed), n_samples, n_variants
+
+
+cpdef double deviance_squared_sum(
+    long[::1] flat_entries,
+    uint8_t[::1] G_flat,
+    double[:,::1] P,
+    double[:,::1] Q,
+    Py_ssize_t N,
+) noexcept nogil:
+    """
+    Description:
+    Computes the sum of squared binomial deviance residuals on a set of
+    held-out genotype entries. Parallelised over entries with prange.
+
+    Args:
+        flat_entries (long[::1]): 1-D array of flat indices into G_flat.
+        G_flat (uint8_t[::1]): Flattened genotype matrix with true values.
+        P (double[:,::1]): Polished P matrix (M x K).
+        Q (double[:,::1]): Polished Q matrix (N x K).
+        N (Py_ssize_t): Number of individuals.
+
+    Returns:
+        double: Sum of squared deviance residuals.
+    """
+    cdef:
+        Py_ssize_t n_entries = flat_entries.shape[0]
+        Py_ssize_t K = Q.shape[1]
+        Py_ssize_t i, k
+        long idx
+        Py_ssize_t row, col
+        double g, mu, term_a, term_b, rem, dev
+        double total = 0.0
+        double eps = 1e-10
+
+    with nogil, parallel():
+        for i in prange(n_entries, schedule='guided'):
+            idx = flat_entries[i]
+            row = idx // N
+            col = idx % N
+            g = <double>G_flat[idx]
+
+            mu = 0.0
+            for k in range(K):
+                mu = mu + Q[col, k] * P[row, k]
+            mu = 2.0 * mu
+
+            if mu < eps:
+                mu = eps
+            elif mu > 2.0 - eps:
+                mu = 2.0 - eps
+
+            term_a = 0.0
+            if g > 0.0:
+                term_a = g * log(g / mu)
+
+            rem = 2.0 - g
+            term_b = 0.0
+            if rem > 0.0:
+                term_b = rem * log(rem / (2.0 - mu))
+
+            dev = term_a + term_b
+            total += dev * dev
+
+    return total
+
+
+cpdef double deviance_squared_sum_direct(
+    uint8_t[::1] geno_values,
+    long[::1] flat_entries,
+    double[:,::1] P,
+    double[:,::1] Q,
+    Py_ssize_t N,
+) noexcept nogil:
+    """
+    Description:
+    Computes the sum of squared binomial deviance residuals using
+    pre-extracted genotype values. Identical math to deviance_squared_sum
+    but receives genotype values directly instead of indexing into G_flat.
+
+    Args:
+        geno_values (uint8_t[::1]): 1-D array of genotype values for each held-out entry.
+        flat_entries (long[::1]): 1-D array of flat indices (for P/Q row/col mapping).
+        P (double[:,::1]): Polished P matrix (M x K).
+        Q (double[:,::1]): Polished Q matrix (N x K).
+        N (Py_ssize_t): Number of individuals.
+
+    Returns:
+        double: Sum of squared deviance residuals.
+    """
+    cdef:
+        Py_ssize_t n_entries = flat_entries.shape[0]
+        Py_ssize_t K = Q.shape[1]
+        Py_ssize_t i, k
+        long idx
+        Py_ssize_t row, col
+        double g, mu, term_a, term_b, rem, dev
+        double total = 0.0
+        double eps = 1e-10
+
+    with nogil, parallel():
+        for i in prange(n_entries, schedule='guided'):
+            idx = flat_entries[i]
+            row = idx // N
+            col = idx % N
+            g = <double>geno_values[i]
+
+            mu = 0.0
+            for k in range(K):
+                mu = mu + Q[col, k] * P[row, k]
+            mu = 2.0 * mu
+
+            if mu < eps:
+                mu = eps
+            elif mu > 2.0 - eps:
+                mu = 2.0 - eps
+
+            term_a = 0.0
+            if g > 0.0:
+                term_a = g * log(g / mu)
+
+            rem = 2.0 - g
+            term_b = 0.0
+            if rem > 0.0:
+                term_b = rem * log(rem / (2.0 - mu))
+
+            dev = term_a + term_b
+            total += dev * dev
+
+    return total

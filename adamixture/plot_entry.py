@@ -4,7 +4,7 @@ import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
-from .plot import plot_q_matrix, align_clusters_greedy
+from .src.plot import align_clusters_greedy
 
 def parse_filemap(filemap_path: str) -> list[dict]:
     """

@@ -189,8 +189,8 @@ def loglikelihood_gpu(G: torch.Tensor, P: torch.Tensor, Q: torch.Tensor, M: int,
     return ll_tensor.item()
 
 def optimize_parameters_gpu(G: torch.Tensor, P: torch.Tensor, Q: torch.Tensor, lr: float, beta1: float, beta2: float, 
-                  reg_adam: float, max_iter: int, check: int, K: int, M: int, N: int, lr_decay: float, min_lr: float, 
-                  patience_adam: int, tol_adam: float, device: torch.device, chunk_size: int, threads_per_block: int) -> Tuple[np.ndarray, np.ndarray]:
+                  reg_adam: float, max_iter: int, check: int, M: int, N: int, lr_decay: float, min_lr: float, 
+                  patience_adam: int, tol_adam: float, device: torch.device, chunk_size: int, threads_per_block: int) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     Adam-EM optimization on the GPU.
     """
@@ -241,4 +241,4 @@ def optimize_parameters_gpu(G: torch.Tensor, P: torch.Tensor, Q: torch.Tensor, l
                     wait_lr = 0
 
     log.info(f"\n    Final log-likelihood: {L_best:.1f}")
-    return P_best.cpu().numpy(), Q_best.cpu().numpy()
+    return P_best, Q_best
