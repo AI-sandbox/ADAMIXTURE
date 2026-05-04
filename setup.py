@@ -55,16 +55,40 @@ else:
 
 extensions = [
     Extension(
-        name="adamixture.src.utils_c.tools",
-        sources=["adamixture/src/utils_c/tools.pyx"],
+        name="adamixture.src.utils_c.cython.tools",
+        sources=["adamixture/src/utils_c/cython/tools.pyx"],
         extra_compile_args=compile_args,
         extra_link_args=link_args,
         include_dirs=[numpy.get_include()] + mac_include,
         define_macros=common_macros
     ),
     Extension(
-        name="adamixture.src.utils_c.em",
-        sources=["adamixture/src/utils_c/em.pyx"],
+        name="adamixture.src.utils_c.cython.em",
+        sources=["adamixture/src/utils_c/cython/em.pyx"],
+        extra_compile_args=compile_args,
+        extra_link_args=link_args,
+        include_dirs=[numpy.get_include()] + mac_include,
+        define_macros=common_macros
+    ),
+    Extension(
+        name="adamixture.src.utils_c.cython.br_qn",
+        sources=["adamixture/src/utils_c/cython/br_qn.pyx"],
+        extra_compile_args=compile_args,
+        extra_link_args=link_args,
+        include_dirs=[numpy.get_include()] + mac_include,
+        define_macros=common_macros
+    ),
+    Extension(
+        name="adamixture.src.utils_c.cython.snp_reader",
+        sources=["adamixture/src/utils_c/cython/snp_reader.pyx"],
+        extra_compile_args=compile_args,
+        extra_link_args=link_args,
+        include_dirs=[numpy.get_include()] + mac_include,
+        define_macros=common_macros
+    ),
+    Extension(
+        name="adamixture.src.utils_c.cython.bvls",
+        sources=["adamixture/src/utils_c/cython/bvls.pyx"],
         extra_compile_args=compile_args,
         extra_link_args=link_args,
         include_dirs=[numpy.get_include()] + mac_include,
@@ -72,10 +96,11 @@ extensions = [
     ),
 ]
 
+
 setup(
     ext_modules=cythonize(extensions),
     include_package_data=True,
     package_data={
-        "adamixture": ["src/utils_c/*.cu", "src/utils_c/*.pyx"],
+        "adamixture": ["src/utils_c/cuda/*.cu", "src/utils_c/cython/*.pyx"],
     },
 )

@@ -222,10 +222,10 @@ def load_extensions(device: torch.device) -> None:
 
         from torch.utils.cpp_extension import load
         current_dir = os.path.dirname(os.path.abspath(__file__))
-        source_path = os.path.abspath(os.path.join(current_dir, "utils_c", "pack2bit.cu"))
+        source_path = os.path.abspath(os.path.join(current_dir, "utils_c", "cuda", "pack2bit.cu"))
 
         if not os.path.exists(source_path):
-            log.error(f"CUDA source files not found in {os.path.join(current_dir, 'utils_c')}")
+            log.error(f"CUDA source files not found in {os.path.join(current_dir, 'utils_c', 'cuda')}")
             return
 
         log.info("    Loading CUDA extensions...")
@@ -236,11 +236,11 @@ def load_extensions(device: torch.device) -> None:
              verbose=False, extra_cuda_cflags=cuda_flags, extra_cflags=cpp_flags)
 
         load(name="bvls_kernel",
-             sources=[os.path.join(current_dir, "utils_c", "bvls_kernel.cu")],
+             sources=[os.path.join(current_dir, "utils_c", "cuda", "bvls_kernel.cu")],
              verbose=False, extra_cuda_cflags=cuda_flags, extra_cflags=cpp_flags)
 
         load(name="cv_mask_kernel",
-             sources=[os.path.join(current_dir, "utils_c", "cv_mask_kernel.cu")],
+             sources=[os.path.join(current_dir, "utils_c", "cuda", "cv_mask_kernel.cu")],
              verbose=False, extra_cuda_cflags=cuda_flags, extra_cflags=cpp_flags)
 
 def get_unpacker(device: torch.device, threads_per_block: int) -> Callable[[torch.Tensor, int, int, int], torch.Tensor]:

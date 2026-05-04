@@ -5,9 +5,10 @@ from argparse import Namespace
 import numpy as np
 import torch
 
-from ..model.em_adam import adamStep
+from ..model.br_qn import polish_br_qn
+from ..model.br_qn_gpu import polish_br_qn_gpu
 from . import utils
-from .utils_c import tools
+from .utils_c import tools, deviance_squared_sum
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
 log = logging.getLogger(__name__)
@@ -35,56 +36,45 @@ def _build_folds(non_missing_flat: np.ndarray, n_folds: int, seed: int) -> list[
     return folds
 
 def _polish_fold(G: np.ndarray, P_init: np.ndarray, Q_init: np.ndarray,
-                args: Namespace, M: int, N: int, K: int) -> tuple[np.ndarray, np.ndarray]:
+                M: int, N: int, K: int) -> tuple[np.ndarray, np.ndarray]:
     """
     Description:
-    Runs a fixed number of Adam-EM polishing iterations on CPU,
-    warm-started from the global P and Q estimates.
+    Runs a fixed number of block-relaxation + ZAL quasi-Newton polishing
+    iterations on CPU, warm-started from the global P and Q estimates.
 
     Args:
         G (np.ndarray): Genotype matrix with held-out entries masked as 3.
         P_init (np.ndarray): Global P matrix (M x K) used as warm-start.
         Q_init (np.ndarray): Global Q matrix (N x K) used as warm-start.
-        args (Namespace): Parsed command-line arguments (lr, beta1, beta2, reg_adam).
         M (int): Number of SNPs.
         N (int): Number of individuals.
         K (int): Number of ancestral populations.
 
     Returns:
-        tuple[np.ndarray, np.ndarray]: Polished (P, Q) matrices after 2 iterations.
+        tuple[np.ndarray, np.ndarray]: Polished (P, Q) matrices after 3 BR-QN iterations.
     """
-    P = np.array(P_init, dtype=np.float64, copy=True)
-    Q = np.array(Q_init, dtype=np.float64, copy=True)
+    Q_hist = 3
+    
+    # Preasignar los workspaces para la optimización Cython de ZAL QN
+    UtUmV_workspace = np.empty(Q_hist * (Q_hist + 1), dtype=np.float64)
+    coeff_workspace = np.empty(Q_hist, dtype=np.float64)
 
-    m_P = np.zeros_like(P, dtype=np.float64)
-    v_P = np.zeros_like(P, dtype=np.float64)
-    m_Q = np.zeros_like(Q, dtype=np.float64)
-    v_Q = np.zeros_like(Q, dtype=np.float64)
-    t = [0]
-
-    P1 = np.zeros_like(P, dtype=np.float64)
-    Q1 = np.zeros_like(Q, dtype=np.float64)
-    T = np.zeros_like(Q, dtype=np.float64)
-    q_bat = np.zeros(N, dtype=np.float64)
-
-    for _ in range(2):
-        adamStep(
-            G, P, Q, T, P1, Q1, q_bat, K, M, N,
-            m_P, v_P, m_Q, v_Q, t,
-            float(args.lr), float(args.beta1),
-            float(args.beta2), float(args.reg_adam),
-        )
-
-    return P, Q
+    return polish_br_qn(
+        G, P_init, Q_init, M, N, K, 
+        n_iters=3, 
+        Q_hist=Q_hist,
+        UtUmV_workspace=UtUmV_workspace,
+        coeff_workspace=coeff_workspace
+    )
 
 def _polish_fold_gpu(G: torch.Tensor, P_init: torch.Tensor, Q_init: torch.Tensor,
                     args: Namespace, M: int, N: int, K: int,
                     device: torch.device, threads_per_block: int) -> tuple[torch.Tensor, torch.Tensor]:
     """
     Description:
-    Runs a fixed number of Adam-EM polishing iterations on GPU,
-    warm-started from the global P and Q estimates. Operates on
-    packed genotype data using chunked unpacking.
+    Runs a fixed number of block-relaxation + ZAL quasi-Newton polishing
+    iterations on GPU, warm-started from the global P and Q estimates.
+    Operates on packed genotype data using chunked unpacking.
 
     Args:
         G (torch.Tensor): Packed genotype tensor on GPU (M_bytes x N, uint8).
@@ -100,25 +90,11 @@ def _polish_fold_gpu(G: torch.Tensor, P_init: torch.Tensor, Q_init: torch.Tensor
     Returns:
         tuple[torch.Tensor, torch.Tensor]: Polished (P, Q) tensors on GPU.
     """
-    from ..model.em_adam_gpu import EMAdamOptimizer
-
-    P = P_init.clone()
-    Q = Q_init.clone()
-
-    optimizer = EMAdamOptimizer(
-        P.shape, Q.shape,
-        float(args.lr), float(args.beta1),
-        float(args.beta2), float(args.reg_adam), device,
+    return polish_br_qn_gpu(
+        G, P_init, Q_init, M, N, K, args,
+        device, threads_per_block,
+        n_iters=3
     )
-    unpacker = utils.get_unpacker(device, threads_per_block)
-    chunk_size = int(args.chunk_size)
-
-    for _ in range(2):
-        P_target, Q_target = optimizer.run_em_step(G, P, Q, M, chunk_size, unpacker)
-        optimizer.step(P, Q, P_target, Q_target)
-
-    del optimizer
-    return P, Q
 
 def _deviance_squared_sum_gpu(saved_values: torch.Tensor, held_out_entries: torch.Tensor,
                             P: torch.Tensor, Q: torch.Tensor, N: int,
@@ -160,7 +136,7 @@ def _deviance_squared_sum_gpu(saved_values: torch.Tensor, held_out_entries: torc
         term_b = torch.where(rem > 0.0, rem * torch.log(rem / (2.0 - mu)), torch.zeros_like(g))
 
         dev = term_a + term_b
-        total += (dev * dev).sum()
+        total += dev.sum()
 
     return total.item()
 
@@ -246,11 +222,11 @@ def run_cross_validation(args: Namespace, G: np.ndarray, N: int, M: int, K: int,
         saved_values = G[rows, cols].copy()
         G[rows, cols] = 3
 
-        P_cv, Q_cv = _polish_fold(G, P_global, Q_global, args, M, N, K)
+        P_cv, Q_cv = _polish_fold(G, P_global, Q_global, M, N, K)
 
         G[rows, cols] = saved_values
 
-        fold_sum = tools.deviance_squared_sum_direct(
+        fold_sum = deviance_squared_sum(
             np.ascontiguousarray(saved_values, dtype=np.uint8),
             np.ascontiguousarray(held_out_entries, dtype=np.int64),
             np.ascontiguousarray(P_cv, dtype=np.float64),
@@ -260,10 +236,9 @@ def run_cross_validation(args: Namespace, G: np.ndarray, N: int, M: int, K: int,
         cv_sum += fold_sum
 
     cv_index = cv_sum / float(n_non_missing)
-    log.info(f"    CV index for K={K}: {cv_index:.4f}")
     return cv_index
 
-def run_cross_validation_gpu(args: Namespace, G: torch.Tensor, N: int, M: int, K: int,
+def run_cross_validation_gpu(args: Namespace, G: torch.Tensor, N: int, M: int,
                             P_global: torch.Tensor, Q_global: torch.Tensor,
                             device: torch.device, threads_per_block: int) -> float:
     """
@@ -278,12 +253,6 @@ def run_cross_validation_gpu(args: Namespace, G: torch.Tensor, N: int, M: int, K
         G (torch.Tensor): Packed genotype tensor on GPU (M_bytes x N, uint8).
         N (int): Number of individuals.
         M (int): Number of SNPs.
-        K (int): Number of ancestral populations.
-        P_global (torch.Tensor): Global P tensor (M x K) on GPU from the main fit.
-        Q_global (torch.Tensor): Global Q tensor (N x K) on GPU from the main fit.
-        device (torch.device): CUDA device.
-        threads_per_block (int): CUDA threads per block for unpacking.
-
     Returns:
         float: CV index (average squared deviance residual across all held-out entries).
     """
@@ -303,29 +272,19 @@ def run_cross_validation_gpu(args: Namespace, G: torch.Tensor, N: int, M: int, K
         if held_out_entries.size == 0:
             continue
 
-        held_out_gpu = torch.from_numpy(
-            np.ascontiguousarray(held_out_entries, dtype=np.int64)
-        ).to(device)
+        held_out_gpu = torch.from_numpy(np.ascontiguousarray(held_out_entries, dtype=np.int64)).to(device)
 
-        saved_values_gpu = torch.ops.cv_mask_kernel.mask_entries_packed_cuda(
-            G, held_out_gpu, N,
-        )
+        saved_values_gpu = torch.ops.cv_mask_kernel.mask_entries_packed_cuda(G, held_out_gpu, N)
 
         try:
-            P_cv, Q_cv = _polish_fold_gpu(
-                G, P_global, Q_global, args, M, N, K, device, threads_per_block,
-            )
+            K = P_global.shape[1]
+            P_cv, Q_cv = _polish_fold_gpu(G, P_global, Q_global, args, M, N, K, device, threads_per_block)
         finally:
-            torch.ops.cv_mask_kernel.restore_entries_packed_cuda(
-                G, held_out_gpu, saved_values_gpu, N,
-            )
+            torch.ops.cv_mask_kernel.restore_entries_packed_cuda(G, held_out_gpu, saved_values_gpu, N)
 
-        fold_sum = _deviance_squared_sum_gpu(
-            saved_values_gpu, held_out_gpu, P_cv, Q_cv, N,
-        )
+        fold_sum = _deviance_squared_sum_gpu(saved_values_gpu, held_out_gpu, P_cv, Q_cv, N)
         del saved_values_gpu, held_out_gpu, P_cv, Q_cv
         cv_sum += fold_sum
 
     cv_index = cv_sum / float(n_non_missing)
-    log.info(f"    CV index for K={K}: {cv_index:.4f}")
     return cv_index

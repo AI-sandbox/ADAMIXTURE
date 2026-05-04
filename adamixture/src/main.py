@@ -104,7 +104,7 @@ def main(args: argparse.Namespace, t0: float) -> int:
                 from .cv import run_cross_validation_gpu
                 for K, (P, Q) in sorted(trained.items()):
                     log.info(f"\n    Running {int(args.cv)}-fold CV on genotype entries for K={K}...")
-                    cv_results[K] = run_cross_validation_gpu(args, G, N, M, K, P, Q, device_obj, threads_per_block)
+                    cv_results[K] = run_cross_validation_gpu(args, G, N, M, P, Q, device_obj, threads_per_block)
             else:
                 if isinstance(G, torch.Tensor):
                     G = np.ascontiguousarray(G.numpy())

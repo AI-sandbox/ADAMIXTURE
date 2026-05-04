@@ -7,7 +7,17 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from .utils_c import tools
+from .utils_c import (
+    flip_packed,
+    flip_unpacked,
+    get_mean_packed,
+    get_mean_unpacked,
+    pack_genotypes,
+    read_bed,
+    read_bed_packed,
+    read_vcf_file,
+    read_vcf_file_packed,
+)
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
 log = logging.getLogger(__name__)
@@ -16,6 +26,16 @@ class SNPReader:
     """
     Wrapper to read genotype data from several formats.
     """
+
+    def _get_base_path(self, file: str) -> str:
+        """
+        Determines the base path by stripping known genotype extensions.
+        """
+        file_str = str(file)
+        for ext in ['.bed', '.vcf.gz', '.vcf', '.pgen', '.psam', '.pvar', '.fam', '.bim']:
+            if file_str.endswith(ext):
+                return file_str[:-len(ext)]
+        return str(Path(file).with_suffix(''))
 
     def _read_bed(self, file: str, packed: bool) -> tuple[torch.Tensor | np.ndarray, int, int]:
         """
@@ -32,9 +52,9 @@ class SNPReader:
         """
         log.info("    Input format is BED.")
 
-        file_path = Path(file)
-        fam_file = file_path.with_suffix(".fam")
-        bed_file = file_path.with_suffix(".bed")
+        base_path = self._get_base_path(file)
+        fam_file = base_path + ".fam"
+        bed_file = base_path + ".bed"
 
         with open(fam_file) as fam:
             N = sum(1 for _ in fam)
@@ -49,7 +69,7 @@ class SNPReader:
             B.shape = (M, N_bytes)
 
             G = np.zeros((M, N), dtype=np.uint8)
-            tools.read_bed(B, G)
+            read_bed(B, G)
             del B
             return G, N, M
         else:
@@ -67,7 +87,7 @@ class SNPReader:
             M_bytes = (M + 3) // 4
             G = torch.zeros((M_bytes, N), dtype=torch.uint8)
 
-            tools.read_bed_packed(B.data_ptr(), G.data_ptr(), M, N_bytes, N, M_bytes)
+            read_bed_packed(B.data_ptr(), G.data_ptr(), M, N_bytes, N, M_bytes)
             del B
             return G, N, M
 
@@ -88,11 +108,11 @@ class SNPReader:
         log.info("    Input format is VCF.")
 
         if not packed:
-            G, N, M = tools.read_vcf_file(file, chunk_size=chunk_size)
+            G, N, M = read_vcf_file(file, chunk_size=chunk_size)
             return np.ascontiguousarray(G), N, M
         else:
             log.info("        Reading VCF in packed 2-bit format for GPU use.")
-            G_packed_np, N, M = tools.read_vcf_file_packed(file, chunk_size=chunk_size)
+            G_packed_np, N, M = read_vcf_file_packed(file, chunk_size=chunk_size)
             G_packed = torch.from_numpy(G_packed_np)
             return G_packed, N, M
 
@@ -126,7 +146,7 @@ class SNPReader:
             log.info("        Reading PGEN in packed 2-bit format for GPU use.")
             M_bytes = (M + 3) // 4
             G_packed = torch.zeros((M_bytes, N), dtype=torch.uint8)
-            tools.pack_genotypes(G.ctypes.data, G_packed.data_ptr(), M, N, M_bytes)
+            pack_genotypes(G.ctypes.data, G_packed.data_ptr(), M, N, M_bytes)
             return G_packed, N, M
 
         return G, N, M
@@ -144,17 +164,14 @@ class SNPReader:
         Returns:
             None
         """
-        file_path = Path(file)
-        base_path = file_path
-        for _ in range(len(file_path.suffixes)):
-            base_path = base_path.with_suffix('')
+        base_path = self._get_base_path(file)
 
         if match_any:
-            if not any(base_path.with_suffix(ext).exists() for ext in extensions):
+            if not any(Path(base_path + ext).exists() for ext in extensions):
                 log.error(f"    Error: Could not find any of these files: {extensions} for {base_path}")
                 sys.exit(1)
         else:
-            missing = [str(base_path.with_suffix(ext)) for ext in extensions if not base_path.with_suffix(ext).exists()]
+            missing = [base_path + ext for ext in extensions if not Path(base_path + ext).exists()]
             if missing:
                 log.error(f"    Error: Required files missing: {', '.join(missing)}")
                 sys.exit(1)
@@ -191,16 +208,16 @@ class SNPReader:
             sys.exit(1)
 
         if not packed:
-            mean_val = tools.get_mean_unpacked(G)
+            mean_val = get_mean_unpacked(G)
             if mean_val >= 0.5:
                 log.info("    Flipping genotype encoding (unpacked).")
-                tools.flip_unpacked(G)
+                flip_unpacked(G)
         else:
             M_bytes = G.shape[0]
-            mean_val = tools.get_mean_packed(G.data_ptr(), M, N, M_bytes)
+            mean_val = get_mean_packed(G.data_ptr(), M, N, M_bytes)
             if mean_val >= 0.5:
                 log.info("    Flipping genotype encoding (packed).")
-                tools.flip_packed(G.data_ptr(), M, N, M_bytes)
+                flip_packed(G.data_ptr(), M, N, M_bytes)
 
         end = time.time()
         log.info(f"        Total time for reading={end - start:.3f}s")
