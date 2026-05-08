@@ -109,14 +109,6 @@ To leverage GPU acceleration (highly recommended for large datasets), use the `-
 > - For macOS users with Apple Silicon (M1/M2/M3/M4/M5), use `--device mps` to enable Metal Performance Shaders (MPS) acceleration. 
 > - Note that biobank-scale datasets are best handled on dedicated CUDA-capable GPUs due to high RAM requirements. 
 
-> [!TIP]
-> **Biobank-Scale Execution & High K Values**: For large-scale datasets (e.g., UK Biobank, All of Us) with high K values, we recommend the following parameter settings for optimal convergence and performance:
-> ```console
-> --patience_adam 5 \
-> --lr_decay 0.85 \
-> --lr 0.0075
-> ```
-
 ## Multi-K Sweep
 
 Instead of running ADAMIXTURE for a single K, you can automatically sweep over a range of K values using `--min_k` and `--max_k`. The data is loaded once, and each K is trained sequentially:
@@ -127,13 +119,11 @@ $ adamixture --min_k 2 --max_k 10 --data_path snps_data.bed --save_dir SAVE_PATH
 
 ## Cross-validation
 
-ADAMIXTURE includes an internal cross-validation (CV) procedure to help estimate the most appropriate number of ancestral populations ($K$). To enable it, use the `--cv` flag:
+Use `--cv` to estimate the optimal K by masking a fraction of genotype entries and measuring prediction error. → [Full documentation](docs/cross_validation.md)
 
 ```console
 $ adamixture -k 8 --cv 5 --data_path data.bed --save_dir out/ --name test
 ```
-
-When enabled, a fraction of the genotype entries is masked during training, and the prediction error (cross-validation error) for these masked entries is calculated. The $K$ with the lowest CV error, or the one where the error curve starts to flatten (the "elbow" point), is typically considered the most optimal.
 
 ## Plotting
 
@@ -189,37 +179,21 @@ RunC_K5    5    results/run3.Q
 
 ## Projection Mode
 
-The `adamixture-project` command estimates ancestry proportions for a **new set of samples** using a **pre-trained, fixed allele-frequency matrix P**. P is never updated — only Q is optimized. This is useful for placing new individuals onto an existing ancestry model without re-training.
-
-> [!NOTE]
-> The target genotype data must have **exactly the same SNPs** (same order, same number of rows) as were used when training the original P matrix.
+Estimate ancestry proportions for new samples using a pre-trained, fixed P matrix (Q-only optimisation). K is detected automatically from P. → [Full documentation](docs/projection.md)
 
 ```console
 $ adamixture-project \
     --data_path new_samples.bed \
     --p_path trained_model/results.8.P \
     --save_dir projection_out/ \
-    --name projected \
-    --k 8
+    --name projected
 ```
-
-Key arguments:
-
-| Argument | Description |
-|---|---|
-| `--data_path` | Path to target genotype data (BED, VCF or PGEN) |
-| `--p_path` | Path to pre-trained P matrix (M × K, whitespace-delimited) |
-| `--save_dir` | Output directory |
-| `--name` | Run name prefix for output files |
-| `--device` | Computation device: `cpu`, `cuda`, or `mps` (default: `cpu`) |
-
-The output is a single `.Q` file (one row per sample, K columns). All `--plot`, `--labels`, `--labels2`, `--labels3`, and `--colors` flags work identically to the main `adamixture` command.
 
 ---
 
 ## Supervised Mode
 
-The `adamixture-supervised` command uses **known population labels** for a subset of samples to anchor the model while estimating ancestry for all individuals. After each Adam-EM update, the Q rows of labeled samples are "snapped back" to a near-one-hot encoding corresponding to their assigned population. This forces the allele-frequency model (P) to be anchored by real reference genotype data.
+Anchor the model with known population labels for a subset of samples while estimating Q freely for unlabeled ones. Labels use the same format as `--labels` (population name or `-`). → [Full documentation](docs/supervised.md)
 
 ```console
 $ adamixture-supervised \
@@ -230,158 +204,36 @@ $ adamixture-supervised \
     -k 8
 ```
 
-#### Labels file format
-
-The `--labels` file uses the **same format as population labels for plotting**: one entry per line, one per sample, in the same order as the genotype data.
-
-```text
-European
-African
-Asian
--
-European
--
-Asian
-```
-
-- A population name → labeled sample (Q snapped to that ancestry after each update)
-- `-` → unlabeled sample (Q estimated freely)
-
-Population names are mapped to integers automatically in order of first appearance.
-
-#### Supervision level
-
-By default, supervision uses `--labels` (level 1). You can change this with `--level`:
-
-| `--level` | File used for supervision |
-|---|---|
-| `1` *(default)* | `--labels` |
-| `2` | `--labels2` |
-| `3` | `--labels3` |
-
-This lets you supervise at a coarser or finer grouping without duplicating files — the same label files serve both supervision and plotting.
-
-```console
-# Supervise using the coarser level-2 grouping
-$ adamixture-supervised --data_path data.bed \
-    --labels fine.txt --labels2 coarse.txt \
-    --level 2 -k 5 --save_dir out/ --name run
-```
-
-Key arguments:
-
-| Argument | Description |
-|---|---|
-| `--data_path` | Path to genotype data (BED, VCF or PGEN) |
-| `--labels` | Labels file (required). Population name or `-` per sample |
-| `--level` | Labels level to use for supervision: `1`, `2`, or `3` (default: `1`) |
-| `--save_dir` | Output directory |
-| `--name` | Run name prefix |
-| `-k` / `--k` | Number of ancestral populations K |
-| `--device` | Computation device: `cpu`, `cuda`, or `mps` (default: `cpu`) |
-| `--no_freqs` | Skip saving the P matrix |
-
-Outputs: a `.Q` file (all samples) and optionally a `.P` file. All `--plot`, `--labels`, `--labels2`, `--labels3`, and `--colors` flags are supported.
-
 ---
 
 ## Other options
 
-- `--lr` (float, default: `0.005`):  
-  Learning rate used by the Adam optimizer in the EM updates.
+All hyperparameters and flags can be explored with:
 
-- `--min_lr` (float, default: `1e-6`):  
-  Minimum learning rate used by the Adam optimizer in the EM updates.
+```console
+$ adamixture --help
+```
 
-- `--lr_decay` (float, default: `0.5`):  
-  Learning rate decay factor.
+Key optimizer arguments:
 
-- `--beta1` (float, default: `0.80`):  
-  Exponential decay rate for the first moment estimates in Adam.
-
-- `--beta2` (float, default: `0.88`):  
-  Exponential decay rate for the second moment estimates in Adam.
-
-- `--reg_adam` (float, default: `1e-8`):  
-  Numerical stability constant (epsilon) for the Adam optimizer.
-
-- `--patience_adam` (int, default: `2`):  
-  Patience for reducing the learning rate in Adam-EM.
-
-- `--tol_adam` (float, default: `0.1`):  
-  Tolerance for stopping the Adam-EM algorithm.
-
-- `--data_path` (str, required):  
-  Path to the genotype data (BED, VCF or PGEN).
-
-- `--save_dir` (str, required):  
-  Directory where the output files will be saved.
-
-- `--name` (str, required):  
-  Experiment/model name used as prefix for output files.
-
-- `--device` (str, default: `cpu`):  
-  Target hardware for computation. Choices: `cpu`, `gpu` (NVIDIA/CUDA), or `mps` (Apple Metal).
-
-- `-s` (int, default: `42`):  
-  Random number generator seed for reproducibility.
-
-- `-k` (int):  
-  Number of ancestral populations (clusters) to infer. Required if `--min_k`/`--max_k` are not specified.
-
-- `--min_k` (int):  
-  Minimum K for a multi-K sweep (inclusive). Must be used together with `--max_k`.
-
-- `--max_k` (int):  
-  Maximum K for a multi-K sweep (inclusive). Must be used together with `--min_k`.
-
-- `--cv` (int, default: `0`):  
-  Enable v-fold cross-validation on genotype entries. If specified without a value (e.g., `--cv`), it defaults to 5-fold CV.
-
-- `--plot` (args, optional):
-  Generate plot after training. Usage: `--plot [format] [resolution]`. e.g., `--plot pdf 300`.
-
-- `--labels` (str):
-  Path to population labels file (level 1 — finest grouping, one label per line). Used for sorting and grouping in plots.
-
-- `--labels2` (str):
-  Path to level-2 population grouping file (one label per sample). Displayed as bracket annotations below the level-1 tick marks in the output plot.
-
-- `--labels3` (str):
-  Path to level-3 population grouping file (one label per sample). Displayed as a second bracket annotation tier below level 2.
-
-- `--colors` (str):
-  Path to custom colors file (one color per line). Must match K (in `adamixture`) or max K (in `adamixture-plot`).
-
-- `--no_freqs` (flag):  
-  If set, the P (allele frequencies) matrix is not saved to disk. Only the Q (admixture proportions) file will be written.
-
-- `--max_iter` (int, default: `1500`):  
-  Maximum number of Adam-EM iterations.
-
-- `--check` (int, default: `5`):  
-  Frequency (in iterations) at which the log-likelihood is evaluated.
-
-- `--max_als` (int, default: `1000`):  
-  Maximum number of iterations for the ALS solver.
-
-- `--tol_als` (float, default: `1e-4`):  
-  Convergence tolerance for the ALS optimization.
-
-- `--power` (int, default: `5`):  
-  Number of power iterations used in randomized SVD.
-
-- `--tol_svd` (float, default: `1e-1`):  
-  Convergence tolerance for the SVD approximation.
-
-- `--chunk_size` (int, default: `4096`):  
-  Number of SNPs in chunk operations for SVD.
-
-- `-t` (int, default: `1`):  
-  Number of CPU threads used during execution.
+| Argument | Default | Description |
+|---|---|---|
+| `--lr` | `0.005` | Adam learning rate |
+| `--beta1` | `0.80` | Adam β₁ |
+| `--beta2` | `0.88` | Adam β₂ |
+| `--reg_adam` | `1e-8` | Adam ε (numerical stability) |
+| `--lr_decay` | `0.5` | Learning rate decay factor |
+| `--min_lr` | `1e-4` | Minimum learning rate |
+| `--patience_adam` | `3` | Checks without improvement before decaying lr |
+| `--tol_adam` | `0.1` | Convergence tolerance |
+| `--max_iter` | `10000` | Maximum Adam-EM iterations |
+| `--check` | `5` | Log-likelihood evaluation frequency |
+| `-t` | `1` | Number of CPU threads |
+| `-s` | `42` | Random seed |
+| `--chunk_size` | `4096` | Number of SNPs in chunk operations |
 
 
-## Troubleshooting
+## Troubleshooting and Tips
 
 ### CUDA issues
 If you get an error similar to the following when using the GPU:
@@ -392,6 +244,16 @@ Simply installing `nvcc` using conda or mamba should fix it:
 
 ```console
 $ conda install -c nvidia nvcc
+```
+
+### Biobank-Scale Execution & High K Values
+
+For large-scale datasets (e.g., UK Biobank, All of Us) or high K values, these parameter settings tend to give better convergence:
+
+```console
+--patience_adam 5 \
+--lr_decay 0.85 \
+--lr 0.0075
 ```
 
 ## License
