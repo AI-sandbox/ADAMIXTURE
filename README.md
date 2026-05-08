@@ -139,8 +139,6 @@ $ adamixture-project \
     --name projected
 ```
 
----
-
 ## Supervised Mode
 
 Anchor the model with known population labels for a subset of samples while estimating Q freely for unlabeled ones. Labels use the same format as `--labels` (population name or `-`). → [Full documentation](docs/supervised.md)
@@ -153,8 +151,6 @@ $ adamixture-supervised \
     --name supervised_run \
     -k 8
 ```
-
----
 
 ## Other options
 
