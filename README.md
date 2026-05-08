@@ -151,7 +151,9 @@ Arguments for `--plot` are optional:
 
 #### Advanced Plotting Arguments
 The following flags are available for both `adamixture --plot` and `adamixture-plot`:
-- **Population Labels**: Use `--labels` to provide a file with one population name per sample. Samples will be grouped by population and then sorted by ancestry.
+- **Population Labels (Level 1)**: Use `--labels` to provide a file with one population name per sample. Samples will be grouped by population and sorted by ancestry within each group.
+- **Hierarchical Grouping (Level 2)**: Use `--labels2` to provide a file with one coarser group label per sample (e.g., super-population or region). A bracket annotation tier is drawn under the level-1 tick marks.
+- **Hierarchical Grouping (Level 3)**: Use `--labels3` to provide a file with one even coarser label per sample (e.g., continent). A second bracket annotation tier is drawn below the level-2 tier.
 - **Custom Colors**: Use `--colors` to provide a file with hex or named colors (one per line). The file must contain at least as many colors as the highest K value in your result.
 
 ### Multi-run Plotting
@@ -161,8 +163,16 @@ For comparing multiple runs or different K values (similar to the `pong` tool), 
 > This command is a standalone post-processing tool. It **does not retrain** the models; it only visualizes and aligns existing `.Q` matrices provided in a **filemap**.
 
 ```console
-$ adamixture-plot --filemap project.filemap --labels populations.txt --colors my_palette.txt --output comparison.pdf
+$ adamixture-plot --filemap project.filemap --labels populations.txt --labels2 regions.txt --labels3 continents.txt --colors my_palette.txt --output comparison.pdf
 ```
+
+The `--labels`, `--labels2`, and `--labels3` flags accept files with **one label per line, one line per sample**, matching the order of samples in the Q matrices. When multiple levels are provided:
+- **`--labels`** (level 1): Finest grouping. Used to draw vertical boundaries and x-axis tick marks between populations.
+- **`--labels2`** (level 2): Intermediate grouping (e.g., super-population). Drawn as a bracket annotation tier below the tick marks.
+- **`--labels3`** (level 3): Coarsest grouping (e.g., continent). Drawn as a second bracket tier below level 2.
+
+> [!TIP]
+> All three label files must have the same number of lines as there are samples in the Q matrices. You can use any or all levels independently — levels 2 and 3 are only shown if the corresponding file is provided.
 
 #### Filemap Format
 A filemap is a three-column, tab-delimited file. Each line describes a single Q matrix:
@@ -176,6 +186,104 @@ RunA_K3    3    results/run1.Q
 RunB_K5    5    results/run2.Q
 RunC_K5    5    results/run3.Q
 ```
+
+## Projection Mode
+
+The `adamixture-project` command estimates ancestry proportions for a **new set of samples** using a **pre-trained, fixed allele-frequency matrix P**. P is never updated — only Q is optimized. This is useful for placing new individuals onto an existing ancestry model without re-training.
+
+> [!NOTE]
+> The target genotype data must have **exactly the same SNPs** (same order, same number of rows) as were used when training the original P matrix.
+
+```console
+$ adamixture-project \
+    --data_path new_samples.bed \
+    --p_path trained_model/results.8.P \
+    --save_dir projection_out/ \
+    --name projected \
+    --k 8
+```
+
+Key arguments:
+
+| Argument | Description |
+|---|---|
+| `--data_path` | Path to target genotype data (BED, VCF or PGEN) |
+| `--p_path` | Path to pre-trained P matrix (M × K, whitespace-delimited) |
+| `--save_dir` | Output directory |
+| `--name` | Run name prefix for output files |
+| `--device` | Computation device: `cpu`, `cuda`, or `mps` (default: `cpu`) |
+
+The output is a single `.Q` file (one row per sample, K columns). All `--plot`, `--labels`, `--labels2`, `--labels3`, and `--colors` flags work identically to the main `adamixture` command.
+
+---
+
+## Supervised Mode
+
+The `adamixture-supervised` command uses **known population labels** for a subset of samples to anchor the model while estimating ancestry for all individuals. After each Adam-EM update, the Q rows of labeled samples are "snapped back" to a near-one-hot encoding corresponding to their assigned population. This forces the allele-frequency model (P) to be anchored by real reference genotype data.
+
+```console
+$ adamixture-supervised \
+    --data_path all_samples.bed \
+    --labels labels.txt \
+    --save_dir supervised_out/ \
+    --name supervised_run \
+    -k 8
+```
+
+#### Labels file format
+
+The `--labels` file uses the **same format as population labels for plotting**: one entry per line, one per sample, in the same order as the genotype data.
+
+```text
+European
+African
+Asian
+-
+European
+-
+Asian
+```
+
+- A population name → labeled sample (Q snapped to that ancestry after each update)
+- `-` → unlabeled sample (Q estimated freely)
+
+Population names are mapped to integers automatically in order of first appearance.
+
+#### Supervision level
+
+By default, supervision uses `--labels` (level 1). You can change this with `--level`:
+
+| `--level` | File used for supervision |
+|---|---|
+| `1` *(default)* | `--labels` |
+| `2` | `--labels2` |
+| `3` | `--labels3` |
+
+This lets you supervise at a coarser or finer grouping without duplicating files — the same label files serve both supervision and plotting.
+
+```console
+# Supervise using the coarser level-2 grouping
+$ adamixture-supervised --data_path data.bed \
+    --labels fine.txt --labels2 coarse.txt \
+    --level 2 -k 5 --save_dir out/ --name run
+```
+
+Key arguments:
+
+| Argument | Description |
+|---|---|
+| `--data_path` | Path to genotype data (BED, VCF or PGEN) |
+| `--labels` | Labels file (required). Population name or `-` per sample |
+| `--level` | Labels level to use for supervision: `1`, `2`, or `3` (default: `1`) |
+| `--save_dir` | Output directory |
+| `--name` | Run name prefix |
+| `-k` / `--k` | Number of ancestral populations K |
+| `--device` | Computation device: `cpu`, `cuda`, or `mps` (default: `cpu`) |
+| `--no_freqs` | Skip saving the P matrix |
+
+Outputs: a `.Q` file (all samples) and optionally a `.P` file. All `--plot`, `--labels`, `--labels2`, `--labels3`, and `--colors` flags are supported.
+
+---
 
 ## Other options
 
@@ -234,7 +342,13 @@ RunC_K5    5    results/run3.Q
   Generate plot after training. Usage: `--plot [format] [resolution]`. e.g., `--plot pdf 300`.
 
 - `--labels` (str):
-  Path to population labels file (one label per line). Used for sorting and grouping in plots.
+  Path to population labels file (level 1 — finest grouping, one label per line). Used for sorting and grouping in plots.
+
+- `--labels2` (str):
+  Path to level-2 population grouping file (one label per sample). Displayed as bracket annotations below the level-1 tick marks in the output plot.
+
+- `--labels3` (str):
+  Path to level-3 population grouping file (one label per sample). Displayed as a second bracket annotation tier below level 2.
 
 - `--colors` (str):
   Path to custom colors file (one color per line). Must match K (in `adamixture`) or max K (in `adamixture-plot`).

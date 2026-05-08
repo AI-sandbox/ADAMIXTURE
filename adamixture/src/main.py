@@ -75,6 +75,16 @@ def main(args: argparse.Namespace, t0: float) -> int:
                     with open(args.labels) as fh:
                         labels = [line.strip() for line in fh if line.strip()]
 
+                labels2 = None
+                if hasattr(args, 'labels2') and args.labels2 and Path(args.labels2).exists():
+                    with open(args.labels2) as fh:
+                        labels2 = [line.strip() for line in fh if line.strip()]
+
+                labels3 = None
+                if hasattr(args, 'labels3') and args.labels3 and Path(args.labels3).exists():
+                    with open(args.labels3) as fh:
+                        labels3 = [line.strip() for line in fh if line.strip()]
+
                 colors = None
                 if args.colors and Path(args.colors).exists():
                     with open(args.colors) as fh:
@@ -86,7 +96,7 @@ def main(args: argparse.Namespace, t0: float) -> int:
                 plot_path = Path(args.save_dir) / f"{args.name}.{K}.{args.plot_format}"
                 log.info(f"    Generating plot: {plot_path}")
                 plot_q_matrix(Q_np, plot_path, dpi=args.plot_dpi, format=args.plot_format,
-                              labels=labels, custom_colors=colors)
+                              labels=labels, labels2=labels2, labels3=labels3, custom_colors=colors)
 
             if args.cv:
                 trained[K] = (P, Q)

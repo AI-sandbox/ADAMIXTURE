@@ -61,7 +61,9 @@ def parse_args(argv: list[str]) -> configargparse.Namespace:
     parser.add_argument('--cv', nargs='?', const=5, default=0, type=int, help='Enable v-fold cross-validation on genotype entries (default: 5).')
 
     parser.add_argument('--plot', nargs='*', help='Generate plot of the Q matrix after training (Optional: [format] [resolution]) (default: png 300).')
-    parser.add_argument('--labels', type=str, help='Path to population labels file (one label per sample).')
+    parser.add_argument('--labels', type=str, help='Path to population labels file (level 1, one label per sample).')
+    parser.add_argument('--labels2', type=str, help='Path to level-2 population grouping file (one label per sample).')
+    parser.add_argument('--labels3', type=str, help='Path to level-3 population grouping file (one label per sample).')
     parser.add_argument('--colors', type=str, help='Path to custom colors file (one color per line).')
 
     args = parser.parse_args(argv)
