@@ -41,12 +41,6 @@ $ uv pip install adamixture
 ```
 
 
-> [!IMPORTANT]
-> **macOS Users**: ADAMIXTURE requires OpenMP for parallel processing. You **must** install `libomp` (e.g., via Homebrew) before installing the package, otherwise the compilation will fail:
-> ```console
-> $ brew install libomp
-> ```
-
 ## Installation Guide
 
 The package can be easily installed in at most a few minutes using `pip` (make sure to add the `--upgrade` flag if updating the version):

@@ -1,5 +1,13 @@
 # Troubleshooting and Tips
 
+## macOS: missing `libomp`
+
+ADAMIXTURE requires OpenMP for parallel processing. On macOS you **must** install `libomp` (e.g., via Homebrew) **before** installing the package, otherwise compilation will fail:
+
+```console
+$ brew install libomp
+```
+
 ## CUDA issues
 
 If you get an error similar to the following when using the GPU:
