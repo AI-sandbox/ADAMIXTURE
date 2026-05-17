@@ -118,7 +118,7 @@ def main(args: argparse.Namespace, t0: float) -> int:
         if hasattr(args, 'plot_single') and args.plot_single is not None and len(k_values) > 1:
             log.info("\n    Generating combined single plot for all K sweep values...")
             import matplotlib.pyplot as plt
-            from .plot import _draw_brackets
+            from .plot import _draw_brackets, _MAX_LABEL_LEN
 
             # Load labels if available
             labels = None
@@ -141,9 +141,33 @@ def main(args: argparse.Namespace, t0: float) -> int:
                 with open(args.colors) as fh:
                     colors_list = [line.strip() for line in fh if line.strip()]
 
+            # Validate hierarchical consistency: each lower-level label must belong to
+            # exactly one higher-level group (e.g. "Barcelona" → only "Spain", not also "France").
+            def _check_hierarchy(child_lbls, parent_lbls, child_name, parent_name):
+                mapping: dict = {}
+                conflicts: list[str] = []
+                for child, parent in zip(child_lbls, parent_lbls):
+                    if child in mapping:
+                        if mapping[child] != parent:
+                            conflicts.append(child)
+                    else:
+                        mapping[child] = parent
+                if conflicts:
+                    log.warning(
+                        f"    Warning: Some {child_name} labels appear in more than one "
+                        f"{parent_name} group. Ignoring {parent_name}."
+                    )
+                    return False
+                return True
+
+            if labels is not None and labels2 is not None:
+                if not _check_hierarchy(labels, labels2, '--labels', '--labels2'):
+                    labels2 = None
+            if labels2 is not None and labels3 is not None:
+                if not _check_hierarchy(labels2, labels3, '--labels2', '--labels3'):
+                    labels3 = None
+
             num_runs = len(k_values)
-            fig, axes = plt.subplots(nrows=num_runs, ncols=1, figsize=(15, 3 * num_runs), squeeze=False)
-            axes = axes.flatten()
 
             first_K = k_values[0]
             first_Q = trained_plot[first_K][1]
@@ -175,11 +199,17 @@ def main(args: argparse.Namespace, t0: float) -> int:
                     if lbl != current_label:
                         pop_boundaries.append(idx)
                         pop_tick_positions.append((start_idx + idx) / 2)
-                        pop_tick_labels.append(str(current_label).title())
+                        tick_text = str(current_label).title()
+                        if len(tick_text) > _MAX_LABEL_LEN:
+                            tick_text = tick_text[:_MAX_LABEL_LEN - 1] + '…'
+                        pop_tick_labels.append(tick_text)
                         start_idx = idx
                         current_label = lbl
+                tick_text = str(current_label).title()
+                if len(tick_text) > _MAX_LABEL_LEN:
+                    tick_text = tick_text[:_MAX_LABEL_LEN - 1] + '…'
                 pop_tick_positions.append((start_idx + n_samples_global) / 2)
-                pop_tick_labels.append(str(current_label).title())
+                pop_tick_labels.append(tick_text)
 
             def _build_brackets_list(sorted_lbls):
                 if sorted_lbls is None:
@@ -198,18 +228,24 @@ def main(args: argparse.Namespace, t0: float) -> int:
             i2_items = _build_brackets_list(labels2_sorted)
             i3_items = _build_brackets_list(labels3_sorted)
 
-            max_l1_len = max((len(str(l)) for l in pop_tick_labels), default=0)
-            max_l2_len = max((len(item['name']) for item in i2_items), default=0)
-            max_l3_len = max((len(item['name']) for item in i3_items), default=0)
+            max_l1_len = min(max((len(str(l)) for l in pop_tick_labels), default=0), _MAX_LABEL_LEN)
+            max_l2_len = min(max((len(item['name']) for item in i2_items), default=0), _MAX_LABEL_LEN)
+            max_l3_len = min(max((len(item['name']) for item in i3_items), default=0), _MAX_LABEL_LEN)
 
-            bottom_margin = 0.15
-            if labels_sorted:
-                bottom_margin += max_l1_len * 0.012
-            if i2_items:
-                bottom_margin += 0.15 + max_l2_len * 0.012
-            if i3_items:
-                bottom_margin += 0.15 + max_l3_len * 0.012
-            bottom_margin = max(0.15, min(bottom_margin, 0.80))
+            plot_height_in = 2.5 * num_runs
+            l1_height_in = 0.5 + max_l1_len * 0.08 if labels_sorted else 0.0
+            l2_height_in = 0.8 + max_l2_len * 0.08 if i2_items else 0.0
+            l3_height_in = 0.8 + max_l3_len * 0.08 if i3_items else 0.0
+
+            total_labels_height_in = l1_height_in + l2_height_in + l3_height_in
+            if total_labels_height_in == 0:
+                total_labels_height_in = 0.6
+
+            fig_height = plot_height_in + total_labels_height_in
+            bottom_margin = total_labels_height_in / fig_height
+
+            fig, axes = plt.subplots(nrows=num_runs, ncols=1, figsize=(15, fig_height), squeeze=False)
+            axes = axes.flatten()
 
             for i, K_val in enumerate(k_values):
                 ax = axes[i]
@@ -245,8 +281,18 @@ def main(args: argparse.Namespace, t0: float) -> int:
                     ax.set_xticklabels(pop_tick_labels, rotation=90, ha='center', fontsize=6)
                     ax.tick_params(axis='x', which='both', length=0, pad=5)
 
-                    y_i2 = -0.3 - max_l1_len * 0.015
-                    y_i3 = y_i2 - 0.15 - max_l2_len * 0.015
+                    _CHAR_INCH = 0.08
+                    _GAP_INCH = 0.35
+                    _TICK_PAD_INCH = 0.15
+                    _SUBPLOT_HEIGHT = 2.5
+
+                    y_l1_bottom_in = -(_TICK_PAD_INCH + max_l1_len * _CHAR_INCH)
+                    y_i2_in = y_l1_bottom_in - _GAP_INCH
+                    y_i2 = y_i2_in / _SUBPLOT_HEIGHT
+
+                    y_l2_bottom_in = y_i2_in - 0.15 - max_l2_len * _CHAR_INCH
+                    y_i3_in = y_l2_bottom_in - _GAP_INCH
+                    y_i3 = y_i3_in / _SUBPLOT_HEIGHT
 
                     if i2_items:
                         _draw_brackets(ax, i2_items, y_bracket=y_i2, fontsize=6)

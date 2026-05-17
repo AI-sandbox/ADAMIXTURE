@@ -14,6 +14,8 @@ from .entry import print_adamixture_banner
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
 log = logging.getLogger(__name__)
 
+_MAX_LABEL_LEN = 25
+
 
 def parse_filemap(filemap_path: str) -> list[dict]:
     """
@@ -114,7 +116,10 @@ def _draw_brackets(ax, items: list[dict], y_bracket: float, fontsize: int = 6) -
         ax.plot([x1_br, x1_br], [y_bracket, y_bracket + 0.08],
                 color='#222222', lw=0.8, transform=trans, clip_on=False)
         # Label
-        ax.text((x0 + x1) / 2, y_text, str(item['name']).title(),
+        label_text = str(item['name']).title()
+        if len(label_text) > _MAX_LABEL_LEN:
+            label_text = label_text[:_MAX_LABEL_LEN - 1] + '…'
+        ax.text((x0 + x1) / 2, y_text, label_text,
                 ha='center', va='top', rotation=90, fontsize=fontsize,
                 color='#222222', transform=trans, clip_on=False)
 
@@ -175,6 +180,32 @@ def main() -> None:
                 log.error(f"    Error: {name} has {len(lbl)} entries but expected {ref_len}.")
                 sys.exit(1)
 
+    # Validate hierarchical consistency: each lower-level label must belong to
+    # exactly one higher-level group (e.g. "Barcelona" → only "Spain", not also "France").
+    def _check_hierarchy(child_lbls, parent_lbls, child_name, parent_name):
+        mapping: dict = {}
+        conflicts: list[str] = []
+        for child, parent in zip(child_lbls, parent_lbls):
+            if child in mapping:
+                if mapping[child] != parent:
+                    conflicts.append(child)
+            else:
+                mapping[child] = parent
+        if conflicts:
+            log.warning(
+                f"    Warning: Some {child_name} labels appear in more than one "
+                f"{parent_name} group. Ignoring {parent_name}."
+            )
+            return False
+        return True
+
+    if labels is not None and labels2 is not None:
+        if not _check_hierarchy(labels, labels2, '--labels', '--labels2'):
+            labels2 = None
+    if labels2 is not None and labels3 is not None:
+        if not _check_hierarchy(labels2, labels3, '--labels2', '--labels3'):
+            labels3 = None
+
     # Load all Q matrices
     all_qs: list[dict] = []
     for run in runs_info:
@@ -202,8 +233,7 @@ def main() -> None:
         perm = align_clusters_greedy(ref_Q, curr_Q)
         all_qs[i]['Q'] = curr_Q[:, perm]
 
-    fig, axes = plt.subplots(nrows=num_runs, ncols=1, figsize=(15, 3 * num_runs), squeeze=False)
-    axes = axes.flatten()
+
 
     # ── Pre-compute the sorted order once (from the first run / first Q) ──────
     # All runs share the same samples so we derive a single sort order.
@@ -239,11 +269,17 @@ def main() -> None:
             if lbl != current_label:
                 pop_boundaries.append(idx)
                 pop_tick_positions.append((start_idx + idx) / 2)
-                pop_tick_labels.append(str(current_label).title())
+                tick_text = str(current_label).title()
+                if len(tick_text) > _MAX_LABEL_LEN:
+                    tick_text = tick_text[:_MAX_LABEL_LEN - 1] + '…'
+                pop_tick_labels.append(tick_text)
                 start_idx = idx
                 current_label = lbl
+        tick_text = str(current_label).title()
+        if len(tick_text) > _MAX_LABEL_LEN:
+            tick_text = tick_text[:_MAX_LABEL_LEN - 1] + '…'
         pop_tick_positions.append((start_idx + n_samples_global) / 2)
-        pop_tick_labels.append(str(current_label).title())
+        pop_tick_labels.append(tick_text)
 
     # Build bracket items for level 2
     i2_items: list[dict] = []
@@ -269,19 +305,27 @@ def main() -> None:
                 current_name = name
         i3_items.append({'name': current_name, 'start': seg_start, 'end': n_samples_global})
 
-    # ── Dynamic bottom margin based on longest labels ─────────────────────────
-    max_l1_len = max((len(str(l)) for l in pop_tick_labels), default=0)
-    max_l2_len = max((len(item['name']) for item in i2_items), default=0)
-    max_l3_len = max((len(item['name']) for item in i3_items), default=0)
+    # ── Dynamic subplots height and bottom margin ─────────────────────────────
+    # The height of each core subplot (ax) remains exactly 2.5 inches.
+    # We dynamically calculate the extra height needed for each label level in inches.
+    max_l1_len = min(max((len(str(l)) for l in pop_tick_labels), default=0), _MAX_LABEL_LEN)
+    max_l2_len = min(max((len(item['name']) for item in i2_items), default=0), _MAX_LABEL_LEN)
+    max_l3_len = min(max((len(item['name']) for item in i3_items), default=0), _MAX_LABEL_LEN)
 
-    bottom_margin = 0.15
-    if labels_sorted:
-        bottom_margin += max_l1_len * 0.012
-    if i2_items:
-        bottom_margin += 0.15 + max_l2_len * 0.012
-    if i3_items:
-        bottom_margin += 0.15 + max_l3_len * 0.012
-    bottom_margin = max(0.15, min(bottom_margin, 0.80))
+    plot_height_in = 2.5 * num_runs
+    l1_height_in = 0.5 + max_l1_len * 0.08 if labels_sorted else 0.0
+    l2_height_in = 0.8 + max_l2_len * 0.08 if i2_items else 0.0
+    l3_height_in = 0.8 + max_l3_len * 0.08 if i3_items else 0.0
+    
+    total_labels_height_in = l1_height_in + l2_height_in + l3_height_in
+    if total_labels_height_in == 0:
+        total_labels_height_in = 0.6
+        
+    fig_height = plot_height_in + total_labels_height_in
+    bottom_margin = total_labels_height_in / fig_height
+
+    fig, axes = plt.subplots(nrows=num_runs, ncols=1, figsize=(15, fig_height), squeeze=False)
+    axes = axes.flatten()
 
     # ── Draw each subplot ─────────────────────────────────────────────────────
     for i, run in enumerate(all_qs):
@@ -319,9 +363,20 @@ def main() -> None:
             ax.set_xticklabels(pop_tick_labels, rotation=90, ha='center', fontsize=6)
             ax.tick_params(axis='x', which='both', length=0, pad=5)
 
-            # Dynamic y positions for bracket tiers
-            y_i2 = -0.3 - max_l1_len * 0.015
-            y_i3 = y_i2 - 0.15 - max_l2_len * 0.015
+            # ── Bracket positions: convert physical inches to axes coordinates ───
+            # 1.0 axes unit = subplot_height_in (2.5) inches.
+            _CHAR_INCH = 0.08
+            _GAP_INCH = 0.35
+            _TICK_PAD_INCH = 0.15
+            _SUBPLOT_HEIGHT = 2.5
+
+            y_l1_bottom_in = -(_TICK_PAD_INCH + max_l1_len * _CHAR_INCH)
+            y_i2_in = y_l1_bottom_in - _GAP_INCH
+            y_i2 = y_i2_in / _SUBPLOT_HEIGHT
+
+            y_l2_bottom_in = y_i2_in - 0.15 - max_l2_len * _CHAR_INCH
+            y_i3_in = y_l2_bottom_in - _GAP_INCH
+            y_i3 = y_i3_in / _SUBPLOT_HEIGHT
 
             if i2_items:
                 _draw_brackets(ax, i2_items, y_bracket=y_i2, fontsize=6)

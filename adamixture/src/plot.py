@@ -8,6 +8,8 @@ import numpy as np
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
 log = logging.getLogger(__name__)
 
+_MAX_LABEL_LEN = 25
+
 
 def _draw_brackets(ax, items: list[dict], y_bracket: float, fontsize: int = 6) -> None:
     """
@@ -35,7 +37,10 @@ def _draw_brackets(ax, items: list[dict], y_bracket: float, fontsize: int = 6) -
                 color='#222222', lw=0.8, transform=trans, clip_on=False)
         ax.plot([x1_br, x1_br], [y_bracket, y_bracket + 0.08],
                 color='#222222', lw=0.8, transform=trans, clip_on=False)
-        ax.text((x0 + x1) / 2, y_text, str(item['name']).title(),
+        label_text = str(item['name']).title()
+        if len(label_text) > _MAX_LABEL_LEN:
+            label_text = label_text[:_MAX_LABEL_LEN - 1] + '…'
+        ax.text((x0 + x1) / 2, y_text, label_text,
                 ha='center', va='top', rotation=90, fontsize=fontsize,
                 color='#222222', transform=trans, clip_on=False)
 
@@ -90,6 +95,32 @@ def plot_q_matrix(
             else:
                 labels3 = None
 
+    # Validate hierarchical consistency: each lower-level label must belong to
+    # exactly one higher-level group (e.g. "Barcelona" → only "Spain", not also "France").
+    def _check_hierarchy(child_lbls, parent_lbls, child_name, parent_name):
+        mapping: dict = {}
+        conflicts: list[str] = []
+        for child, parent in zip(child_lbls, parent_lbls):
+            if child in mapping:
+                if mapping[child] != parent:
+                    conflicts.append(child)
+            else:
+                mapping[child] = parent
+        if conflicts:
+            log.warning(
+                f"    Warning: Some {child_name} labels appear in more than one "
+                f"{parent_name} group. Ignoring {parent_name}."
+            )
+            return False
+        return True
+
+    if labels is not None and labels2 is not None:
+        if not _check_hierarchy(labels, labels2, '--labels', '--labels2'):
+            labels2 = None
+    if labels2 is not None and labels3 is not None:
+        if not _check_hierarchy(labels2, labels3, '--labels2', '--labels3'):
+            labels3 = None
+
     # ── Sort samples ──────────────────────────────────────────────────────────
     if labels is not None:
         if labels3 is not None and labels2 is not None:
@@ -119,11 +150,17 @@ def plot_q_matrix(
             if lbl != current_label:
                 pop_boundaries.append(idx)
                 pop_tick_positions.append((start_idx + idx) / 2)
-                pop_tick_labels.append(str(current_label).title())
+                tick_text = str(current_label).title()
+                if len(tick_text) > _MAX_LABEL_LEN:
+                    tick_text = tick_text[:_MAX_LABEL_LEN - 1] + '…'
+                pop_tick_labels.append(tick_text)
                 start_idx = idx
                 current_label = lbl
+        tick_text = str(current_label).title()
+        if len(tick_text) > _MAX_LABEL_LEN:
+            tick_text = tick_text[:_MAX_LABEL_LEN - 1] + '…'
         pop_tick_positions.append((start_idx + n_samples) / 2)
-        pop_tick_labels.append(str(current_label).title())
+        pop_tick_labels.append(tick_text)
 
     # ── Build bracket items for levels 2 and 3 ───────────────────────────────
     def _build_bracket_items(sorted_lbl_list: list[str]) -> list[dict]:
@@ -141,22 +178,27 @@ def plot_q_matrix(
     i2_items = _build_bracket_items(labels2_sorted) if labels2_sorted is not None else []
     i3_items = _build_bracket_items(labels3_sorted) if labels3_sorted is not None else []
 
-    # ── Dynamic bottom margin ─────────────────────────────────────────────────
-    max_l1_len = max((len(str(l)) for l in pop_tick_labels), default=0)
-    max_l2_len = max((len(item['name']) for item in i2_items), default=0)
-    max_l3_len = max((len(item['name']) for item in i3_items), default=0)
+    # ── Dynamic figure height and bottom margin ───────────────────────────────
+    # The height of the core bar plot area (ax) remains exactly 3.2 inches.
+    # We dynamically calculate the extra height needed for each label level in inches.
+    max_l1_len = min(max((len(str(l)) for l in pop_tick_labels), default=0), _MAX_LABEL_LEN)
+    max_l2_len = min(max((len(item['name']) for item in i2_items), default=0), _MAX_LABEL_LEN)
+    max_l3_len = min(max((len(item['name']) for item in i3_items), default=0), _MAX_LABEL_LEN)
 
-    bottom_margin = 0.15
-    if labels_sorted:
-        bottom_margin += max_l1_len * 0.012
-    if i2_items:
-        bottom_margin += 0.15 + max_l2_len * 0.012
-    if i3_items:
-        bottom_margin += 0.15 + max_l3_len * 0.012
-    bottom_margin = max(0.15, min(bottom_margin, 0.80))
+    plot_height_in = 3.2
+    l1_height_in = 0.5 + max_l1_len * 0.08 if labels_sorted else 0.0
+    l2_height_in = 0.8 + max_l2_len * 0.08 if i2_items else 0.0
+    l3_height_in = 0.8 + max_l3_len * 0.08 if i3_items else 0.0
+    
+    total_labels_height_in = l1_height_in + l2_height_in + l3_height_in
+    if total_labels_height_in == 0:
+        total_labels_height_in = 0.6
+        
+    fig_height = plot_height_in + total_labels_height_in
+    bottom_margin = total_labels_height_in / fig_height
 
     # ── Plot ──────────────────────────────────────────────────────────────────
-    fig, ax = plt.subplots(figsize=(15, 5))
+    fig, ax = plt.subplots(figsize=(15, fig_height))
 
     Q_cum = np.cumsum(Q_sorted, axis=1)
     x = np.arange(n_samples)
@@ -186,8 +228,19 @@ def plot_q_matrix(
         ax.set_xticklabels(pop_tick_labels, rotation=90, ha='center', fontsize=6)
         ax.tick_params(axis='x', which='both', length=0, pad=5)
 
-        y_i2 = -0.3 - max_l1_len * 0.015
-        y_i3 = y_i2 - 0.15 - max_l2_len * 0.015
+        # ── Bracket positions: convert physical inches to axes coordinates ───
+        # 1.0 axes unit = plot_height_in (3.2) inches.
+        _CHAR_INCH = 0.08
+        _GAP_INCH = 0.35
+        _TICK_PAD_INCH = 0.15
+
+        y_l1_bottom_in = -(_TICK_PAD_INCH + max_l1_len * _CHAR_INCH)
+        y_i2_in = y_l1_bottom_in - _GAP_INCH
+        y_i2 = y_i2_in / plot_height_in
+
+        y_l2_bottom_in = y_i2_in - 0.15 - max_l2_len * _CHAR_INCH
+        y_i3_in = y_l2_bottom_in - _GAP_INCH
+        y_i3 = y_i3_in / plot_height_in
 
         if i2_items:
             _draw_brackets(ax, i2_items, y_bracket=y_i2, fontsize=6)

@@ -325,14 +325,17 @@ def main() -> None:
     if args.plot is not None:
         from .src.plot import plot_q_matrix
 
-        def _load(path_str: str) -> list[str] | None:
+        def _load(path_str: str, flag_name: str) -> list[str] | None:
             p = Path(path_str)
-            return _parse_labels_file(p) if p.exists() else None
+            if not p.exists():
+                log.warning(f"    Warning: File specified in {flag_name} not found: {path_str}")
+                return None
+            return _parse_labels_file(p)
 
-        labels  = _load(args.labels)
-        labels2 = _load(args.labels2) if args.labels2 else None
-        labels3 = _load(args.labels3) if args.labels3 else None
-        colors  = _load(args.colors)  if args.colors  else None
+        labels  = _load(args.labels, "--labels")
+        labels2 = _load(args.labels2, "--labels2") if args.labels2 else None
+        labels3 = _load(args.labels3, "--labels3") if args.labels3 else None
+        colors  = _load(args.colors, "--colors") if args.colors else None
 
         plot_path = out_path / f"{args.name}.{K}.{args.plot_format}"
         log.info(f"    Generating plot: {plot_path}")
