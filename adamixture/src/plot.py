@@ -176,7 +176,6 @@ def plot_q_matrix(
     ax.set_xlim(0, n_samples)
     ax.set_ylim(0, 1)
     ax.set_ylabel("Ancestry Proportions")
-    ax.set_title(f"ADAMIXTURE (K={K})")
 
     # Draw level-1 boundaries and tick labels
     for boundary in pop_boundaries:

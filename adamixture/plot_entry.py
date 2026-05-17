@@ -145,8 +145,9 @@ def main() -> None:
     parser.add_argument('--labels2', help='Path to level-2 population grouping file (one per sample)')
     parser.add_argument('--labels3', help='Path to level-3 population grouping file (one per sample)')
     parser.add_argument('-c', '--colors', help='Path to custom colors file (one color per line)')
-    parser.add_argument('-o', '--output', default='adamixture_plots.png', help='Output file name')
-    parser.add_argument('--dpi', type=int, default=300, help='DPI for the output plot')
+    parser.add_argument('-s', '--save_dir', default='.', help='Directory to save the plot (default: current directory).')
+    parser.add_argument('-n', '--name', default='adamixture_plots', help='Output base filename (default: adamixture_plots).')
+    parser.add_argument('--resolution', '--dpi', type=int, default=300, dest='dpi', help='DPI/resolution for the output plot')
     parser.add_argument('--format', type=str, choices=['png', 'pdf', 'jpg'], default='png', help='Output format')
 
     args = parser.parse_args()
@@ -309,7 +310,7 @@ def main() -> None:
 
         ax.set_xlim(0, n_samples)
         ax.set_ylim(0, 1)
-        ax.set_ylabel(f"{run['id']}\n(K={K})", rotation=0, ha='right', va='center', labelpad=10)
+        ax.set_ylabel(f"K={K}", rotation=0, ha='right', va='center', labelpad=10)
 
         is_bottom = (i == num_runs - 1)
 
@@ -334,9 +335,7 @@ def main() -> None:
 
     plt.subplots_adjust(bottom=bottom_margin, hspace=0.25)
 
-    output_path = Path(args.output)
-    if output_path.suffix != f".{args.format}":
-        output_path = output_path.with_suffix(f".{args.format}")
+    output_path = Path(args.save_dir) / f"{args.name}.{args.format}"
 
     fig.savefig(output_path, dpi=args.dpi, format=args.format, bbox_inches='tight')
     log.info(f"    Multi-run plot saved to: {output_path}")

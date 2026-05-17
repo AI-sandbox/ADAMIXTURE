@@ -259,7 +259,7 @@ def main(args: argparse.Namespace, t0: float) -> int:
                     ax.set_xlabel("Samples")
 
             plt.subplots_adjust(bottom=bottom_margin, hspace=0.25)
-            fig.suptitle(f"ADAMIXTURE (K={k_values[0]} to {k_values[-1]})", fontsize=12, y=0.98)
+            fig.suptitle(f"ADAMIXTURE (K={k_values[0]} to K={k_values[-1]})", fontsize=12, y=0.95)
 
             single_plot_path = Path(args.save_dir) / f"{args.name}.{k_values[0]}_{k_values[-1]}.{args.plot_format}"
             fig.savefig(single_plot_path, dpi=args.plot_dpi, format=args.plot_format, bbox_inches='tight')

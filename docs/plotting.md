@@ -41,7 +41,7 @@ When training across a sweep of $K$ values using `--min_k` and `--max_k`, you ca
   $ adamixture --min_k 5 --max_k 8 --data_path data.bed --save_dir out/ --name test --plot_single png 300
   ```
 
-## Multi-run Plotting
+## Plot After Training
 
 For comparing multiple runs or different K values (similar to the `pong` tool) using existing results, use the `adamixture-plot` command.
 
@@ -55,7 +55,9 @@ $ adamixture-plot \
     --labels2 regions.txt \
     --labels3 continents.txt \
     --colors my_palette.txt \
-    --output comparison.pdf
+    --save_dir . \
+    --name comparison \
+    --format pdf
 ```
 
 The `--labels`, `--labels2`, and `--labels3` flags accept files with **one label per line, one line per sample**, matching the order of samples in the Q matrices. When multiple levels are provided:
