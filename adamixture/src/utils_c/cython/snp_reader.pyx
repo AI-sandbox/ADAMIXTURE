@@ -473,6 +473,7 @@ def read_vcf_file(str filepath, int chunk_size):
         Py_ssize_t n_samples = 0
         Py_ssize_t n_variants = 0
         Py_ssize_t start_var_idx = 0
+        Py_ssize_t skipped_variants = 0
 
     is_gz = filepath.endswith('.gz')
     
@@ -484,12 +485,23 @@ def read_vcf_file(str filepath, int chunk_size):
                     parts = line.rstrip(b'\n').split(b'\t')
                     n_samples = len(parts) - 9
                 continue
+            # Filter non-numeric chromosomes
+            chrom = line.split(b'\t', 1)[0]
+            try:
+                int(chrom)
+            except ValueError:
+                skipped_variants += 1
+                continue
             n_variants += 1
     finally:
         fh.close()
 
     if n_samples <= 0 or n_variants <= 0:
         raise ValueError("Invalid or empty VCF file")
+
+    if skipped_variants > 0:
+        import logging
+        logging.getLogger(__name__).warning(f"        Warning: Skipped {skipped_variants} SNPs on non-numeric chromosomes (e.g. sex chromosomes).")
 
     cdef uint8_t[:, ::1] G = np.empty((n_variants, n_samples), dtype=np.uint8)
 
@@ -501,6 +513,12 @@ def read_vcf_file(str filepath, int chunk_size):
             if line.startswith(b'#'):
                 continue
                 
+            chrom = line.split(b'\t', 1)[0]
+            try:
+                int(chrom)
+            except ValueError:
+                continue
+
             chunk_bytes.append(line)
             
             if len(chunk_bytes) == chunk_size:
@@ -588,6 +606,7 @@ def read_vcf_file_packed(str filepath, int chunk_size):
         Py_ssize_t n_variants = 0
         Py_ssize_t M_bytes
         Py_ssize_t start_var_idx = 0
+        Py_ssize_t skipped_variants = 0
 
     is_gz = filepath.endswith('.gz')
     
@@ -599,12 +618,22 @@ def read_vcf_file_packed(str filepath, int chunk_size):
                     parts = line.rstrip(b'\n').split(b'\t')
                     n_samples = len(parts) - 9
                 continue
+            chrom = line.split(b'\t', 1)[0]
+            try:
+                int(chrom)
+            except ValueError:
+                skipped_variants += 1
+                continue
             n_variants += 1
     finally:
         fh.close()
 
     if n_samples <= 0 or n_variants <= 0:
         raise ValueError("Invalid or empty VCF file")
+
+    if skipped_variants > 0:
+        import logging
+        logging.getLogger(__name__).warning(f"        Warning: Skipped {skipped_variants} SNPs on non-numeric chromosomes (e.g. sex chromosomes).")
 
     M_bytes = (n_variants + 3) // 4
     cdef uint8_t[:, ::1] G_packed = np.zeros((M_bytes, n_samples), dtype=np.uint8)
@@ -620,6 +649,12 @@ def read_vcf_file_packed(str filepath, int chunk_size):
             if line.startswith(b'#'):
                 continue
                 
+            chrom = line.split(b'\t', 1)[0]
+            try:
+                int(chrom)
+            except ValueError:
+                continue
+
             chunk_bytes.append(line)
             
             if len(chunk_bytes) == chunk_size:

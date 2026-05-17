@@ -21,13 +21,29 @@ The following flags are available for both `adamixture --plot` and `adamixture-p
 - **Population Labels (Level 1)**: Use `--labels` to provide a file with one population name per sample. Samples will be grouped by population and sorted by ancestry within each group.
 - **Hierarchical Grouping (Level 2)**: Use `--labels2` to provide a file with one coarser group label per sample (e.g., super-population or region). A bracket annotation tier is drawn under the level-1 tick marks.
 - **Hierarchical Grouping (Level 3)**: Use `--labels3` to provide a file with one even coarser label per sample (e.g., continent). A second bracket annotation tier is drawn below the level-2 tier.
-- **Custom Colors**: Use `--colors` to provide a file with hex or named colors (one per line). The file must contain at least as many colors as the highest K value in your result.
+- **Custom Colors**: Use `--colors` to provide a file with hex or named colors (one per line). See [Custom Colors File Format](#custom-colors-file-format) below for details.
 
 All three label files must have the same number of lines as there are samples. Levels 2 and 3 are only shown if the corresponding file is provided.
 
+## Sweeps and Multi-K Plotting (`--min_k` and `--max_k`)
+
+When training across a sweep of $K$ values using `--min_k` and `--max_k`, you can choose between two plotting modes:
+
+- **Individual plots per $K$ (`--plot`)**:
+  Generates a separate plot file for each $K$ in the sweep (e.g., `name.K.png`), sequentially aligned so that ancestral components keep consistent colors from $K=i$ to $K=i+1$.
+  ```console
+  $ adamixture --min_k 5 --max_k 8 --data_path data.bed --save_dir out/ --name test --plot png 300
+  ```
+
+- **Combined single plot (`--plot_single`)**:
+  Generates a **single combined multi-panel plot** containing all $K$ subplots stacked vertically (similar to `adamixture-plot`), fully aligned for easy visualization of ancestry shifts. The resulting file will be named `name.minK_maxK.png`.
+  ```console
+  $ adamixture --min_k 5 --max_k 8 --data_path data.bed --save_dir out/ --name test --plot_single png 300
+  ```
+
 ## Multi-run Plotting
 
-For comparing multiple runs or different K values (similar to the `pong` tool), use the `adamixture-plot` command.
+For comparing multiple runs or different K values (similar to the `pong` tool) using existing results, use the `adamixture-plot` command.
 
 > [!NOTE]
 > This command is a standalone post-processing tool. It **does not retrain** the models; it only visualizes and aligns existing `.Q` matrices provided in a **filemap**.
@@ -59,4 +75,24 @@ Example `project.filemap`:
 RunA_K3    3    results/run1.Q
 RunB_K5    5    results/run2.Q
 RunC_K5    5    results/run3.Q
+```
+
+### Custom Colors File Format
+
+The custom colors file supplied to `--colors` is a simple text file containing one color code per line. Color codes can be specified as:
+- **HEX codes**: e.g., `#FF5733`
+- **Standard CSS color names**: e.g., `crimson`, `royalblue`, `forestgreen`
+
+The file must contain **at least as many colors as the highest $K$ value** in your run or sweep.
+
+**Example `colors.txt`:**
+```text
+#1f77b4
+#ff7f0e
+#2ca02c
+#d62728
+#9467bd
+#8c564b
+#e377c2
+#7f7f7f
 ```

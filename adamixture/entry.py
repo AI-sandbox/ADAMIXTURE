@@ -61,6 +61,7 @@ def parse_args(argv: list[str]) -> configargparse.Namespace:
     parser.add_argument('--cv', nargs='?', const=5, default=0, type=int, help='Enable v-fold cross-validation on genotype entries (default: 5).')
 
     parser.add_argument('--plot', nargs='*', help='Generate plot of the Q matrix after training (Optional: [format] [resolution]) (default: png 300).')
+    parser.add_argument('--plot_single', nargs='*', help='Generate a single combined plot of all Q matrices across the K sweep (Optional: [format] [resolution]) (default: png 300).')
     parser.add_argument('--labels', type=str, help='Path to population labels file (level 1, one label per sample).')
     parser.add_argument('--labels2', type=str, help='Path to level-2 population grouping file (one label per sample).')
     parser.add_argument('--labels3', type=str, help='Path to level-3 population grouping file (one label per sample).')
@@ -79,6 +80,19 @@ def parse_args(argv: list[str]) -> configargparse.Namespace:
                 args.plot_dpi = int(args.plot[1])
             except ValueError:
                 parser.error(f"Invalid resolution/DPI value: {args.plot[1]}. Must be an integer.")
+
+        # Validation:
+        assert args.plot_format in ['pdf', 'png', 'jpg'], f"Invalid plot format: {args.plot_format}. Must be pdf, png or jpg."
+        assert 50 <= args.plot_dpi <= 1200, f"Invalid resolution: {args.plot_dpi}. Must be between 50 and 1200."
+
+    if args.plot_single is not None:
+        if len(args.plot_single) > 0:
+            args.plot_format = args.plot_single[0]
+        if len(args.plot_single) > 1:
+            try:
+                args.plot_dpi = int(args.plot_single[1])
+            except ValueError:
+                parser.error(f"Invalid resolution/DPI value: {args.plot_single[1]}. Must be an integer.")
 
         # Validation:
         assert args.plot_format in ['pdf', 'png', 'jpg'], f"Invalid plot format: {args.plot_format}. Must be pdf, png or jpg."

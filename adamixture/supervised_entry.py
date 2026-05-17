@@ -3,11 +3,15 @@ import os
 import platform
 import sys
 import time
-
+import torch
 import configargparse
+
 import numpy as np
 
+from pathlib import Path
+
 from ._version import __version__
+from .entry import print_adamixture_banner
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
 log = logging.getLogger(__name__)
@@ -33,6 +37,10 @@ def parse_args(argv: list[str]) -> configargparse.Namespace:
     Returns:
         configargparse.Namespace: Parsed arguments.
     """
+    # Assert that K, min_k, or max_k are not passed in command-line arguments
+    for arg in argv:
+        assert arg not in ("-k", "--k", "--min_k", "--max_k"), "K, min_k, and max_k are not allowed in supervised mode. K is automatically derived from the labels."
+
     parser = configargparse.ArgumentParser(
         prog="adamixture-supervised",
         description=(
@@ -57,10 +65,7 @@ def parse_args(argv: list[str]) -> configargparse.Namespace:
         "--name", required=True, type=str,
         help="Experiment/run name used as prefix for output files.",
     )
-    parser.add_argument(
-        "-k", "--k", required=True, type=int,
-        help="Number of ancestral populations K.",
-    )
+
 
     # ── Adam-EM hyperparameters ────────────────────────────────────────────────
     parser.add_argument("--lr",            type=float, default=0.005,  help="Learning rate (default: 0.005).")
@@ -123,7 +128,7 @@ def parse_args(argv: list[str]) -> configargparse.Namespace:
         assert args.plot_format in ["pdf", "png", "jpg"], "Plot format must be pdf, png or jpg."
         assert 50 <= args.plot_dpi <= 1200, "DPI must be between 50 and 1200."
 
-    assert args.k >= 2, "K must be at least 2."
+
 
     return args
 
@@ -190,13 +195,27 @@ def main() -> None:
     supervision labels (from ``--labels``, ``--labels2``, or ``--labels3``)
     serve simultaneously as plot labels at their corresponding level.
     """
-    import torch
 
-    log.info("\n    ADAMIXTURE — Supervised Mode\n")
+    print_adamixture_banner(__version__)
+    log.info("    Supervised Mode\n")
     arg_list = tuple(sys.argv)
     args = parse_args(arg_list[1:])
 
-    K = args.k
+    # VALIDATE PARAMETERS:
+    assert args.lr > 0, "Learning rate (lr) must be positive."
+    assert 0 <= args.beta1 < 1, "Adam beta1 must be in [0, 1)."
+    assert 0 <= args.beta2 < 1, "Adam beta2 must be in [0, 1)."
+    assert 0 < args.lr_decay <= 1, "Learning rate decay (lr_decay) must be in (0, 1]."
+    assert args.min_lr > 0, "Minimum learning rate (min_lr) must be positive."
+    assert args.patience_adam >= 1, "Patience (patience_adam) must be at least 1."
+    assert args.seed >= 0, "Seed must be non-negative."
+    assert args.max_iter >= 1, "Maximum iterations (max_iter) must be at least 1."
+    assert args.check >= 1, "Check frequency (check) must be at least 1."
+    assert args.chunk_size >= 1, "Chunk size must be at least 1."
+    assert args.tol_adam > 0, "Adam tolerance (tol_adam) must be positive."
+    assert args.reg_adam >= 0, "Adam regularization (reg_adam) must be non-negative."
+    assert args.plot_format in ['pdf', 'png', 'jpg'], "Plot format must be pdf, png or jpg."
+    assert 50 <= args.plot_dpi <= 1200, "Plot resolution must be between 50 and 1200."
 
     # Thread control
     th = str(args.threads)
@@ -215,7 +234,6 @@ def main() -> None:
         os.environ["CXX"] = "clang++"
         os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
-    from pathlib import Path
     from .src import utils
     from .src.supervised import (
         init_p_supervised, init_q_supervised,
@@ -237,18 +255,9 @@ def main() -> None:
 
     raw_labels = _parse_labels_file(sup_path)
     y, pop_to_int = _labels_to_y(raw_labels)
-    log.info(f"    Supervision from level {args.level} ({sup_path.name}): {len(y)} samples.")
-    log.info(f"    Detected populations: {list(pop_to_int.keys())}")
 
-    if y.max() > K:
-        log.error(
-            f"    Error: Assignment file contains {len(pop_to_int)} distinct populations "
-            f"but K={K}. Add more populations or increase K."
-        )
-        sys.exit(1)
-
-    n_labeled = int((y > 0).sum())
-    log.info(f"    Labeled samples: {n_labeled}/{len(y)}\n")
+    K = int(y.max())
+    assert K >= 2, f"Number of populations K (derived from labels) must be at least 2, but got {K}."
 
     # ── Load genotype data ────────────────────────────────────────────────────
     G, N, M = utils.read_data(args.data_path, packed=False, chunk_size=args.chunk_size)
@@ -263,10 +272,8 @@ def main() -> None:
     # ── Initialise P and Q ────────────────────────────────────────────────────
     rng = np.random.default_rng(args.seed)
 
-    log.info("    Initialising P from labeled genotype frequencies...")
     P = init_p_supervised(G, y, K, M)
 
-    log.info("    Initialising Q (one-hot for labeled, random for unlabeled)...")
     Q = rng.random(size=(N, K)).astype(np.float64)
     Q /= Q.sum(axis=1, keepdims=True)
     init_q_supervised(Q, y, K)
@@ -275,7 +282,6 @@ def main() -> None:
 
     # ── Run supervised optimisation ──────────────────────────────────────────────
     if use_gpu:
-        import torch
         device_obj = torch.device(device_str)
         threads_per_block = utils.get_tuning_params(device_obj)
         utils.load_extensions(device_obj)

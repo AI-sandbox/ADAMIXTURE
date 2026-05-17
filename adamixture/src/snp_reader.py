@@ -68,6 +68,29 @@ class SNPReader:
             M = B.shape[0] // N_bytes
             B.shape = (M, N_bytes)
 
+            bim_file = base_path + ".bim"
+            keep_mask = []
+            with open(bim_file) as bim:
+                for line in bim:
+                    parts = line.strip().split()
+                    if not parts:
+                        continue
+                    chrom = parts[0]
+                    try:
+                        int(chrom)
+                        keep_mask.append(True)
+                    except ValueError:
+                        keep_mask.append(False)
+            keep_mask = np.array(keep_mask, dtype=bool)
+            assert len(keep_mask) == M, "bim file doesn't match!"
+
+            skipped = len(keep_mask) - keep_mask.sum()
+            if skipped > 0:
+                log.warning(f"        Warning: Skipped {skipped} SNPs on non-numeric chromosomes (e.g. sex chromosomes).")
+
+            B = np.ascontiguousarray(B[keep_mask])
+            M = B.shape[0]
+
             G = np.zeros((M, N), dtype=np.uint8)
             read_bed(B, G)
             del B
@@ -80,10 +103,35 @@ class SNPReader:
                 f.seek(3)
                 f.readinto(buffer)
 
-            B = torch.frombuffer(buffer, dtype=torch.uint8)
-            assert (B.shape[0] % N_bytes) == 0, "bim file doesn't match!"
-            M = B.shape[0] // N_bytes
+            B_raw = np.frombuffer(buffer, dtype=np.uint8)
+            assert (B_raw.shape[0] % N_bytes) == 0, "bim file doesn't match!"
+            M = B_raw.shape[0] // N_bytes
 
+            bim_file = base_path + ".bim"
+            keep_mask = []
+            with open(bim_file) as bim:
+                for line in bim:
+                    parts = line.strip().split()
+                    if not parts:
+                        continue
+                    chrom = parts[0]
+                    try:
+                        int(chrom)
+                        keep_mask.append(True)
+                    except ValueError:
+                        keep_mask.append(False)
+            keep_mask = np.array(keep_mask, dtype=bool)
+            assert len(keep_mask) == M, "bim file doesn't match!"
+
+            skipped = len(keep_mask) - keep_mask.sum()
+            if skipped > 0:
+                log.warning(f"        Warning: Skipped {skipped} SNPs on non-numeric chromosomes (e.g. sex chromosomes).")
+
+            B_raw.shape = (M, N_bytes)
+            B_raw = np.ascontiguousarray(B_raw[keep_mask])
+            M = B_raw.shape[0]
+
+            B = torch.from_numpy(B_raw)
             M_bytes = (M + 3) // 4
             G = torch.zeros((M_bytes, N), dtype=torch.uint8)
 
@@ -140,6 +188,40 @@ class SNPReader:
             G_raw[G_raw == -9] = 3
             G = G_raw.view(np.uint8)
 
+        base_path = self._get_base_path(file)
+        pvar_file = Path(base_path + ".pvar")
+        bim_file = Path(base_path + ".bim")
+        if pvar_file.exists():
+            var_file = pvar_file
+        elif bim_file.exists():
+            var_file = bim_file
+        else:
+            log.error(f"    Error: Variant file (.pvar or .bim) not found for {base_path}")
+            sys.exit(1)
+
+        keep_mask = []
+        with open(var_file) as vf:
+            for line in vf:
+                if line.startswith("#"):
+                    continue
+                parts = line.strip().split()
+                if not parts:
+                    continue
+                chrom = parts[0]
+                try:
+                    int(chrom)
+                    keep_mask.append(True)
+                except ValueError:
+                    keep_mask.append(False)
+        keep_mask = np.array(keep_mask, dtype=bool)
+
+        assert len(keep_mask) == num_vars, f"Variant file line count {len(keep_mask)} does not match PGEN variant count {num_vars}!"
+
+        skipped = len(keep_mask) - keep_mask.sum()
+        if skipped > 0:
+            log.warning(f"        Warning: Skipped {skipped} SNPs on non-numeric chromosomes (e.g. sex chromosomes).")
+
+        G = np.ascontiguousarray(G[keep_mask])
         M, N = G.shape
 
         if packed:

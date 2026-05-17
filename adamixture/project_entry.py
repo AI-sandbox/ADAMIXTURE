@@ -8,6 +8,7 @@ import configargparse
 import numpy as np
 
 from ._version import __version__
+from .entry import print_adamixture_banner
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
 log = logging.getLogger(__name__)
@@ -112,9 +113,26 @@ def main() -> None:
     """
     import torch
 
-    log.info("\n    ADAMIXTURE — Projection Mode\n")
+    print_adamixture_banner(__version__)
+    log.info("    Projection Mode\n")
     arg_list = tuple(sys.argv)
     args = parse_args(arg_list[1:])
+
+    # VALIDATE PARAMETERS:
+    assert args.lr > 0, "Learning rate (lr) must be positive."
+    assert 0 <= args.beta1 < 1, "Adam beta1 must be in [0, 1)."
+    assert 0 <= args.beta2 < 1, "Adam beta2 must be in [0, 1)."
+    assert 0 < args.lr_decay <= 1, "Learning rate decay (lr_decay) must be in (0, 1]."
+    assert args.min_lr > 0, "Minimum learning rate (min_lr) must be positive."
+    assert args.patience_adam >= 1, "Patience (patience_adam) must be at least 1."
+    assert args.seed >= 0, "Seed must be non-negative."
+    assert args.max_iter >= 1, "Maximum iterations (max_iter) must be at least 1."
+    assert args.check >= 1, "Check frequency (check) must be at least 1."
+    assert args.chunk_size >= 1, "Chunk size must be at least 1."
+    assert args.tol_adam > 0, "Adam tolerance (tol_adam) must be positive."
+    assert args.reg_adam >= 0, "Adam regularization (reg_adam) must be non-negative."
+    assert args.plot_format in ['pdf', 'png', 'jpg'], "Plot format must be pdf, png or jpg."
+    assert 50 <= args.plot_dpi <= 1200, "Plot resolution must be between 50 and 1200."
 
     # Thread control
     th = str(args.threads)

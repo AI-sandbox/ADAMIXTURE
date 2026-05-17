@@ -166,7 +166,7 @@ def plot_q_matrix(
         colors = custom_colors[:K]
     else:
         cmap = plt.colormaps.get_cmap('tab20')
-        colors = cmap(np.linspace(0, 1, K))
+        colors = cmap(np.arange(K) % 20)
 
     for j in range(K):
         lower = Q_cum[:, j - 1] if j > 0 else zeros
@@ -176,7 +176,7 @@ def plot_q_matrix(
     ax.set_xlim(0, n_samples)
     ax.set_ylim(0, 1)
     ax.set_ylabel("Ancestry Proportions")
-    ax.set_title(f"ADAMIXTURE Q-matrix (K={K})")
+    ax.set_title(f"ADAMIXTURE (K={K})")
 
     # Draw level-1 boundaries and tick labels
     for boundary in pop_boundaries:
@@ -195,6 +195,7 @@ def plot_q_matrix(
         if i3_items:
             _draw_brackets(ax, i3_items, y_bracket=y_i3, fontsize=6)
     else:
+        ax.set_xticks([])
         ax.set_xlabel("Samples")
 
     plt.subplots_adjust(bottom=bottom_margin)
@@ -204,37 +205,44 @@ def plot_q_matrix(
 
 def align_clusters_greedy(ref_Q: np.ndarray, query_Q: np.ndarray) -> np.ndarray:
     """
-    Description:
-    Aligns clusters of query_Q to ref_Q using a greedy minimum-cost approach
-    based on squared Euclidean distance between columns.
+    Generalised greedy minimum-cost alignment between query_Q and ref_Q.
+    Works even if query_Q and ref_Q have a different number of clusters (columns).
 
-    Args:
-        ref_Q (np.ndarray): Reference Q matrix (N x K).
-        query_Q (np.ndarray): Query Q matrix (N x K) to be aligned.
-
-    Returns:
-        np.ndarray: Permutation array mapping ref cluster indices to query cluster indices.
+    Returns a permutation array 'perm' of length K_query.
     """
-    K = ref_Q.shape[1]
-    assert query_Q.shape[1] == K
+    K_ref = ref_Q.shape[1]
+    K_query = query_Q.shape[1]
 
-    cost_matrix = np.zeros((K, K))
-    for i in range(K):
-        for j in range(K):
+    cost_matrix = np.zeros((K_ref, K_query))
+    for i in range(K_ref):
+        for j in range(K_query):
             diff = ref_Q[:, i] - query_Q[:, j]
             cost_matrix[i, j] = np.dot(diff, diff)
 
-    permutation = np.zeros(K, dtype=int)
-    ref_indices, query_indices = [], []
-    sorted_costs = np.argsort(cost_matrix.flatten())
+    ref_indices = set()
+    query_indices = set()
+    matches = {} # maps ref_idx -> query_idx
 
+    sorted_costs = np.argsort(cost_matrix.flatten())
     for idx in sorted_costs:
-        r, c = np.unravel_index(idx, (K, K))
+        r, c = np.unravel_index(idx, (K_ref, K_query))
         if r not in ref_indices and c not in query_indices:
-            ref_indices.append(r)
-            query_indices.append(c)
-            permutation[r] = c
-        if len(ref_indices) == K:
+            ref_indices.add(r)
+            query_indices.add(c)
+            matches[r] = c
+        if len(ref_indices) == min(K_ref, K_query):
             break
 
-    return permutation
+    # Construct the permutation of query_Q columns:
+    perm = []
+    # 1. Add matched columns in order of ref_Q
+    for r in range(K_ref):
+        if r in matches:
+            perm.append(matches[r])
+
+    # 2. Add remaining unmatched query columns
+    unmatched_query = [c for c in range(K_query) if c not in query_indices]
+    perm.extend(unmatched_query)
+
+    return np.array(perm, dtype=int)
+

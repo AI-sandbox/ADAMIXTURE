@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from .src.plot import align_clusters_greedy
+from ._version import __version__
+from .entry import print_adamixture_banner
 
 # Global logging configuration
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
@@ -135,6 +137,8 @@ def main() -> None:
     Returns:
         None
     """
+    print_adamixture_banner(__version__)
+    log.info("    Multi-run Plotting Mode\n")
     parser = argparse.ArgumentParser(description='ADAMIXTURE multi-run plotting tool.')
     parser.add_argument('-m', '--filemap', required=True, help='Path to filemap (run_id\\tK\\tpath)')
     parser.add_argument('-l', '--labels', help='Path to population labels file (level 1, one per sample)')
@@ -146,6 +150,10 @@ def main() -> None:
     parser.add_argument('--format', type=str, choices=['png', 'pdf', 'jpg'], default='png', help='Output format')
 
     args = parser.parse_args()
+
+    # VALIDATE PARAMETERS:
+    assert args.format in ['pdf', 'png', 'jpg'], "Plot format must be pdf, png or jpg."
+    assert 50 <= args.dpi <= 1200, "Plot resolution must be between 50 and 1200."
 
     runs_info = parse_filemap(args.filemap)
     if not runs_info:
@@ -186,13 +194,12 @@ def main() -> None:
     num_runs = len(all_qs)
     all_qs.sort(key=lambda x: x['K'])
 
-    # Align clusters across runs of the same K
+    # Align clusters across all sequential runs (even if K is different!)
     for i in range(1, num_runs):
-        if all_qs[i]['K'] == all_qs[i - 1]['K']:
-            ref_Q = all_qs[i - 1]['Q']
-            curr_Q = all_qs[i]['Q']
-            perm = align_clusters_greedy(ref_Q, curr_Q)
-            all_qs[i]['Q'] = curr_Q[:, perm]
+        ref_Q = all_qs[i - 1]['Q']
+        curr_Q = all_qs[i]['Q']
+        perm = align_clusters_greedy(ref_Q, curr_Q)
+        all_qs[i]['Q'] = curr_Q[:, perm]
 
     fig, axes = plt.subplots(nrows=num_runs, ncols=1, figsize=(15, 3 * num_runs), squeeze=False)
     axes = axes.flatten()
@@ -285,7 +292,7 @@ def main() -> None:
             colors = custom_colors[:K]
         else:
             cmap = plt.colormaps.get_cmap('tab20')
-            colors = cmap(np.linspace(0, 1, K))
+            colors = cmap(np.arange(K) % 20)
 
         Q_cum = np.cumsum(Q, axis=1)
         x = np.arange(n_samples)
@@ -302,7 +309,7 @@ def main() -> None:
 
         ax.set_xlim(0, n_samples)
         ax.set_ylim(0, 1)
-        ax.set_ylabel(f"{run['id']}\n(K={K})", rotation=0, ha='right', va='center')
+        ax.set_ylabel(f"{run['id']}\n(K={K})", rotation=0, ha='right', va='center', labelpad=10)
 
         is_bottom = (i == num_runs - 1)
 
@@ -325,7 +332,7 @@ def main() -> None:
         if is_bottom and labels_sorted is None:
             ax.set_xlabel("Samples")
 
-    plt.subplots_adjust(bottom=bottom_margin, hspace=0.3)
+    plt.subplots_adjust(bottom=bottom_margin, hspace=0.25)
 
     output_path = Path(args.output)
     if output_path.suffix != f".{args.format}":
