@@ -115,7 +115,7 @@ $ adamixture --min_k 2 --max_k 10 --data_path snps_data.bed --save_dir SAVE_PATH
 Use `--cv` to estimate the optimal K by masking a fraction of genotype entries and measuring prediction error. → [Full documentation](docs/cross_validation.md)
 
 ```console
-$ adamixture -k 8 --cv 5 --data_path data.bed --save_dir out/ --name test
+$ adamixture -k 8 --cv --data_path data.bed --save_dir out/ --name test
 ```
 
 ## Plotting
