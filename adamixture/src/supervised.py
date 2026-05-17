@@ -5,8 +5,8 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from .utils_c import em, tools
 from . import utils
+from .utils_c import em, tools
 
 if TYPE_CHECKING:
     import torch
@@ -353,7 +353,6 @@ def optimize_supervised_gpu(
     Returns:
         tuple[torch.Tensor, torch.Tensor]: Optimised (P, Q) tensors.
     """
-    import torch
     from ..model.em_adam_gpu import EMAdamOptimizer
 
     N = Q.shape[0]

@@ -8,7 +8,7 @@ import torch
 from ..model.br_qn import polish_br_qn
 from ..model.br_qn_gpu import polish_br_qn_gpu
 from . import utils
-from .utils_c import tools, deviance_squared_sum
+from .utils_c import deviance_squared_sum
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
 log = logging.getLogger(__name__)
@@ -54,14 +54,14 @@ def _polish_fold(G: np.ndarray, P_init: np.ndarray, Q_init: np.ndarray,
         tuple[np.ndarray, np.ndarray]: Polished (P, Q) matrices after 3 BR-QN iterations.
     """
     Q_hist = 3
-    
+
     # Preasignar los workspaces para la optimización Cython de ZAL QN
     UtUmV_workspace = np.empty(Q_hist * (Q_hist + 1), dtype=np.float64)
     coeff_workspace = np.empty(Q_hist, dtype=np.float64)
 
     return polish_br_qn(
-        G, P_init, Q_init, M, N, K, 
-        n_iters=3, 
+        G, P_init, Q_init, M, N, K,
+        n_iters=3,
         Q_hist=Q_hist,
         UtUmV_workspace=UtUmV_workspace,
         coeff_workspace=coeff_workspace

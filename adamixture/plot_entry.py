@@ -6,9 +6,9 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 
-from .src.plot import align_clusters_greedy
 from ._version import __version__
 from .entry import print_adamixture_banner
+from .src.plot import align_clusters_greedy
 
 # Global logging configuration
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
@@ -185,7 +185,7 @@ def main() -> None:
     def _check_hierarchy(child_lbls, parent_lbls, child_name, parent_name):
         mapping: dict = {}
         conflicts: list[str] = []
-        for child, parent in zip(child_lbls, parent_lbls):
+        for child, parent in zip(child_lbls, parent_lbls, strict=False):
             if child in mapping:
                 if mapping[child] != parent:
                     conflicts.append(child)
@@ -308,7 +308,7 @@ def main() -> None:
     # ── Dynamic subplots height and bottom margin ─────────────────────────────
     # The height of each core subplot (ax) remains exactly 2.5 inches.
     # We dynamically calculate the extra height needed for each label level in inches.
-    max_l1_len = min(max((len(str(l)) for l in pop_tick_labels), default=0), _MAX_LABEL_LEN)
+    max_l1_len = min(max((len(str(lbl)) for lbl in pop_tick_labels), default=0), _MAX_LABEL_LEN)
     max_l2_len = min(max((len(item['name']) for item in i2_items), default=0), _MAX_LABEL_LEN)
     max_l3_len = min(max((len(item['name']) for item in i3_items), default=0), _MAX_LABEL_LEN)
 
@@ -316,11 +316,11 @@ def main() -> None:
     l1_height_in = 0.5 + max_l1_len * 0.08 if labels_sorted else 0.0
     l2_height_in = 0.8 + max_l2_len * 0.08 if i2_items else 0.0
     l3_height_in = 0.8 + max_l3_len * 0.08 if i3_items else 0.0
-    
+
     total_labels_height_in = l1_height_in + l2_height_in + l3_height_in
     if total_labels_height_in == 0:
         total_labels_height_in = 0.6
-        
+
     fig_height = plot_height_in + total_labels_height_in
     bottom_margin = total_labels_height_in / fig_height
 
@@ -350,11 +350,12 @@ def main() -> None:
 
         # Draw population boundaries (level 1)
         for boundary in pop_boundaries:
-            ax.axvline(x=boundary, color='black', linestyle='-', linewidth=0.5)
+            ax.axvline(x=boundary, color='black', linestyle='--', linewidth=0.5)
 
         ax.set_xlim(0, n_samples)
         ax.set_ylim(0, 1)
-        ax.set_ylabel(f"K={K}", rotation=0, ha='right', va='center', labelpad=10)
+        ax.set_ylabel(f"K={K}", rotation=0, ha='right', va='center', labelpad=10, fontweight='bold')
+        ax.set_yticks([0.0, 0.5, 1.0])
 
         is_bottom = (i == num_runs - 1)
 

@@ -3,12 +3,11 @@ import os
 import platform
 import sys
 import time
-import torch
-import configargparse
-
-import numpy as np
-
 from pathlib import Path
+
+import configargparse
+import numpy as np
+import torch
 
 from ._version import __version__
 from .entry import print_adamixture_banner
@@ -105,7 +104,7 @@ def parse_args(argv: list[str]) -> configargparse.Namespace:
             "1 = --labels, 2 = --labels2, 3 = --labels3."
         ),
     )
-    parser.add_argument("--plot", nargs="*", help="Generate a plot after training. Optional: [format] [dpi].")
+    parser.add_argument("--plot", nargs="*", default=[], help="Generate a plot after training. Optional: [format] [dpi].")
 
     args = parser.parse_args(argv)
 
@@ -236,8 +235,10 @@ def main() -> None:
 
     from .src import utils
     from .src.supervised import (
-        init_p_supervised, init_q_supervised,
-        optimize_supervised, optimize_supervised_gpu,
+        init_p_supervised,
+        init_q_supervised,
+        optimize_supervised,
+        optimize_supervised_gpu,
     )
 
     device_str = args.device

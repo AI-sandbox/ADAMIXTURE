@@ -5,8 +5,8 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from .utils_c import em, tools
 from . import utils
+from .utils_c import em, tools
 
 if TYPE_CHECKING:
     import torch
@@ -208,6 +208,7 @@ def optimize_projection_gpu(G: "torch.Tensor", P: "torch.Tensor", Q: "torch.Tens
         torch.Tensor: Optimised Q tensor (N x K).
     """
     import torch
+
     from ..model.em_adam_gpu import adam_update_compiled, em_batch_compiled, em_final_compiled
 
     N = Q.shape[0]

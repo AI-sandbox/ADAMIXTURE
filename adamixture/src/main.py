@@ -118,7 +118,8 @@ def main(args: argparse.Namespace, t0: float) -> int:
         if hasattr(args, 'plot_single') and args.plot_single is not None and len(k_values) > 1:
             log.info("\n    Generating combined single plot for all K sweep values...")
             import matplotlib.pyplot as plt
-            from .plot import _draw_brackets, _MAX_LABEL_LEN
+
+            from .plot import _MAX_LABEL_LEN, _draw_brackets
 
             # Load labels if available
             labels = None
@@ -146,7 +147,7 @@ def main(args: argparse.Namespace, t0: float) -> int:
             def _check_hierarchy(child_lbls, parent_lbls, child_name, parent_name):
                 mapping: dict = {}
                 conflicts: list[str] = []
-                for child, parent in zip(child_lbls, parent_lbls):
+                for child, parent in zip(child_lbls, parent_lbls, strict=False):
                     if child in mapping:
                         if mapping[child] != parent:
                             conflicts.append(child)
@@ -228,7 +229,7 @@ def main(args: argparse.Namespace, t0: float) -> int:
             i2_items = _build_brackets_list(labels2_sorted)
             i3_items = _build_brackets_list(labels3_sorted)
 
-            max_l1_len = min(max((len(str(l)) for l in pop_tick_labels), default=0), _MAX_LABEL_LEN)
+            max_l1_len = min(max((len(str(lbl)) for lbl in pop_tick_labels), default=0), _MAX_LABEL_LEN)
             max_l2_len = min(max((len(item['name']) for item in i2_items), default=0), _MAX_LABEL_LEN)
             max_l3_len = min(max((len(item['name']) for item in i3_items), default=0), _MAX_LABEL_LEN)
 
@@ -269,11 +270,12 @@ def main(args: argparse.Namespace, t0: float) -> int:
                     ax.fill_between(x, lower, upper, facecolor=colors[j], edgecolor='none', linewidth=0, rasterized=True)
 
                 for boundary in pop_boundaries:
-                    ax.axvline(x=boundary, color='black', linestyle='-', linewidth=0.5)
+                    ax.axvline(x=boundary, color='black', linestyle='--', linewidth=0.5)
 
                 ax.set_xlim(0, n_samples)
                 ax.set_ylim(0, 1)
-                ax.set_ylabel(f"K={K_curr}", rotation=0, ha='right', va='center', labelpad=10)
+                ax.set_ylabel(f"K={K_curr}", rotation=0, ha='right', va='center', labelpad=10, fontweight='bold')
+                ax.set_yticks([0.0, 0.5, 1.0])
 
                 is_bottom = (i == num_runs - 1)
                 if is_bottom and labels_sorted is not None:
@@ -305,7 +307,6 @@ def main(args: argparse.Namespace, t0: float) -> int:
                     ax.set_xlabel("Samples")
 
             plt.subplots_adjust(bottom=bottom_margin, hspace=0.25)
-            fig.suptitle(f"ADAMIXTURE (K={k_values[0]} to K={k_values[-1]})", fontsize=12, y=0.95)
 
             single_plot_path = Path(args.save_dir) / f"{args.name}.{k_values[0]}_{k_values[-1]}.{args.plot_format}"
             fig.savefig(single_plot_path, dpi=args.plot_dpi, format=args.plot_format, bbox_inches='tight')

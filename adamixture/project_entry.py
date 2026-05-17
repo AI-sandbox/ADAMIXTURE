@@ -77,7 +77,7 @@ def parse_args(argv: list[str]) -> configargparse.Namespace:
     parser.add_argument("--device",        type=str,   default="cpu",  help="Computation device: cpu, cuda, or mps (default: cpu).")
 
     # ── Plotting ──────────────────────────────────────────────────────────────
-    parser.add_argument("--plot",    nargs="*",  help="Generate a plot after projection. Optional: [format] [dpi].")
+    parser.add_argument("--plot",    nargs="*",  default=[], help="Generate a plot after projection. Optional: [format] [dpi].")
     parser.add_argument("--labels",  type=str,   help="Population labels file (one per sample).")
     parser.add_argument("--labels2", type=str,   help="Level-2 grouping labels file (one per sample).")
     parser.add_argument("--labels3", type=str,   help="Level-3 grouping labels file (one per sample).")
@@ -153,6 +153,7 @@ def main() -> None:
         os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
     from pathlib import Path
+
     from .src import utils
     from .src.projection import optimize_projection, optimize_projection_gpu
 
@@ -236,7 +237,7 @@ def main() -> None:
 
         def _load(path_str):
             p = Path(path_str)
-            return [l.strip() for l in p.open() if l.strip()] if p.exists() else None
+            return [line.strip() for line in p.open() if line.strip()] if p.exists() else None
 
         labels  = _load(args.labels)  if args.labels  else None
         labels2 = _load(args.labels2) if args.labels2 else None

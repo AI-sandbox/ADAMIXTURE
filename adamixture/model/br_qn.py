@@ -138,7 +138,7 @@ def qnStep_ZAL(G: np.ndarray, P: np.ndarray, Q: np.ndarray,
 def polish_br_qn(G: np.ndarray, P_init: np.ndarray, Q_init: np.ndarray,
                  M: int, N: int, K: int,
                  n_iters: int = 3, Q_hist: int = 3,
-                 UtUmV_workspace: np.ndarray = None, 
+                 UtUmV_workspace: np.ndarray = None,
                  coeff_workspace: np.ndarray = None) -> tuple[np.ndarray, np.ndarray]:
     """
     Description:

@@ -1,6 +1,8 @@
 import torch
-from .em_adam_gpu import EMAdamOptimizer
+
 from ..src import utils
+from .em_adam_gpu import EMAdamOptimizer
+
 
 def _flatten_PQ_gpu(P: torch.Tensor, Q: torch.Tensor) -> torch.Tensor:
     """

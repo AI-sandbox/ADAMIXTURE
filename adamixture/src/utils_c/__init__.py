@@ -1,10 +1,6 @@
 from .cython import br_qn, bvls, em, snp_reader, tools
-from .cython.tools import (
-    KL,
-    alleleFrequency,
-    loglikelihood,
-    rmse_d,
-)
+from .cython.br_qn import deviance_squared_sum
+from .cython.bvls import batch_bvls_bpp, batch_nnls_bpp
 from .cython.snp_reader import (
     flip_packed,
     flip_unpacked,
@@ -16,8 +12,12 @@ from .cython.snp_reader import (
     read_vcf_file,
     read_vcf_file_packed,
 )
-from .cython.br_qn import deviance_squared_sum
-from .cython.bvls import batch_bvls_bpp, batch_nnls_bpp
+from .cython.tools import (
+    KL,
+    alleleFrequency,
+    loglikelihood,
+    rmse_d,
+)
 
 __all__ = [
     "br_qn",

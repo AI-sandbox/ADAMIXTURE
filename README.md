@@ -12,7 +12,6 @@
   <img src="https://img.shields.io/pypi/l/adamixture" alt="License">
   <img src="https://img.shields.io/pypi/status/adamixture" alt="Status">
   <img src="https://img.shields.io/pypi/dm/adamixture" alt="Downloads">
-  <a href="https://doi.org/10.5281/zenodo.18289231"><img src="https://img.shields.io/badge/DOI-10.5281%2Fzenodo.18289231-blue" alt="DOI"></a>
 </p>
 
 ---

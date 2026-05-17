@@ -60,8 +60,8 @@ def parse_args(argv: list[str]) -> configargparse.Namespace:
     parser.add_argument('--chunk_size', type=int, default=4096, help='Number of SNPs in chunk operations for SVD (default: 4096).')
     parser.add_argument('--cv', nargs='?', const=5, default=0, type=int, help='Enable v-fold cross-validation on genotype entries (default: 5).')
 
-    parser.add_argument('--plot', nargs='*', help='Generate plot of the Q matrix after training (Optional: [format] [resolution]) (default: png 300).')
-    parser.add_argument('--plot_single', nargs='*', help='Generate a single combined plot of all Q matrices across the K sweep (Optional: [format] [resolution]) (default: png 300).')
+    parser.add_argument('--plot', nargs='*', help='Generate a single combined plot of all Q matrices across the K sweep (Optional: [format] [resolution]) (default: png 300).')
+    parser.add_argument('--plot_single', nargs='*', help='Generate individual plots for each K in the sweep (Optional: [format] [resolution]) (default: png 300).')
     parser.add_argument('--labels', type=str, help='Path to population labels file (level 1, one label per sample).')
     parser.add_argument('--labels2', type=str, help='Path to level-2 population grouping file (one label per sample).')
     parser.add_argument('--labels3', type=str, help='Path to level-3 population grouping file (one label per sample).')
@@ -69,30 +69,43 @@ def parse_args(argv: list[str]) -> configargparse.Namespace:
 
     args = parser.parse_args(argv)
 
-    # Process plotting arguments:
+    # Process plotting arguments (swapping internal roles):
+    # args.plot (internal variable for individual plots) represents CLI --plot_single
+    # args.plot_single (internal variable for combined plot) represents CLI --plot
+    cli_plot_combined = args.plot
+    cli_plot_individual = args.plot_single
+
+    # If --plot_single (individual plots) is requested:
+    #   disable the combined single plot by default unless --plot was also passed explicitly.
+    if cli_plot_individual is not None:
+        if '--plot' not in argv:
+            cli_plot_combined = None
+    else:
+        # If --plot_single is NOT requested, the combined single plot is enabled by default.
+        if cli_plot_combined is None:
+            cli_plot_combined = []
+
+    # Assign to internal variables expected by main.py
+    args.plot = cli_plot_individual
+    args.plot_single = cli_plot_combined
+
     args.plot_format = 'png'
     args.plot_dpi = 300
+
+    active_plot_val = None
     if args.plot is not None:
-        if len(args.plot) > 0:
-            args.plot_format = args.plot[0]
-        if len(args.plot) > 1:
-            try:
-                args.plot_dpi = int(args.plot[1])
-            except ValueError:
-                parser.error(f"Invalid resolution/DPI value: {args.plot[1]}. Must be an integer.")
+        active_plot_val = args.plot
+    elif args.plot_single is not None:
+        active_plot_val = args.plot_single
 
-        # Validation:
-        assert args.plot_format in ['pdf', 'png', 'jpg'], f"Invalid plot format: {args.plot_format}. Must be pdf, png or jpg."
-        assert 50 <= args.plot_dpi <= 1200, f"Invalid resolution: {args.plot_dpi}. Must be between 50 and 1200."
-
-    if args.plot_single is not None:
-        if len(args.plot_single) > 0:
-            args.plot_format = args.plot_single[0]
-        if len(args.plot_single) > 1:
+    if active_plot_val is not None:
+        if len(active_plot_val) > 0:
+            args.plot_format = active_plot_val[0]
+        if len(active_plot_val) > 1:
             try:
-                args.plot_dpi = int(args.plot_single[1])
+                args.plot_dpi = int(active_plot_val[1])
             except ValueError:
-                parser.error(f"Invalid resolution/DPI value: {args.plot_single[1]}. Must be an integer.")
+                parser.error(f"Invalid resolution/DPI value: {active_plot_val[1]}. Must be an integer.")
 
         # Validation:
         assert args.plot_format in ['pdf', 'png', 'jpg'], f"Invalid plot format: {args.plot_format}. Must be pdf, png or jpg."
