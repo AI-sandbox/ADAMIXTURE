@@ -208,8 +208,11 @@ class SNPReader:
                 if not parts:
                     continue
                 chrom = parts[0]
+                numeric_chrom = "".join(c for c in chrom if c.isdigit())
                 try:
-                    int(chrom)
+                    if not numeric_chrom:
+                        raise ValueError()
+                    int(numeric_chrom)
                     keep_mask.append(True)
                 except ValueError:
                     keep_mask.append(False)

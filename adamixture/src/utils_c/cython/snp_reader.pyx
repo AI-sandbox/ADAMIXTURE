@@ -487,8 +487,11 @@ def read_vcf_file(str filepath, int chunk_size):
                 continue
             # Filter non-numeric chromosomes
             chrom = line.split(b'\t', 1)[0]
+            numeric_chrom = bytes([c for c in chrom if 48 <= c <= 57])
             try:
-                int(chrom)
+                if not numeric_chrom:
+                    raise ValueError()
+                int(numeric_chrom)
             except ValueError:
                 skipped_variants += 1
                 continue
@@ -514,8 +517,11 @@ def read_vcf_file(str filepath, int chunk_size):
                 continue
                 
             chrom = line.split(b'\t', 1)[0]
+            numeric_chrom = bytes([c for c in chrom if 48 <= c <= 57])
             try:
-                int(chrom)
+                if not numeric_chrom:
+                    raise ValueError()
+                int(numeric_chrom)
             except ValueError:
                 continue
 
@@ -619,8 +625,11 @@ def read_vcf_file_packed(str filepath, int chunk_size):
                     n_samples = len(parts) - 9
                 continue
             chrom = line.split(b'\t', 1)[0]
+            numeric_chrom = bytes([c for c in chrom if 48 <= c <= 57])
             try:
-                int(chrom)
+                if not numeric_chrom:
+                    raise ValueError()
+                int(numeric_chrom)
             except ValueError:
                 skipped_variants += 1
                 continue
@@ -650,8 +659,11 @@ def read_vcf_file_packed(str filepath, int chunk_size):
                 continue
                 
             chrom = line.split(b'\t', 1)[0]
+            numeric_chrom = bytes([c for c in chrom if 48 <= c <= 57])
             try:
-                int(chrom)
+                if not numeric_chrom:
+                    raise ValueError()
+                int(numeric_chrom)
             except ValueError:
                 continue
 
