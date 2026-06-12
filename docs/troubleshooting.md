@@ -22,7 +22,7 @@ $ conda install -c nvidia nvcc
 
 ## Biobank-Scale Execution & High K Values
 
-For large-scale datasets (e.g., UK Biobank, All of Us) or high K values, these parameter settings tend to give better convergence:
+For large-scale datasets (>100,000 samples, e.g., UK Biobank, All of Us) or high K values, we recommend changing these parameters:
 
 ```console
 --patience_adam 5 \

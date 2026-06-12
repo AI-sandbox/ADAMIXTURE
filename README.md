@@ -64,10 +64,11 @@ would be equivalent in ADAMIXTURE by running
 $ adamixture -k 8 --data_path snps_data.bed --save_dir SAVE_PATH --name snps_data -s 42
 ```
 
-Two files will be output to the `SAVE_PATH` directory (the `name` parameter will be used to create the full filenames):
+By default, the following files will be output to the `SAVE_PATH` directory (the `name` parameter will be used to create the full filenames):
 
 - A `.P` file, similar to ADMIXTURE.
 - A `.Q` file, similar to ADMIXTURE.
+- A `.png` plot file containing the visualization of the inferred ancestry proportions (Q matrix).
 
 Logs are printed to the `stdout` channel by default. If you want to save them to a file, you can use the command `tee` along with a pipe:
 
@@ -120,11 +121,21 @@ $ adamixture -k 8 --cv --data_path data.bed --save_dir out/ --name test
 
 ## Plotting
 
-Native high-quality visualizations with hierarchical population labels (`--labels`, `--labels2`, `--labels3`) and multi-run alignment. → [Full documentation](docs/plotting.md)
+By default, ADAMIXTURE automatically generates a `png` plot at `300` DPI without needing any additional flags. → [Full documentation](docs/plotting.md)
 
-```console
-$ adamixture -k 8 --data_path data.bed --save_dir out/ --name test --plot pdf 300
-```
+Plots can include hierarchical population labels if you provide the arguments (`--labels`, `--labels2`, `--labels3`).
+
+If you want to customize the format and resolution (e.g., to generate a PDF), you must use the appropriate flag depending on your execution mode:
+
+- **Single K runs** (`-k`): Use `--plot_single`. Note that `--plot` will be ignored in single K mode.
+  ```console
+  $ adamixture -k 8 --data_path data.bed --save_dir out/ --name test --plot_single pdf 300
+  ```
+
+- **Multi-K sweeps** (`--min_k` and `--max_k`): Use `--plot` to configure the combined sweep plot.
+  ```console
+  $ adamixture --min_k 2 --max_k 10 --data_path data.bed --save_dir out/ --name test --plot pdf 300
+  ```
 
 ## Projection Mode
 

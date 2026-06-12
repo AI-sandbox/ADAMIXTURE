@@ -69,23 +69,21 @@ def parse_args(argv: list[str]) -> configargparse.Namespace:
 
     args = parser.parse_args(argv)
 
-    # Process plotting arguments (swapping internal roles):
-    # args.plot (internal variable for individual plots) represents CLI --plot_single
-    # args.plot_single (internal variable for combined plot) represents CLI --plot
+    # Configure Plots:
     cli_plot_combined = args.plot
     cli_plot_individual = args.plot_single
 
-    # If --plot_single (individual plots) is requested:
-    #   disable the combined single plot by default unless --plot was also passed explicitly.
-    if cli_plot_individual is not None:
+    has_single = args.k is not None
+
+    if cli_plot_combined is None and cli_plot_individual is None:
+        if has_single:
+            cli_plot_individual = []
+        else:
+            cli_plot_combined = []
+    elif cli_plot_individual is not None:
         if '--plot' not in argv:
             cli_plot_combined = None
-    else:
-        # If --plot_single is NOT requested, the combined single plot is enabled by default.
-        if cli_plot_combined is None:
-            cli_plot_combined = []
 
-    # Assign to internal variables expected by main.py
     args.plot = cli_plot_individual
     args.plot_single = cli_plot_combined
 
