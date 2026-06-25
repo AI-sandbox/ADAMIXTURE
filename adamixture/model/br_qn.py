@@ -50,6 +50,15 @@ def _flatten_PQ(P: np.ndarray, Q: np.ndarray) -> np.ndarray:
     """
     return np.concatenate([P.ravel(), Q.ravel()])
 
+def _flatten_PQ_inplace(P: np.ndarray, Q: np.ndarray, out: np.ndarray) -> None:
+    """
+    Description:
+    Flattens P and Q in-place into a pre-allocated 1-D parameter vector.
+    """
+    mk = P.size
+    memoryview(out[:mk])[:] = P.ravel()
+    memoryview(out[mk:])[:] = Q.ravel()
+
 def _unflatten_PQ(x: np.ndarray, P_out: np.ndarray, Q_out: np.ndarray,
                   M: int, N: int, K: int) -> None:
     """
@@ -77,7 +86,11 @@ def qnStep_ZAL(G: np.ndarray, P: np.ndarray, Q: np.ndarray,
                q_bat: np.ndarray, K: int, M: int, N: int,
                U: np.ndarray, V: np.ndarray,
                iteration: int, Q_hist: int,
-               UtUmV_workspace: np.ndarray, coeff_workspace: np.ndarray) -> None:
+               UtUmV_workspace: np.ndarray, coeff_workspace: np.ndarray,
+               x_qn: np.ndarray = None,
+               x_buf: np.ndarray = None,
+               x_next_buf: np.ndarray = None,
+               x_next2_buf: np.ndarray = None) -> None:
     """
     Description:
     Performs one full ZAL quasi-Newton iteration:
@@ -105,11 +118,23 @@ def qnStep_ZAL(G: np.ndarray, P: np.ndarray, Q: np.ndarray,
         Q_hist (int): Number of QN history columns.
         UtUmV_workspace (np.ndarray): Pre-allocated workspace for QN extrapolation.
         coeff_workspace (np.ndarray): Pre-allocated workspace for QN extrapolation.
+        x_qn (np.ndarray, optional): Pre-allocated workspace for the extrapolated state.
+        x_buf (np.ndarray, optional): Pre-allocated workspace for current state vector.
+        x_next_buf (np.ndarray, optional): Pre-allocated workspace for next state vector.
+        x_next2_buf (np.ndarray, optional): Pre-allocated workspace for next2 state vector.
 
     Returns:
         None: P and Q are updated in-place with the best result.
     """
     dim = M * K + N * K
+    if x_qn is None:
+        x_qn = np.empty(dim, dtype=np.float64)
+    if x_buf is None:
+        x_buf = np.empty(dim, dtype=np.float64)
+    if x_next_buf is None:
+        x_next_buf = np.empty(dim, dtype=np.float64)
+    if x_next2_buf is None:
+        x_next2_buf = np.empty(dim, dtype=np.float64)
 
     # --- Block-relaxation step 1: (P, Q) → (P1, Q1) ---
     brStep(G, P, Q, T, P1, Q1, q_bat, K, M, N)
@@ -118,18 +143,17 @@ def qnStep_ZAL(G: np.ndarray, P: np.ndarray, Q: np.ndarray,
     brStep(G, P1, Q1, T, P2, Q2, q_bat, K, M, N)
 
     # --- Flatten for QN ---
-    x = _flatten_PQ(P, Q)
-    x_next = _flatten_PQ(P1, Q1)
-    x_next2 = _flatten_PQ(P2, Q2)
+    _flatten_PQ_inplace(P, Q, x_buf)
+    _flatten_PQ_inplace(P1, Q1, x_next_buf)
+    _flatten_PQ_inplace(P2, Q2, x_next2_buf)
 
     # --- Update UV history ---
-    update_UV_ZAL(U, V, x, x_next, x_next2, iteration, Q_hist, dim)
+    update_UV_ZAL(U, V, x_buf, x_next_buf, x_next2_buf, iteration, Q_hist, dim)
 
     # --- QN extrapolation ---
     n_cols = min(iteration, Q_hist)
-    x_qn = np.empty(dim, dtype=np.float64)
 
-    qn_extrapolate_ZAL(x_qn, x_next, x, U, V, n_cols, dim, UtUmV_workspace, coeff_workspace)
+    qn_extrapolate_ZAL(x_qn, x_next_buf, x_buf, U, V, n_cols, dim, UtUmV_workspace, coeff_workspace)
 
     # Unflatten and project into P, Q
     _unflatten_PQ(x_qn, P, Q, M, N, K)
@@ -183,13 +207,18 @@ def polish_br_qn(G: np.ndarray, P_init: np.ndarray, Q_init: np.ndarray,
     dim = M * K + N * K
     U = np.zeros(dim * Q_hist, dtype=np.float64)
     V = np.zeros(dim * Q_hist, dtype=np.float64)
+    x_qn = np.empty(dim, dtype=np.float64)
+    x_buf = np.empty(dim, dtype=np.float64)
+    x_next_buf = np.empty(dim, dtype=np.float64)
+    x_next2_buf = np.empty(dim, dtype=np.float64)
 
     for it in range(1, n_iters + 1):
         qnStep_ZAL(
             G, P, Q, T, P1, Q1, P2, Q2,
             q_bat, K, M, N,
             U, V, it, Q_hist,
-            UtUmV_workspace, coeff_workspace
+            UtUmV_workspace, coeff_workspace,
+            x_qn, x_buf, x_next_buf, x_next2_buf
         )
 
     return P, Q
@@ -241,10 +270,21 @@ def optimize_original(G: np.ndarray, P: np.ndarray, Q: np.ndarray, max_iter: int
     UtUmV_workspace = np.zeros(Q_hist * (Q_hist + 1), dtype=np.float64)
     coeff_workspace = np.zeros(Q_hist, dtype=np.float64)
     
+    # QN extrapolation buffers
+    x_qn = np.empty(dim, dtype=np.float64)
+    P_qn = np.empty_like(P)
+    Q_qn = np.empty_like(Q)
+    
+    # Pre-allocated buffers for ZAL QN acceleration
+    x_buf = np.empty(dim, dtype=np.float64)
+    x_next_buf = np.empty(dim, dtype=np.float64)
+    x_next2_buf = np.empty(dim, dtype=np.float64)
+    
     # 3. Initialize log-likelihood
-    ll_initial = tools.loglikelihood(G, P, Q)
-    ll_prev_iter = ll_initial
-    log.info(f"    Initial Log-likelihood: {ll_initial:.6f}")
+    ll_prev_iter = -float('inf')
+    ll_best = -float("inf")
+    P_best = np.empty_like(P)
+    Q_best = np.empty_like(Q)
     
     for it in range(1, max_iter + 1):
         it_start = time.time()
@@ -258,18 +298,15 @@ def optimize_original(G: np.ndarray, P: np.ndarray, Q: np.ndarray, max_iter: int
         sqp.update_p_sqp(G, Q_next2, P_next, P_next2, XtX_p, Xtz_p, M, N, K)
         
         # --- ZAL QN acceleration ---
-        x = _flatten_PQ(P, Q)
-        x_next = _flatten_PQ(P_next, Q_next)
-        x_next2 = _flatten_PQ(P_next2, Q_next2)
+        _flatten_PQ_inplace(P, Q, x_buf)
+        _flatten_PQ_inplace(P_next, Q_next, x_next_buf)
+        _flatten_PQ_inplace(P_next2, Q_next2, x_next2_buf)
         
-        update_UV_ZAL(U, V, x, x_next, x_next2, it, Q_hist, dim)
+        update_UV_ZAL(U, V, x_buf, x_next_buf, x_next2_buf, it, Q_hist, dim)
         
         n_cols = min(it, Q_hist)
-        x_qn = np.empty(dim, dtype=np.float64)
-        qn_extrapolate_ZAL(x_qn, x_next, x, U, V, n_cols, dim, UtUmV_workspace, coeff_workspace)
+        qn_extrapolate_ZAL(x_qn, x_next_buf, x_buf, U, V, n_cols, dim, UtUmV_workspace, coeff_workspace)
         
-        P_qn = np.empty_like(P)
-        Q_qn = np.empty_like(Q)
         _unflatten_PQ(x_qn, P_qn, Q_qn, M, N, K)
         
         sqp.project_p_box(P_qn, M, K)
@@ -288,20 +325,24 @@ def optimize_original(G: np.ndarray, P: np.ndarray, Q: np.ndarray, max_iter: int
             memoryview(Q.ravel())[:] = memoryview(Q_next2.ravel())
             ll_new = tools.loglikelihood(G, P_next2, Q_next2)
             step_type = "basic"
+        
+        if ll_new > ll_best:
+            ll_best = ll_new
+            memoryview(P_best.ravel())[:] = memoryview(P.ravel())
+            memoryview(Q_best.ravel())[:] = memoryview(Q.ravel())
             
         log.info(
             f"    Iteration {it}, "
-            f"Log-likelihood: {ll_new:.6f} ({step_type}), "
+            f"Log-likelihood: {ll_new:.1f}, "
             f"Time: {time.time() - it_start:.3f}s"
         )
         
-        reldiff = abs((ll_new - ll_prev_iter) / ll_prev_iter) if ll_prev_iter != 0 else 0
-        if reldiff < tol:
-            log.info(f"    Converged at iteration {it} (log-likelihood relative increase = {reldiff:.6e} < {tol}).")
-            ll_prev_iter = ll_new
+        diff = ll_new - ll_prev_iter
+        if 0 <= diff < tol:
+            log.info(f"    Converged at iteration {it}.")
             break
-            
+
         ll_prev_iter = ll_new
         
-    log.info(f"\n    Final log-likelihood: {ll_prev_iter:.6f}")
-    return P, Q
+    log.info(f"\n    Final log-likelihood: {ll_best:.1f}")
+    return P_best, Q_best

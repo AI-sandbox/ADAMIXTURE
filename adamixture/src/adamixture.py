@@ -124,7 +124,7 @@ def train_k(G: torch.Tensor | np.ndarray, N: int, M: int, K: int, U_max: np.ndar
         log.info(f"    Initial log-likelihood for K={K}: {logl:.1f}.")
 
         if original:
-            log.info("    Original ADMIXTURE (SQP + ZAL QN) running on CPU...\n")
+            # log.info("    Original ADMIXTURE (SQP + ZAL QN) running on CPU...\n")
             P, Q = optimize_original(G, P, Q, max_iter, check, K, M, N, rtol, Q_hist)
         else:
             log.info("    Adam-EM running on CPU...\n")
@@ -161,7 +161,6 @@ def train_k(G: torch.Tensor | np.ndarray, N: int, M: int, K: int, U_max: np.ndar
         log.info(f"    Initial log-likelihood for K={K}: {logl:.1f}.")
 
         if original:
-            log.info(f"    Original ADMIXTURE (SQP + ZAL QN) running on GPU ({device_obj})...\n")
             P, Q = optimize_original_gpu(G, P, Q, max_iter, check, K, M, N, rtol, Q_hist,
                                          device_obj, chunk_size, threads_per_block)
         else:

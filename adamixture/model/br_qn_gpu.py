@@ -24,6 +24,15 @@ def _flatten_PQ_gpu(P: torch.Tensor, Q: torch.Tensor) -> torch.Tensor:
     """
     return torch.cat([P.ravel(), Q.ravel()])
 
+def _flatten_PQ_gpu_inplace(P: torch.Tensor, Q: torch.Tensor, out: torch.Tensor) -> None:
+    """
+    Description:
+    Flattens P and Q in-place into a pre-allocated 1-D parameter vector.
+    """
+    mk = P.numel()
+    out[:mk].copy_(P.ravel())
+    out[mk:].copy_(Q.ravel())
+
 def _unflatten_PQ_gpu(x: torch.Tensor, P: torch.Tensor, Q: torch.Tensor, M: int, K: int) -> None:
     """
     Description:
@@ -130,6 +139,11 @@ def polish_br_qn_gpu(G: torch.Tensor, P_init: torch.Tensor, Q_init: torch.Tensor
     dim = M * K + N * K
     U = torch.zeros((dim, Q_hist), dtype=P.dtype, device=device)
     V = torch.zeros((dim, Q_hist), dtype=P.dtype, device=device)
+    UV_diff = torch.zeros((dim, Q_hist), dtype=P.dtype, device=device)
+    x_buf = torch.empty(dim, dtype=P.dtype, device=device)
+    x_next_buf = torch.empty(dim, dtype=P.dtype, device=device)
+    x_next2_buf = torch.empty(dim, dtype=P.dtype, device=device)
+    x_qn = torch.empty(dim, dtype=P.dtype, device=device)
 
     for it in range(1, n_iters + 1):
         # --- Block-relaxation step 1: (P, Q) -> (P1, Q1) ---
@@ -143,15 +157,14 @@ def polish_br_qn_gpu(G: torch.Tensor, P_init: torch.Tensor, Q_init: torch.Tensor
         Q2 = Q2_EM.clone()
 
         # --- Flatten for QN ---
-        x = _flatten_PQ_gpu(P, Q)
-        x_next = _flatten_PQ_gpu(P1, Q1)
-        x_next2 = _flatten_PQ_gpu(P2, Q2)
+        _flatten_PQ_gpu_inplace(P, Q, x_buf)
+        _flatten_PQ_gpu_inplace(P1, Q1, x_next_buf)
+        _flatten_PQ_gpu_inplace(P2, Q2, x_next2_buf)
 
         # --- Update UV history ---
         col = (it - 1) % Q_hist
-        u_new, v_new = _update_history_compiled(x, x_next, x_next2)
-        U[:, col] = u_new
-        V[:, col] = v_new
+        torch.sub(x_next_buf, x_buf, out=U[:, col])
+        torch.sub(x_next2_buf, x_next_buf, out=V[:, col])
 
         # --- QN extrapolation ---
         n_cols = min(it, Q_hist)
@@ -159,8 +172,11 @@ def polish_br_qn_gpu(G: torch.Tensor, P_init: torch.Tensor, Q_init: torch.Tensor
         V_sub = V[:, :n_cols]
 
         # Linear system: (U^T @ (U - V)) alpha = U^T @ (x - x_next)
-        LHS = U_sub.T @ (U_sub - V_sub)
-        RHS = U_sub.T @ (x - x_next)
+        torch.sub(U_sub, V_sub, out=UV_diff[:, :n_cols])
+        LHS = U_sub.T @ UV_diff[:, :n_cols]
+
+        torch.sub(x_buf, x_next_buf, out=x_qn)
+        RHS = U_sub.T @ x_qn
 
         try:
             # Solve the tiny (Q_hist x Q_hist) system
@@ -169,13 +185,15 @@ def polish_br_qn_gpu(G: torch.Tensor, P_init: torch.Tensor, Q_init: torch.Tensor
             # Fallback if the system is singular/ill-conditioned
             alpha = torch.linalg.lstsq(LHS, RHS).solution
 
-        x_qn = _extrapolate_compiled(x_next, V_sub, alpha)
+        # x_qn = x_next_buf - V_sub @ alpha
+        torch.matmul(V_sub, alpha, out=x_qn)
+        torch.sub(x_next_buf, x_qn, out=x_qn)
 
         # --- Unflatten and project ---
         _unflatten_PQ_gpu(x_qn, P, Q, M, K)
         _mapPQ_compiled(P, Q)
 
-    del optimizer, U, V
+    del optimizer, U, V, UV_diff, x_buf, x_next_buf, x_next2_buf, x_qn
     return P, Q
 
 
@@ -324,14 +342,24 @@ def optimize_original_gpu(G: torch.Tensor, P: torch.Tensor, Q: torch.Tensor, max
     dim = M * K + N * K
     U = torch.zeros((dim, Q_hist), dtype=torch.float64, device=device)
     V = torch.zeros((dim, Q_hist), dtype=torch.float64, device=device)
+    UV_diff = torch.zeros((dim, Q_hist), dtype=torch.float64, device=device)
+    P_qn = torch.empty_like(P)
+    Q_qn = torch.empty_like(Q)
+    
+    # Pre-allocated buffers for ZAL QN acceleration
+    x_qn = torch.empty(dim, dtype=torch.float64, device=device)
+    x_buf = torch.empty(dim, dtype=torch.float64, device=device)
+    x_next_buf = torch.empty(dim, dtype=torch.float64, device=device)
+    x_next2_buf = torch.empty(dim, dtype=torch.float64, device=device)
     
     unpacker = utils.get_unpacker(device, threads_per_block)
     logl_calc = utils.get_logl_calculator(device)
     
     # --- Initialize log-likelihood ---
-    ll_initial = logl_calc(G, P, Q, M, N, chunk_size, threads_per_block)
-    ll_prev_iter = ll_initial
-    log.info(f"    Initial Log-likelihood (GPU): {ll_initial:.6f}")
+    ll_prev_iter = -float('inf')
+    ll_best = -float("inf")
+    P_best = torch.empty_like(P)
+    Q_best = torch.empty_like(Q)
     
     for it in range(1, max_iter + 1):
         it_start = time.time()
@@ -355,30 +383,33 @@ def optimize_original_gpu(G: torch.Tensor, P: torch.Tensor, Q: torch.Tensor, max
         P_next2 = torch.ops.sqp_kernel.sqp_solve_p_cuda(XtX_p, Xtz_p, P_next, M, K)
         
         # --- ZAL QN acceleration ---
-        x = _flatten_PQ_gpu(P, Q)
-        x_next = _flatten_PQ_gpu(P_next, Q_next)
-        x_next2 = _flatten_PQ_gpu(P_next2, Q_next2)
+        _flatten_PQ_gpu_inplace(P, Q, x_buf)
+        _flatten_PQ_gpu_inplace(P_next, Q_next, x_next_buf)
+        _flatten_PQ_gpu_inplace(P_next2, Q_next2, x_next2_buf)
         
         col = (it - 1) % Q_hist
-        U[:, col] = x_next - x
-        V[:, col] = x_next2 - x_next
+        torch.sub(x_next_buf, x_buf, out=U[:, col])
+        torch.sub(x_next2_buf, x_next_buf, out=V[:, col])
         
         n_cols = min(it, Q_hist)
         U_sub = U[:, :n_cols]
         V_sub = V[:, :n_cols]
         
-        LHS = U_sub.T @ (U_sub - V_sub)
-        RHS = U_sub.T @ (x - x_next)
+        torch.sub(U_sub, V_sub, out=UV_diff[:, :n_cols])
+        LHS = U_sub.T @ UV_diff[:, :n_cols]
+        
+        torch.sub(x_buf, x_next_buf, out=x_qn)
+        RHS = U_sub.T @ x_qn
         
         try:
             alpha = torch.linalg.solve(LHS, RHS)
         except RuntimeError:
             alpha = torch.linalg.lstsq(LHS, RHS).solution
             
-        x_qn = x_next - V_sub @ alpha
+        # x_qn = x_next_buf - V_sub @ alpha
+        torch.matmul(V_sub, alpha, out=x_qn)
+        torch.sub(x_next_buf, x_qn, out=x_qn)
         
-        P_qn = torch.empty_like(P)
-        Q_qn = torch.empty_like(Q)
         _unflatten_PQ_gpu(x_qn, P_qn, Q_qn, M, K)
         
         _mapPQ_gpu(P_qn, Q_qn)
@@ -396,20 +427,24 @@ def optimize_original_gpu(G: torch.Tensor, P: torch.Tensor, Q: torch.Tensor, max
             Q.copy_(Q_next2)
             ll_new = logl_calc(G, P_next2, Q_next2, M, N, chunk_size, threads_per_block)
             step_type = "basic"
-            
+
+        if ll_new > ll_best:
+            ll_best = ll_new
+            P_best.copy_(P)
+            Q_best.copy_(Q)
+
         log.info(
             f"    Iteration {it}, "
-            f"Log-likelihood (GPU): {ll_new:.6f} ({step_type}), "
+            f"Log-likelihood: {ll_new:.1f}, "
             f"Time: {time.time() - it_start:.3f}s"
         )
         
-        reldiff = abs((ll_new - ll_prev_iter) / ll_prev_iter) if ll_prev_iter != 0 else 0
-        if reldiff < tol:
-            log.info(f"    Converged at iteration {it} (log-likelihood relative increase = {reldiff:.6e} < {tol}).")
-            ll_prev_iter = ll_new
+        diff = ll_new - ll_prev_iter
+        if 0 <= diff < tol:
+            log.info(f"    Converged at iteration {it}.")
             break
             
         ll_prev_iter = ll_new
         
-    log.info(f"\n    Final log-likelihood (GPU): {ll_prev_iter:.6f}")
-    return P, Q
+    log.info(f"\n    Final log-likelihood (GPU): {ll_best:.1f}")
+    return P_best, Q_best
