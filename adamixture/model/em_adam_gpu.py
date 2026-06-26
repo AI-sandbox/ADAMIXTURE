@@ -12,7 +12,29 @@ log = logging.getLogger(__name__)
 def adam_update(param: torch.Tensor, param_target: torch.Tensor, m: torch.Tensor, v: torch.Tensor,
                 t_tensor: torch.Tensor, lr: float, beta1: float, beta2: float, reg_adam: float) -> torch.Tensor:
     """
-    Performs an Adam optimizer step on a parameter tensor.
+    Description:
+    Optimizes the P and Q matrices using Adam-accelerated Expectation-Maximization.
+
+    Args:
+        G (np.ndarray): Input genotype matrix.
+        P (np.ndarray): Initial P matrix (frequencies).
+        Q (np.ndarray): Initial Q matrix (proportions).
+        lr (float): Adam learning rate.
+        beta1 (float): Adam beta1 parameter.
+        beta2 (float): Adam beta2 parameter.
+        reg_adam (float): Adam epsilon for numerical stability.
+        max_iter (int): Maximum number of Adam-EM iterations.
+        check (int): Frequency of log-likelihood evaluation and checkpointing.
+        K (int): Number of components (clusters).
+        M (int): Number of SNPs (rows in G).
+        N (int): Number of individuals (columns in G).
+        lr_decay (float): Learning rate decay factor.
+        min_lr (float): Minimum learning rate value.
+        patience_adam (int): Number of checks without improvement before early stopping.
+        tol_adam (float): Convergence tolerance for log-likelihood.
+
+    Returns:
+        tuple[np.ndarray, np.ndarray]: Optimized P and Q matrices.
     """
     delta = param_target - param
     m.mul_(beta1).add_(delta, alpha=1 - beta1)
@@ -32,7 +54,29 @@ adam_update_compiled = torch.compile(adam_update, disable=not hasattr(torch, "co
 
 def em_batch_math(G_chunk: torch.Tensor, p_batch: torch.Tensor, Q: torch.Tensor, dtype: torch.dtype) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     """
-    Computes intermediate EM quantities for a batch of genotypes.
+    Description:
+    Optimizes the P and Q matrices using Adam-accelerated Expectation-Maximization.
+
+    Args:
+        G (np.ndarray): Input genotype matrix.
+        P (np.ndarray): Initial P matrix (frequencies).
+        Q (np.ndarray): Initial Q matrix (proportions).
+        lr (float): Adam learning rate.
+        beta1 (float): Adam beta1 parameter.
+        beta2 (float): Adam beta2 parameter.
+        reg_adam (float): Adam epsilon for numerical stability.
+        max_iter (int): Maximum number of Adam-EM iterations.
+        check (int): Frequency of log-likelihood evaluation and checkpointing.
+        K (int): Number of components (clusters).
+        M (int): Number of SNPs (rows in G).
+        N (int): Number of individuals (columns in G).
+        lr_decay (float): Learning rate decay factor.
+        min_lr (float): Minimum learning rate value.
+        patience_adam (int): Number of checks without improvement before early stopping.
+        tol_adam (float): Convergence tolerance for log-likelihood.
+
+    Returns:
+        tuple[np.ndarray, np.ndarray]: Optimized P and Q matrices.
     """
     mask = (G_chunk != 3).to(dtype)
     g_val = G_chunk.to(dtype)
@@ -61,7 +105,29 @@ def em_final_update(P: torch.Tensor, Q: torch.Tensor, A_accum: torch.Tensor, B_a
                     T_accum: torch.Tensor, q_bat: torch.Tensor,
                     P_target: torch.Tensor, Q_target: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
     """
-    Finalizes the EM update by combining processed batch results.
+    Description:
+    Optimizes the P and Q matrices using Adam-accelerated Expectation-Maximization.
+
+    Args:
+        G (np.ndarray): Input genotype matrix.
+        P (np.ndarray): Initial P matrix (frequencies).
+        Q (np.ndarray): Initial Q matrix (proportions).
+        lr (float): Adam learning rate.
+        beta1 (float): Adam beta1 parameter.
+        beta2 (float): Adam beta2 parameter.
+        reg_adam (float): Adam epsilon for numerical stability.
+        max_iter (int): Maximum number of Adam-EM iterations.
+        check (int): Frequency of log-likelihood evaluation and checkpointing.
+        K (int): Number of components (clusters).
+        M (int): Number of SNPs (rows in G).
+        N (int): Number of individuals (columns in G).
+        lr_decay (float): Learning rate decay factor.
+        min_lr (float): Minimum learning rate value.
+        patience_adam (int): Number of checks without improvement before early stopping.
+        tol_adam (float): Convergence tolerance for log-likelihood.
+
+    Returns:
+        tuple[np.ndarray, np.ndarray]: Optimized P and Q matrices.
     """
     torch.sub(A_accum, B_accum, out=P_target)
     P_target.mul_(P)
@@ -115,7 +181,29 @@ class EMAdamOptimizer:
     def run_em_step(self, G: torch.Tensor, P: torch.Tensor, Q: torch.Tensor,
                    M: int, chunk_size: int, unpacker: Callable) -> tuple[torch.Tensor, torch.Tensor]:
         """
-        Executes a complete EM step iterating over genotype batches.
+        Description:
+        Optimizes the P and Q matrices using Adam-accelerated Expectation-Maximization.
+
+        Args:
+            G (np.ndarray): Input genotype matrix.
+            P (np.ndarray): Initial P matrix (frequencies).
+            Q (np.ndarray): Initial Q matrix (proportions).
+            lr (float): Adam learning rate.
+            beta1 (float): Adam beta1 parameter.
+            beta2 (float): Adam beta2 parameter.
+            reg_adam (float): Adam epsilon for numerical stability.
+            max_iter (int): Maximum number of Adam-EM iterations.
+            check (int): Frequency of log-likelihood evaluation and checkpointing.
+            K (int): Number of components (clusters).
+            M (int): Number of SNPs (rows in G).
+            N (int): Number of individuals (columns in G).
+            lr_decay (float): Learning rate decay factor.
+            min_lr (float): Minimum learning rate value.
+            patience_adam (int): Number of checks without improvement before early stopping.
+            tol_adam (float): Convergence tolerance for log-likelihood.
+
+        Returns:
+            tuple[np.ndarray, np.ndarray]: Optimized P and Q matrices.
         """
         self.A_accum.zero_()
         self.B_accum.zero_()
@@ -138,7 +226,29 @@ class EMAdamOptimizer:
 
     def step(self, P: torch.Tensor, Q: torch.Tensor, P_target: torch.Tensor, Q_target: torch.Tensor) -> None:
         """
-        Performs a single Adam optimization step for P and Q matrices.
+        Description:
+        Optimizes the P and Q matrices using Adam-accelerated Expectation-Maximization.
+
+        Args:
+            G (np.ndarray): Input genotype matrix.
+            P (np.ndarray): Initial P matrix (frequencies).
+            Q (np.ndarray): Initial Q matrix (proportions).
+            lr (float): Adam learning rate.
+            beta1 (float): Adam beta1 parameter.
+            beta2 (float): Adam beta2 parameter.
+            reg_adam (float): Adam epsilon for numerical stability.
+            max_iter (int): Maximum number of Adam-EM iterations.
+            check (int): Frequency of log-likelihood evaluation and checkpointing.
+            K (int): Number of components (clusters).
+            M (int): Number of SNPs (rows in G).
+            N (int): Number of individuals (columns in G).
+            lr_decay (float): Learning rate decay factor.
+            min_lr (float): Minimum learning rate value.
+            patience_adam (int): Number of checks without improvement before early stopping.
+            tol_adam (float): Convergence tolerance for log-likelihood.
+
+        Returns:
+            tuple[np.ndarray, np.ndarray]: Optimized P and Q matrices.
         """
         self.t.add_(1.0)
 
@@ -154,7 +264,29 @@ class EMAdamOptimizer:
 
 def logl_batch_math(g_chunk: torch.Tensor, p_batch: torch.Tensor, Q: torch.Tensor) -> torch.Tensor:
     """
-    Computes log-likelihood for a batch of genotypes.
+    Description:
+    Optimizes the P and Q matrices using Adam-accelerated Expectation-Maximization.
+
+    Args:
+        G (np.ndarray): Input genotype matrix.
+        P (np.ndarray): Initial P matrix (frequencies).
+        Q (np.ndarray): Initial Q matrix (proportions).
+        lr (float): Adam learning rate.
+        beta1 (float): Adam beta1 parameter.
+        beta2 (float): Adam beta2 parameter.
+        reg_adam (float): Adam epsilon for numerical stability.
+        max_iter (int): Maximum number of Adam-EM iterations.
+        check (int): Frequency of log-likelihood evaluation and checkpointing.
+        K (int): Number of components (clusters).
+        M (int): Number of SNPs (rows in G).
+        N (int): Number of individuals (columns in G).
+        lr_decay (float): Learning rate decay factor.
+        min_lr (float): Minimum learning rate value.
+        patience_adam (int): Number of checks without improvement before early stopping.
+        tol_adam (float): Convergence tolerance for log-likelihood.
+
+    Returns:
+        tuple[np.ndarray, np.ndarray]: Optimized P and Q matrices.
     """
     rec = torch.matmul(p_batch, Q.T)
     rec = torch.clamp(rec, 1e-10, 1.0 - 1e-10)
@@ -170,7 +302,29 @@ logl_batch_compiled = torch.compile(logl_batch_math, disable=not hasattr(torch, 
 
 def loglikelihood_gpu(G: torch.Tensor, P: torch.Tensor, Q: torch.Tensor, M: int, N: int, batch_size: int, device: torch.device, threads_per_block: int) -> float:
     """
-    Computes total log-likelihood iterating over chunks in float64.
+    Description:
+    Optimizes the P and Q matrices using Adam-accelerated Expectation-Maximization.
+
+    Args:
+        G (np.ndarray): Input genotype matrix.
+        P (np.ndarray): Initial P matrix (frequencies).
+        Q (np.ndarray): Initial Q matrix (proportions).
+        lr (float): Adam learning rate.
+        beta1 (float): Adam beta1 parameter.
+        beta2 (float): Adam beta2 parameter.
+        reg_adam (float): Adam epsilon for numerical stability.
+        max_iter (int): Maximum number of Adam-EM iterations.
+        check (int): Frequency of log-likelihood evaluation and checkpointing.
+        K (int): Number of components (clusters).
+        M (int): Number of SNPs (rows in G).
+        N (int): Number of individuals (columns in G).
+        lr_decay (float): Learning rate decay factor.
+        min_lr (float): Minimum learning rate value.
+        patience_adam (int): Number of checks without improvement before early stopping.
+        tol_adam (float): Convergence tolerance for log-likelihood.
+
+    Returns:
+        tuple[np.ndarray, np.ndarray]: Optimized P and Q matrices.
     """
     if device.type == 'mps':
         from ..src.utils_c import tools
@@ -194,11 +348,32 @@ def optimize_parameters_gpu(G: torch.Tensor, P: torch.Tensor, Q: torch.Tensor, l
                   reg_adam: float, max_iter: int, check: int, M: int, N: int, lr_decay: float, min_lr: float,
                   patience_adam: int, tol_adam: float, device: torch.device, chunk_size: int, threads_per_block: int) -> tuple[torch.Tensor, torch.Tensor]:
     """
-    Adam-EM optimization on the GPU.
+    Description:
+    Optimizes the P and Q matrices using Adam-accelerated Expectation-Maximization.
+
+    Args:
+        G (torch.Tensor): Input genotype matrix.
+        P (torch.Tensor): Initial P matrix (frequencies).
+        Q (torch.Tensor): Initial Q matrix (proportions).
+        lr (float): Adam learning rate.
+        beta1 (float): Adam beta1 parameter.
+        beta2 (float): Adam beta2 parameter.
+        reg_adam (float): Adam epsilon for numerical stability.
+        max_iter (int): Maximum number of Adam-EM iterations.
+        check (int): Frequency of log-likelihood evaluation and checkpointing.
+        M (int): Number of SNPs (rows in G).
+        N (int): Number of individuals (columns in G).
+        lr_decay (float): Learning rate decay factor.
+        min_lr (float): Minimum learning rate value.
+        patience_adam (int): Number of checks without improvement before early stopping.
+        tol_adam (float): Convergence tolerance for log-likelihood.
+        device (torch.device): GPU computation device.
+        chunk_size (int): Batch size to process genotypes.
+        threads_per_block (int): CUDA thread scaling factor.
+
+    Returns:
+        tuple[torch.Tensor, torch.Tensor]: Optimized P and Q matrices.
     """
-    dtype = utils.get_dtype(device)
-    P = P.to(dtype)
-    Q = Q.to(dtype)
     optimizer = EMAdamOptimizer(P.shape, Q.shape, lr, beta1, beta2, reg_adam, device)
 
     wait_lr = 0

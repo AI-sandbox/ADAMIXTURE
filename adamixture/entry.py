@@ -33,7 +33,7 @@ def parse_args(argv: list[str]) -> configargparse.Namespace:
     parser.add_argument('--beta2', type=float, default=0.88, help='Adam beta2 (2nd moment decay) (default: 0.88).')
     parser.add_argument('--reg_adam', type=float, default=1e-8, help='Adam epsilon for numerical stability (default: 1e-8).')
     parser.add_argument('--original', action='store_true', default=False, help='Run the original ADMIXTURE algorithm (SQP block updates + ZAL QN) (default: False).')
-    parser.add_argument('--rtol', type=float, default=1e-4, help='Convergence tolerance for original ADMIXTURE (default: 1e-7).')
+    parser.add_argument('--rtol', type=float, default=0.1, help='Convergence tolerance for original ADMIXTURE (default: 1e-7).')
     parser.add_argument('--Q_hist', type=int, default=3, help='History depth for ZAL Quasi-Newton acceleration (default: 3).')
 
     parser.add_argument('--lr_decay', type=float, default=0.5, help='Learning rate decay factor (default: 0.5).')
@@ -309,7 +309,6 @@ def main() -> None:
     except Exception as e:
         log.error(f"    Invalid or unavailable device '{args.device}': {e}")
         sys.exit(1)
-
 
     # CONTROL INDUCTOR CONFIG:
     if args.device == 'mps':

@@ -14,7 +14,7 @@ cpdef void update_UV_ZAL(double[::1] U_flat, double[::1] V_flat, const double[::
         int offset = col * dim
         size_t i
 
-    for i in prange(dim, schedule='guided'):
+    for i in range(dim):
         U_flat[offset + i] = x_next[i] - x[i]
         V_flat[offset + i] = x_next2[i] - x_next[i]
 

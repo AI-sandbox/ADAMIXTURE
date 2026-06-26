@@ -191,8 +191,8 @@ cdef void create_tableau_simplex_local(double* tableau, const double* matrix_q, 
     for i in range(K):
         tableau[i * sz + K] = 1.0
         tableau[K * sz + i] = 1.0
-        tableau[i * sz + (K + 1)] = -r[i]
-        tableau[(K + 1) * sz + i] = -r[i]
+        tableau[i * sz + (K + 1)] = r[i]
+        tableau[(K + 1) * sz + i] = r[i]
         
     tableau[K * sz + K] = 0.0
     
@@ -218,8 +218,8 @@ cdef void create_tableau_box_local(double* tableau, const double* matrix_q, cons
             tableau[i * sz + j] = matrix_q[i * K + j]
             
     for i in range(K):
-        tableau[i * sz + K] = -r[i]
-        tableau[K * sz + i] = -r[i]
+        tableau[i * sz + K] = r[i]
+        tableau[K * sz + i] = r[i]
         
     tableau[K * sz + K] = 0.0
 
@@ -277,6 +277,7 @@ cpdef void compute_grad_hess_Q(const uint8_t[:,::1] G, const double[:,::1] Q, co
         double qp, g
         double oneT = 1.0
         double twoT = 2.0
+        double term1_z, term2_z, term1, term2
         
     for i in prange(N, schedule='static'):
         for k in range(K):
@@ -294,10 +295,15 @@ cpdef void compute_grad_hess_Q(const uint8_t[:,::1] G, const double[:,::1] Q, co
                 qp += Q[i, k] * P[j, k]
             qp = fmax(fmin(qp, 1.0 - 1e-10), 1e-10)
             
+            term1_z = g / qp
+            term2_z = (twoT - g) / (oneT - qp)
+            term1 = term1_z / qp
+            term2 = term2_z / (oneT - qp)
+            
             for k in range(K):
-                Xtz_q[i, k] += g * P[j, k] / qp + (twoT - g) * (oneT - P[j, k]) / (oneT - qp)
+                Xtz_q[i, k] += term1_z * P[j, k] + term2_z * (oneT - P[j, k])
                 for k2 in range(K):
-                    XtX_q[i, k, k2] += g / (qp * qp) * P[j, k] * P[j, k2] + (twoT - g) / ((oneT - qp) * (oneT - qp)) * (oneT - P[j, k]) * (oneT - P[j, k2])
+                    XtX_q[i, k, k2] += term1 * P[j, k] * P[j, k2] + term2 * (oneT - P[j, k]) * (oneT - P[j, k2])
 
 cpdef void compute_grad_hess_P(const uint8_t[:,::1] G, const double[:,::1] Q, const double[:,::1] P,
                                double[:,:,::1] XtX_p, double[:,::1] Xtz_p, int M, int N, int K) noexcept nogil:
@@ -306,6 +312,7 @@ cpdef void compute_grad_hess_P(const uint8_t[:,::1] G, const double[:,::1] Q, co
         double qp, g
         double oneT = 1.0
         double twoT = 2.0
+        double term1_z, term2_z, term1, term2, term_z_diff, term_sum
         
     for j in prange(M, schedule='static'):
         for k in range(K):
@@ -323,10 +330,17 @@ cpdef void compute_grad_hess_P(const uint8_t[:,::1] G, const double[:,::1] Q, co
                 qp += Q[i, k] * P[j, k]
             qp = fmax(fmin(qp, 1.0 - 1e-10), 1e-10)
             
+            term1_z = g / qp
+            term2_z = (twoT - g) / (oneT - qp)
+            term1 = term1_z / qp
+            term2 = term2_z / (oneT - qp)
+            term_z_diff = term1_z - term2_z
+            term_sum = term1 + term2
+            
             for k in range(K):
-                Xtz_p[j, k] += g * Q[i, k] / qp - (twoT - g) * Q[i, k] / (oneT - qp)
+                Xtz_p[j, k] += term_z_diff * Q[i, k]
                 for k2 in range(K):
-                    XtX_p[j, k, k2] += g / (qp * qp) * Q[i, k] * Q[i, k2] + (twoT - g) / ((oneT - qp) * (oneT - qp)) * Q[i, k] * Q[i, k2]
+                    XtX_p[j, k, k2] += term_sum * Q[i, k] * Q[i, k2]
 
 cpdef void project_q_simplex(double[:,::1] Q, int N, int K) noexcept nogil:
     cdef int i
@@ -345,10 +359,7 @@ cpdef void update_q_sqp(const uint8_t[:,::1] G, const double[:,::1] Q, double[:,
     
     compute_grad_hess_Q(G, Q, P, XtX_q, Xtz_q, M, N, K)
     
-    for i in prange(N, schedule='static'):
-        for k in range(K):
-            Xtz_q[i, k] *= -1.0
-            
+
     for i in prange(N, schedule='guided'):
         update_single_q(i, Q, Q_next, XtX_q, Xtz_q, v_kk, K)
 
@@ -359,9 +370,6 @@ cpdef void update_p_sqp(const uint8_t[:,::1] G, const double[:,::1] Q, const dou
     
     compute_grad_hess_P(G, Q, P, XtX_p, Xtz_p, M, N, K)
     
-    for j in prange(M, schedule='static'):
-        for k in range(K):
-            Xtz_p[j, k] *= -1.0
-            
+
     for j in prange(M, schedule='guided'):
         update_single_p(j, P, P_next, XtX_p, Xtz_p, K)

@@ -124,7 +124,7 @@ def train_k(G: torch.Tensor | np.ndarray, N: int, M: int, K: int, U_max: np.ndar
         log.info(f"    Initial log-likelihood for K={K}: {logl:.1f}.")
 
         if original:
-            # log.info("    Original ADMIXTURE (SQP + ZAL QN) running on CPU...\n")
+            log.info("    SQP + ZAL QN running on CPU...\n")
             P, Q = optimize_original(G, P, Q, max_iter, check, K, M, N, rtol, Q_hist)
         else:
             log.info("    Adam-EM running on CPU...\n")
@@ -139,9 +139,8 @@ def train_k(G: torch.Tensor | np.ndarray, N: int, M: int, K: int, U_max: np.ndar
             f_cpu = f.cpu().numpy()
             G_cpu = G.cpu().numpy() if isinstance(G, torch.Tensor) else G
             P_np, Q_np = ALS(U_cpu, S_cpu, V_cpu, f_cpu, seed, M, N, K, max_als, tol_als)
-            dtype_gpu = torch.float64 if original else torch.float32
-            P = torch.from_numpy(P_np).to(device_obj, dtype=dtype_gpu)
-            Q = torch.from_numpy(Q_np).to(device_obj, dtype=dtype_gpu)
+            P = torch.from_numpy(P_np).to(device_obj, dtype=torch.float32)
+            Q = torch.from_numpy(Q_np).to(device_obj, dtype=torch.float32)
             del U_cpu, S_cpu, V_cpu, f_cpu, G_cpu, P_np, Q_np
         else:
             log.info("    Running ALS on GPU...")
@@ -149,9 +148,6 @@ def train_k(G: torch.Tensor | np.ndarray, N: int, M: int, K: int, U_max: np.ndar
             S_k = S.contiguous()
             V_k = V.contiguous()
             P, Q = ALS_gpu(U_k, S_k, V_k, f, seed, M, K, max_als, tol_als, device_obj)
-            if not original:
-                P = P.to(torch.float32)
-                Q = Q.to(torch.float32)
 
         if device_obj.type == 'cuda':
             torch.cuda.empty_cache()
@@ -161,6 +157,7 @@ def train_k(G: torch.Tensor | np.ndarray, N: int, M: int, K: int, U_max: np.ndar
         log.info(f"    Initial log-likelihood for K={K}: {logl:.1f}.")
 
         if original:
+            log.info("    SQP + ZAL QN running on GPU...\n")
             P, Q = optimize_original_gpu(G, P, Q, max_iter, check, K, M, N, rtol, Q_hist,
                                          device_obj, chunk_size, threads_per_block)
         else:
