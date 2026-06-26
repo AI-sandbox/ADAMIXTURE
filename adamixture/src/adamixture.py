@@ -125,7 +125,7 @@ def train_k(G: torch.Tensor | np.ndarray, N: int, M: int, K: int, U_max: np.ndar
 
         if original:
             log.info("    SQP + ZAL QN running on CPU...\n")
-            P, Q = optimize_original(G, P, Q, max_iter, check, K, M, N, rtol, Q_hist)
+            P, Q = optimize_original(G, P, Q, max_iter, K, M, N, rtol, Q_hist)
         else:
             log.info("    Adam-EM running on CPU...\n")
             P, Q = optimize_parameters(G, P, Q, lr, beta1, beta2, reg_adam, max_iter,
@@ -158,7 +158,7 @@ def train_k(G: torch.Tensor | np.ndarray, N: int, M: int, K: int, U_max: np.ndar
 
         if original:
             log.info("    SQP + ZAL QN running on GPU...\n")
-            P, Q = optimize_original_gpu(G, P, Q, max_iter, check, K, M, N, rtol, Q_hist,
+            P, Q = optimize_original_gpu(G, P, Q, max_iter, K, M, N, rtol, Q_hist,
                                          device_obj, chunk_size, threads_per_block)
         else:
             log.info(f"    Adam-EM running on GPU ({device_obj})...\n")

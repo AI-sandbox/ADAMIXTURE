@@ -9,21 +9,6 @@ from .em_adam_gpu import EMAdamOptimizer
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
 log = logging.getLogger(__name__)
 
-
-def _flatten_PQ_gpu(P: torch.Tensor, Q: torch.Tensor) -> torch.Tensor:
-    """
-    Description:
-    Flattens P and Q into a single 1-D parameter vector [P_flat, Q_flat].
-
-    Args:
-        P (torch.Tensor): P matrix (M x K) on GPU.
-        Q (torch.Tensor): Q matrix (N x K) on GPU.
-
-    Returns:
-        torch.Tensor: Flattened 1-D parameter vector of length M*K + N*K.
-    """
-    return torch.cat([P.ravel(), Q.ravel()])
-
 def _flatten_PQ_gpu_inplace(P: torch.Tensor, Q: torch.Tensor, out: torch.Tensor) -> None:
     """
     Description:
@@ -67,40 +52,61 @@ def _mapPQ_gpu(P: torch.Tensor, Q: torch.Tensor) -> None:
     torch.clamp_(Q, 1e-5, 1.0 - 1e-5)
     Q.div_(Q.sum(dim=1, keepdim=True))
 
-def _update_history_math(x: torch.Tensor, x_next: torch.Tensor, x_next2: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-    """
-    Description:
-    Computes U and V history increments for ZAL Quasi-Newton acceleration.
-
-    Args:
-        x (torch.Tensor): Previous flattened parameter vector.
-        x_next (torch.Tensor): First update flattened parameter vector.
-        x_next2 (torch.Tensor): Second update flattened parameter vector.
-
-    Returns:
-        tuple[torch.Tensor, torch.Tensor]: U and V increment vectors (x_next - x, x_next2 - x_next).
-    """
-    return x_next - x, x_next2 - x_next
-
-def _extrapolate_math(x_next: torch.Tensor, V_sub: torch.Tensor, alpha: torch.Tensor) -> torch.Tensor:
-    """
-    Description:
-    Computes the QN extrapolated vector using historical V-matrix steps.
-
-    Args:
-        x_next (torch.Tensor): Current base parameter vector.
-        V_sub (torch.Tensor): Subset of historical V step matrix.
-        alpha (torch.Tensor): Extrapolation coefficient vector.
-
-    Returns:
-        torch.Tensor: Extrapolated parameter vector.
-    """
-    return x_next - V_sub @ alpha
-
 # Compilation
 _mapPQ_compiled = torch.compile(_mapPQ_gpu, disable=not hasattr(torch, "compile"))
-_update_history_compiled = torch.compile(_update_history_math, disable=not hasattr(torch, "compile"))
-_extrapolate_compiled = torch.compile(_extrapolate_math, disable=not hasattr(torch, "compile"))
+
+
+def _grad_hess_q_chunk(
+    G_chunk: torch.Tensor,
+    P_chunk: torch.Tensor,
+    Q: torch.Tensor,
+    dtype: torch.dtype,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    qp = torch.matmul(P_chunk, Q.T)
+    qp = torch.clamp(qp, min=1e-10, max=1.0 - 1e-10)
+
+    mask = (G_chunk != 3).to(dtype)
+    g = G_chunk.to(dtype)
+
+    coeff_a = (g / qp) * mask
+    coeff_b = ((2.0 - g) / (1.0 - qp)) * mask
+    one_minus_p = 1.0 - P_chunk
+
+    Xtz_a = torch.matmul(coeff_a.T, P_chunk)
+    Xtz_b = torch.matmul(coeff_b.T, one_minus_p)
+
+    H_coeff_a = (g / (qp * qp)) * mask
+    H_coeff_b = ((2.0 - g) / ((1.0 - qp) * (1.0 - qp))) * mask
+
+    XtX_a = torch.einsum('ji,jk,jl->ikl', H_coeff_a, P_chunk, P_chunk)
+    XtX_b = torch.einsum('ji,jk,jl->ikl', H_coeff_b, one_minus_p, one_minus_p)
+    return Xtz_a, Xtz_b, XtX_a, XtX_b
+
+
+def _grad_hess_p_chunk(
+    G_chunk: torch.Tensor,
+    P_chunk: torch.Tensor,
+    Q: torch.Tensor,
+    dtype: torch.dtype,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    qp = torch.matmul(P_chunk, Q.T)
+    qp = torch.clamp(qp, min=1e-10, max=1.0 - 1e-10)
+
+    mask = (G_chunk != 3).to(dtype)
+    g = G_chunk.to(dtype)
+
+    coeff_a = (g / qp) * mask
+    coeff_b = ((2.0 - g) / (1.0 - qp)) * mask
+    Xtz = torch.matmul(coeff_a - coeff_b, Q)
+
+    H_coeff = (g / (qp * qp) + (2.0 - g) / ((1.0 - qp) * (1.0 - qp))) * mask
+    XtX = torch.einsum('ji,ik,il->jkl', H_coeff, Q, Q)
+    return Xtz, XtX
+
+
+_grad_hess_q_chunk_compiled = torch.compile(_grad_hess_q_chunk, disable=not hasattr(torch, "compile"))
+_grad_hess_p_chunk_compiled = torch.compile(_grad_hess_p_chunk, disable=not hasattr(torch, "compile"))
+
 
 def polish_br_qn_gpu(G: torch.Tensor, P_init: torch.Tensor, Q_init: torch.Tensor,
                     M: int, N: int, K: int, args,
@@ -199,7 +205,7 @@ def polish_br_qn_gpu(G: torch.Tensor, P_init: torch.Tensor, Q_init: torch.Tensor
 
 def compute_grad_hess_Q_gpu(G: torch.Tensor, Q: torch.Tensor, P: torch.Tensor,
                             XtX_q: torch.Tensor, Xtz_q: torch.Tensor,
-                            M: int, N: int, K: int, chunk_size: int,
+                            M: int, chunk_size: int,
                             unpacker, dtype: torch.dtype) -> None:
     """
     Description:
@@ -212,8 +218,6 @@ def compute_grad_hess_Q_gpu(G: torch.Tensor, Q: torch.Tensor, P: torch.Tensor,
         XtX_q (torch.Tensor): Pre-allocated buffer for Hessian (N x K x K).
         Xtz_q (torch.Tensor): Pre-allocated buffer for Gradient (N x K).
         M (int): Number of SNPs.
-        N (int): Number of individuals.
-        K (int): Number of ancestral populations.
         chunk_size (int): Size of chunks to process at once.
         unpacker (function): Unpacker function for packed genotype bytes.
         dtype (torch.dtype): Target computation data type.
@@ -228,29 +232,17 @@ def compute_grad_hess_Q_gpu(G: torch.Tensor, Q: torch.Tensor, P: torch.Tensor,
         actual_chunk_size = end - i
         G_chunk = unpacker(G, i, actual_chunk_size, M) # (C, N)
         P_chunk = P[i:end] # (C, K)
-        
-        qp = torch.matmul(P_chunk, Q.T) # (C, N)
-        qp = torch.clamp(qp, min=1e-10, max=1.0 - 1e-10)
-        
-        mask = (G_chunk != 3).to(dtype)
-        g = G_chunk.to(dtype)
-        
-        coeff_a = (g / qp) * mask
-        coeff_b = ((2.0 - g) / (1.0 - qp)) * mask
-        
-        Xtz_q.add_(torch.matmul(coeff_a.T, P_chunk))
-        Xtz_q.add_(torch.matmul(coeff_b.T, 1.0 - P_chunk))
-        
-        H_coeff_a = (g / (qp * qp)) * mask
-        H_coeff_b = ((2.0 - g) / ((1.0 - qp) * (1.0 - qp))) * mask
-        
-        XtX_q.add_(torch.einsum('ji,jk,jl->ikl', H_coeff_a, P_chunk, P_chunk))
-        XtX_q.add_(torch.einsum('ji,jk,jl->ikl', H_coeff_b, 1.0 - P_chunk, 1.0 - P_chunk))
+        Xtz_a, Xtz_b, XtX_a, XtX_b = _grad_hess_q_chunk_compiled(G_chunk, P_chunk, Q, dtype)
+
+        Xtz_q.add_(Xtz_a)
+        Xtz_q.add_(Xtz_b)
+        XtX_q.add_(XtX_a)
+        XtX_q.add_(XtX_b)
 
 
 def compute_grad_hess_P_gpu(G: torch.Tensor, Q: torch.Tensor, P: torch.Tensor,
                             XtX_p: torch.Tensor, Xtz_p: torch.Tensor,
-                            M: int, N: int, K: int, chunk_size: int,
+                            M: int, chunk_size: int,
                             unpacker, dtype: torch.dtype) -> None:
     """
     Description:
@@ -263,8 +255,6 @@ def compute_grad_hess_P_gpu(G: torch.Tensor, Q: torch.Tensor, P: torch.Tensor,
         XtX_p (torch.Tensor): Pre-allocated buffer for Hessian (M x K x K).
         Xtz_p (torch.Tensor): Pre-allocated buffer for Gradient (M x K).
         M (int): Number of SNPs.
-        N (int): Number of individuals.
-        K (int): Number of ancestral populations.
         chunk_size (int): Size of chunks to process at once.
         unpacker (function): Unpacker function for packed genotype bytes.
         dtype (torch.dtype): Target computation data type.
@@ -278,24 +268,14 @@ def compute_grad_hess_P_gpu(G: torch.Tensor, Q: torch.Tensor, P: torch.Tensor,
         end = min(i + chunk_size, M)
         actual_chunk_size = end - i
         G_chunk = unpacker(G, i, actual_chunk_size, M) # (C, N)
-        
-        # We need Q from Q_next or Q_next2 depending on state
-        qp = torch.matmul(P[i:end], Q.T) # (C, N)
-        qp = torch.clamp(qp, min=1e-10, max=1.0 - 1e-10)
-        
-        mask = (G_chunk != 3).to(dtype)
-        g = G_chunk.to(dtype)
-        
-        coeff_a = (g / qp) * mask
-        coeff_b = ((2.0 - g) / (1.0 - qp)) * mask
-        
-        Xtz_p[i:end] = torch.matmul(coeff_a - coeff_b, Q)
-        
-        H_coeff = (g / (qp * qp) + (2.0 - g) / ((1.0 - qp) * (1.0 - qp))) * mask
-        XtX_p[i:end] = torch.einsum('ji,ik,il->jkl', H_coeff, Q, Q)
+        P_chunk = P[i:end]
+        Xtz_chunk, XtX_chunk = _grad_hess_p_chunk_compiled(G_chunk, P_chunk, Q, dtype)
+
+        Xtz_p[i:end] = Xtz_chunk
+        XtX_p[i:end] = XtX_chunk
 
 
-def optimize_original_gpu(G: torch.Tensor, P: torch.Tensor, Q: torch.Tensor, max_iter: int, check: int,
+def optimize_original_gpu(G: torch.Tensor, P: torch.Tensor, Q: torch.Tensor, max_iter: int,
                           K: int, M: int, N: int, tol: float, Q_hist: int,
                           device: torch.device, chunk_size: int, threads_per_block: int) -> tuple[torch.Tensor, torch.Tensor]:
     """
@@ -308,7 +288,6 @@ def optimize_original_gpu(G: torch.Tensor, P: torch.Tensor, Q: torch.Tensor, max
         P (torch.Tensor): Pre-initialized P matrix (M x K) on GPU.
         Q (torch.Tensor): Pre-initialized Q matrix (N x K) on GPU.
         max_iter (int): Maximum SQP iterations.
-        check (int): Log-likelihood check frequency.
         K (int): Number of ancestral populations.
         M (int): Number of SNPs.
         N (int): Number of individuals.
@@ -332,11 +311,6 @@ def optimize_original_gpu(G: torch.Tensor, P: torch.Tensor, Q: torch.Tensor, max
     Xtz_q = torch.zeros((N, K), dtype=torch.float64, device=device)
     XtX_p = torch.zeros((M, K, K), dtype=torch.float64, device=device)
     Xtz_p = torch.zeros((M, K), dtype=torch.float64, device=device)
-    
-    P_next = torch.zeros_like(P, dtype=torch.float64, device=device)
-    Q_next = torch.zeros_like(Q, dtype=torch.float64, device=device)
-    P_next2 = torch.zeros_like(P, dtype=torch.float64, device=device)
-    Q_next2 = torch.zeros_like(Q, dtype=torch.float64, device=device)
     
     # QN history buffers
     dim = M * K + N * K
@@ -365,20 +339,20 @@ def optimize_original_gpu(G: torch.Tensor, P: torch.Tensor, Q: torch.Tensor, max
         it_start = time.time()
         
         # --- SQP Update 1: (P, Q) -> (P_next, Q_next) ---
-        compute_grad_hess_Q_gpu(G, Q, P, XtX_q, Xtz_q, M, N, K, chunk_size, unpacker, dtype)
+        compute_grad_hess_Q_gpu(G, Q, P, XtX_q, Xtz_q, M, chunk_size, unpacker, dtype)
         Xtz_q.neg_()
         Q_next = torch.ops.sqp_kernel.sqp_solve_q_cuda(XtX_q, Xtz_q, Q, v_kk, N, K)
         
-        compute_grad_hess_P_gpu(G, Q_next, P, XtX_p, Xtz_p, M, N, K, chunk_size, unpacker, dtype)
+        compute_grad_hess_P_gpu(G, Q_next, P, XtX_p, Xtz_p, M, chunk_size, unpacker, dtype)
         Xtz_p.neg_()
         P_next = torch.ops.sqp_kernel.sqp_solve_p_cuda(XtX_p, Xtz_p, P, M, K)
         
         # --- SQP Update 2: (P_next, Q_next) -> (P_next2, Q_next2) ---
-        compute_grad_hess_Q_gpu(G, Q_next, P_next, XtX_q, Xtz_q, M, N, K, chunk_size, unpacker, dtype)
+        compute_grad_hess_Q_gpu(G, Q_next, P_next, XtX_q, Xtz_q, M, chunk_size, unpacker, dtype)
         Xtz_q.neg_()
         Q_next2 = torch.ops.sqp_kernel.sqp_solve_q_cuda(XtX_q, Xtz_q, Q_next, v_kk, N, K)
         
-        compute_grad_hess_P_gpu(G, Q_next2, P_next, XtX_p, Xtz_p, M, N, K, chunk_size, unpacker, dtype)
+        compute_grad_hess_P_gpu(G, Q_next2, P_next, XtX_p, Xtz_p, M, chunk_size, unpacker, dtype)
         Xtz_p.neg_()
         P_next2 = torch.ops.sqp_kernel.sqp_solve_p_cuda(XtX_p, Xtz_p, P_next, M, K)
         
@@ -421,12 +395,10 @@ def optimize_original_gpu(G: torch.Tensor, P: torch.Tensor, Q: torch.Tensor, max
             P.copy_(P_qn)
             Q.copy_(Q_qn)
             ll_new = ll_qn
-            step_type = "QN"
         else:
             P.copy_(P_next2)
             Q.copy_(Q_next2)
             ll_new = logl_calc(G, P_next2, Q_next2, M, N, chunk_size, threads_per_block)
-            step_type = "basic"
 
         if ll_new > ll_best:
             ll_best = ll_new
@@ -446,5 +418,5 @@ def optimize_original_gpu(G: torch.Tensor, P: torch.Tensor, Q: torch.Tensor, max
             
         ll_prev_iter = ll_new
         
-    log.info(f"\n    Final log-likelihood (GPU): {ll_best:.1f}")
+    log.info(f"\n    Final log-likelihood: {ll_best:.1f}")
     return P_best, Q_best

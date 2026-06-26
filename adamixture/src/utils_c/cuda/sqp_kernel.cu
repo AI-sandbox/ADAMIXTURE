@@ -27,7 +27,7 @@ __device__ void sweep(double* matrix_a, int sz, int k, double* tmp, bool inverse
 
 __device__ int quadratic_program_device(
     double* delta, double* tableau, const double* par,
-    const double* pmin, const double* pmax, int p, int c,
+    int p, int c,
     double* d, double* tmp, int* swept)
 {
     int sz = p + c + 1;
@@ -69,9 +69,9 @@ __device__ int quadratic_program_device(
                 double ui = tableau[i * sz + (sz - 1)];
                 double ai;
                 if (ui > 0.0) {
-                    ai = pmax[i] - par[i] - delta[i];
+                    ai = 1.0 - par[i] - delta[i];
                 } else {
-                    ai = pmin[i] - par[i] - delta[i];
+                    ai = 0.0 - par[i] - delta[i];
                 }
                 if (fabs(ui) > 1e-10) {
                     double temp = ai / ui;
@@ -93,7 +93,7 @@ __device__ int quadratic_program_device(
         
         bool cycle_main_loop = false;
         for (int i = 0; i < p; i++) {
-            bool critical = (pmin[i] >= par[i] + delta[i] - small) || (pmax[i] <= par[i] + delta[i] + small);
+            bool critical = (0.0 >= par[i] + delta[i] - small) || (1.0 <= par[i] + delta[i] + small);
             if (swept[i] && (fabs(tableau[i * sz + i]) > 1e-10) && critical) {
                 sweep(tableau, sz, i, tmp, true);
                 swept[i] = 0;
@@ -106,7 +106,7 @@ __device__ int quadratic_program_device(
         
         for (int i = 0; i < p; i++) {
             double ui = tableau[i * sz + (sz - 1)];
-            bool violation = (ui > 0.0 && pmin[i] >= par[i] + delta[i] - small) || (ui < 0.0 && pmax[i] <= par[i] + delta[i] + small);
+            bool violation = (ui > 0.0 && 0.0 >= par[i] + delta[i] - small) || (ui < 0.0 && 1.0 <= par[i] + delta[i] + small);
             if (!swept[i] && violation) {
                 sweep(tableau, sz, i, tmp, false);
                 swept[i] = 1;
@@ -127,7 +127,7 @@ __device__ void project_q_simplex_row(double* b, int n, double pseudocount) {
     double tsum = 0.0;
     double tmax = 0.0;
     bool bget = false;
-    int idx[64];
+    int idx[100];
     
     for (int i = 0; i < n; i++) {
         b[i] -= pseudocount;
@@ -179,8 +179,8 @@ __device__ void create_tableau_simplex_device(
     const double* x, const double* v_kk, int K)
 {
     int sz = K + 2;
-    double tmp_k[64];
-    double tmp_k2[64];
+    double tmp_k[100];
+    double tmp_k2[100];
     
     for (int i = 0; i < sz * sz; i++) {
         tableau[i] = 0.0;
@@ -270,21 +270,14 @@ __global__ void sqp_solve_q_kernel(
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i >= N) return;
     
-    double tableau[66 * 66];
-    double d_buf[66];
-    double tmp_buf[66];
-    int swept[64];
-    double delta[64];
-    double pmin[64];
-    double pmax[64];
-    
-    for (int k = 0; k < K; k++) {
-        pmin[k] = 0.0;
-        pmax[k] = 1.0;
-    }
+    double tableau[102 * 102];
+    double d_buf[102];
+    double tmp_buf[102];
+    int swept[100];
+    double delta[100];
     
     create_tableau_simplex_device(tableau, XtX_q + i * K * K, Xtz_q + i * K, Q + i * K, v_kk, K);
-    quadratic_program_device(delta, tableau, Q + i * K, pmin, pmax, K, 1, d_buf, tmp_buf, swept);
+    quadratic_program_device(delta, tableau, Q + i * K, K, 1, d_buf, tmp_buf, swept);
     
     for (int k = 0; k < K; k++) {
         Q_next[i * K + k] = Q[i * K + k] + delta[k];
@@ -302,26 +295,26 @@ __global__ void sqp_solve_p_kernel(
     int j = blockIdx.x * blockDim.x + threadIdx.x;
     if (j >= M) return;
     
-    double tableau[66 * 66];
-    double d_buf[66];
-    double tmp_buf[66];
-    int swept[64];
-    double delta[64];
-    double pmin[64];
-    double pmax[64];
-    
-    for (int k = 0; k < K; k++) {
-        pmin[k] = 0.0;
-        pmax[k] = 1.0;
-    }
+    double tableau[102 * 102];
+    double d_buf[102];
+    double tmp_buf[102];
+    int swept[100];
+    double delta[100];
     
     create_tableau_box_device(tableau, XtX_p + j * K * K, Xtz_p + j * K, P + j * K, K);
-    quadratic_program_device(delta, tableau, P + j * K, pmin, pmax, K, 0, d_buf, tmp_buf, swept);
+    quadratic_program_device(delta, tableau, P + j * K, K, 0, d_buf, tmp_buf, swept);
     
     for (int k = 0; k < K; k++) {
         P_next[j * K + k] = P[j * K + k] + delta[k];
     }
     project_p_box_row(P_next + j * K, K, 1e-5);
+}
+
+static inline int sqp_threads_for_k(int64_t K) {
+    if (K <= 8) return 256;
+    if (K <= 16) return 128;
+    if (K <= 32) return 64;
+    return 32;
 }
 
 torch::Tensor sqp_solve_q_cuda(
@@ -331,12 +324,12 @@ torch::Tensor sqp_solve_q_cuda(
     const torch::Tensor& v_kk,
     int64_t N, int64_t K)
 {
-    TORCH_CHECK(K <= 64, "K must be <= 64");
+    TORCH_CHECK(K >= 1 && K <= 100, "K must be between 1 and 100");
     
     auto opts = torch::TensorOptions().dtype(torch::kFloat64).device(Q.device());
-    torch::Tensor Q_next = torch::zeros({N, K}, opts);
+    torch::Tensor Q_next = torch::empty({N, K}, opts);
     
-    int threads = 256;
+    int threads = sqp_threads_for_k(K);
     int blocks = (N + threads - 1) / threads;
     
     sqp_solve_q_kernel<<<blocks, threads>>>(
@@ -357,12 +350,12 @@ torch::Tensor sqp_solve_p_cuda(
     const torch::Tensor& P,
     int64_t M, int64_t K)
 {
-    TORCH_CHECK(K <= 64, "K must be <= 64");
+    TORCH_CHECK(K >= 1 && K <= 100, "K must be between 1 and 100");
     
     auto opts = torch::TensorOptions().dtype(torch::kFloat64).device(P.device());
-    torch::Tensor P_next = torch::zeros({M, K}, opts);
+    torch::Tensor P_next = torch::empty({M, K}, opts);
     
-    int threads = 256;
+    int threads = sqp_threads_for_k(K);
     int blocks = (M + threads - 1) / threads;
     
     sqp_solve_p_kernel<<<blocks, threads>>>(

@@ -1,8 +1,6 @@
 # cython: language_level=3, boundscheck=False, wraparound=False, initializedcheck=False, cdivision=True
-cimport openmp as omp
-from cython.parallel import parallel, prange
+from cython.parallel import prange
 from libc.math cimport fabs, fmax, fmin
-from libc.stdlib cimport malloc, free
 from libc.stdint cimport uint8_t
 
 cdef void sweep(double* matrix_a, int sz, int k, double* tmp, bint inverse) noexcept nogil:
@@ -31,15 +29,14 @@ cdef void sweep(double* matrix_a, int sz, int k, double* tmp, bint inverse) noex
             matrix_a[j * sz + i] -= pv * tmp[j]
 
 cdef int quadratic_program_local(double* delta, double* tableau, const double* par,
-                                 const double* pmin, const double* pmax, int p, int c,
+                                 int p, int c,
                                  double* d, double* tmp, uint8_t* swept) noexcept nogil:
     cdef:
         int sz = p + c + 1
-        int i, j, iteration, k
+        int i, iteration
         double small = 1e-5
         double tol = 1e-8
-        double a, ai, ui, temp, pivot, max_val
-        int max_row
+        double a, ai, ui, temp
         bint cycle_main_loop, critical, violation
         
     for i in range(p):
@@ -69,9 +66,9 @@ cdef int quadratic_program_local(double* delta, double* tableau, const double* p
             if swept[i]:
                 ui = tableau[i * sz + (sz - 1)]
                 if ui > 0.0:
-                    ai = pmax[i] - par[i] - delta[i]
+                    ai = 1.0 - par[i] - delta[i]
                 else:
-                    ai = pmin[i] - par[i] - delta[i]
+                    ai = 0.0 - par[i] - delta[i]
                 if fabs(ui) > 1e-10:
                     temp = ai / ui
                     if temp < a:
@@ -86,7 +83,7 @@ cdef int quadratic_program_local(double* delta, double* tableau, const double* p
                 
         cycle_main_loop = False
         for i in range(p):
-            critical = (pmin[i] >= par[i] + delta[i] - small) or (pmax[i] <= par[i] + delta[i] + small)
+            critical = (0.0 >= par[i] + delta[i] - small) or (1.0 <= par[i] + delta[i] + small)
             if swept[i] and (fabs(tableau[i * sz + i]) > 1e-10) and critical:
                 sweep(tableau, sz, i, tmp, True)
                 swept[i] = 0
@@ -98,7 +95,7 @@ cdef int quadratic_program_local(double* delta, double* tableau, const double* p
             
         for i in range(p):
             ui = tableau[i * sz + (sz - 1)]
-            violation = (ui > 0.0 and pmin[i] >= par[i] + delta[i] - small) or (ui < 0.0 and pmax[i] <= par[i] + delta[i] + small)
+            violation = (ui > 0.0 and 0.0 >= par[i] + delta[i] - small) or (ui < 0.0 and 1.0 <= par[i] + delta[i] + small)
             if (not swept[i]) and violation:
                 sweep(tableau, sz, i, tmp, False)
                 swept[i] = 1
@@ -205,7 +202,7 @@ cdef void create_tableau_simplex_local(double* tableau, const double* matrix_q, 
     tableau[(K + 1) * sz + (K + 1)] = 0.0
 
 cdef void create_tableau_box_local(double* tableau, const double* matrix_q, const double* r,
-                                   const double* x, int K) noexcept nogil:
+                                   int K) noexcept nogil:
     cdef:
         int sz = K + 1
         int i, j
@@ -232,16 +229,10 @@ cdef void update_single_q(int i, const double[:,::1] Q, double[:,::1] Q_next,
         double tmp_buf[130]
         uint8_t swept_buf[128]
         double delta[128]
-        double pmin[128]
-        double pmax[128]
         int k
-    for k in range(K):
-        pmin[k] = 0.0
-        pmax[k] = 1.0
-        delta[k] = 0.0
         
     create_tableau_simplex_local(tableau, &XtX_q[i, 0, 0], &Xtz_q[i, 0], &Q[i, 0], v_kk, K)
-    quadratic_program_local(delta, tableau, &Q[i, 0], pmin, pmax, K, 1, d_buf, tmp_buf, swept_buf)
+    quadratic_program_local(delta, tableau, &Q[i, 0], K, 1, d_buf, tmp_buf, swept_buf)
     
     for k in range(K):
         Q_next[i, k] = Q[i, k] + delta[k]
@@ -255,16 +246,10 @@ cdef void update_single_p(int j, const double[:,::1] P, double[:,::1] P_next,
         double tmp_buf[130]
         uint8_t swept_buf[128]
         double delta[128]
-        double pmin[128]
-        double pmax[128]
         int k
-    for k in range(K):
-        pmin[k] = 0.0
-        pmax[k] = 1.0
-        delta[k] = 0.0
         
-    create_tableau_box_local(tableau, &XtX_p[j, 0, 0], &Xtz_p[j, 0], &P[j, 0], K)
-    quadratic_program_local(delta, tableau, &P[j, 0], pmin, pmax, K, 0, d_buf, tmp_buf, swept_buf)
+    create_tableau_box_local(tableau, &XtX_p[j, 0, 0], &Xtz_p[j, 0], K)
+    quadratic_program_local(delta, tableau, &P[j, 0], K, 0, d_buf, tmp_buf, swept_buf)
     
     for k in range(K):
         P_next[j, k] = P[j, k] + delta[k]
@@ -273,7 +258,7 @@ cdef void update_single_p(int j, const double[:,::1] P, double[:,::1] P_next,
 cpdef void compute_grad_hess_Q(const uint8_t[:,::1] G, const double[:,::1] Q, const double[:,::1] P,
                                double[:,:,::1] XtX_q, double[:,::1] Xtz_q, int M, int N, int K) noexcept nogil:
     cdef:
-        int i, j, k, k1, k2
+        int i, j, k, k2
         double qp, g
         double oneT = 1.0
         double twoT = 2.0
@@ -285,7 +270,7 @@ cpdef void compute_grad_hess_Q(const uint8_t[:,::1] G, const double[:,::1] Q, co
             for k2 in range(K):
                 XtX_q[i, k, k2] = 0.0
 
-    for i in prange(N, schedule='guided'):
+    for i in prange(N, schedule='static'):
         for j in range(M):
             g = <double>G[j, i]
             if g == 3.0:
@@ -308,7 +293,7 @@ cpdef void compute_grad_hess_Q(const uint8_t[:,::1] G, const double[:,::1] Q, co
 cpdef void compute_grad_hess_P(const uint8_t[:,::1] G, const double[:,::1] Q, const double[:,::1] P,
                                double[:,:,::1] XtX_p, double[:,::1] Xtz_p, int M, int N, int K) noexcept nogil:
     cdef:
-        int i, j, k, k1, k2
+        int i, j, k, k2
         double qp, g
         double oneT = 1.0
         double twoT = 2.0
@@ -320,7 +305,7 @@ cpdef void compute_grad_hess_P(const uint8_t[:,::1] G, const double[:,::1] Q, co
             for k2 in range(K):
                 XtX_p[j, k, k2] = 0.0
 
-    for j in prange(M, schedule='guided'):
+    for j in prange(M, schedule='static'):
         for i in range(N):
             g = <double>G[j, i]
             if g == 3.0:
@@ -344,12 +329,12 @@ cpdef void compute_grad_hess_P(const uint8_t[:,::1] G, const double[:,::1] Q, co
 
 cpdef void project_q_simplex(double[:,::1] Q, int N, int K) noexcept nogil:
     cdef int i
-    for i in prange(N, schedule='guided'):
+    for i in prange(N, schedule='static'):
         project_q_simplex_row(&Q[i, 0], K, 1e-5)
 
 cpdef void project_p_box(double[:,::1] P, int M, int K) noexcept nogil:
     cdef int j
-    for j in prange(M, schedule='guided'):
+    for j in prange(M, schedule='static'):
         project_p_box_row(&P[j, 0], K, 1e-5)
 
 cpdef void update_q_sqp(const uint8_t[:,::1] G, const double[:,::1] Q, double[:,::1] Q_next, 
@@ -360,7 +345,7 @@ cpdef void update_q_sqp(const uint8_t[:,::1] G, const double[:,::1] Q, double[:,
     compute_grad_hess_Q(G, Q, P, XtX_q, Xtz_q, M, N, K)
     
 
-    for i in prange(N, schedule='guided'):
+    for i in prange(N, schedule='static'):
         update_single_q(i, Q, Q_next, XtX_q, Xtz_q, v_kk, K)
 
 cpdef void update_p_sqp(const uint8_t[:,::1] G, const double[:,::1] Q, const double[:,::1] P, 
@@ -371,5 +356,5 @@ cpdef void update_p_sqp(const uint8_t[:,::1] G, const double[:,::1] Q, const dou
     compute_grad_hess_P(G, Q, P, XtX_p, Xtz_p, M, N, K)
     
 
-    for j in prange(M, schedule='guided'):
+    for j in prange(M, schedule='static'):
         update_single_p(j, P, P_next, XtX_p, Xtz_p, K)

@@ -36,20 +36,6 @@ def brStep(G: np.ndarray, P0: np.ndarray, Q0: np.ndarray, T: np.ndarray, P1: np.
     em.P_step(G, P0, P1, Q0, T, q_bat, K, M, N)
     em.Q_step(Q0, Q1, T, q_bat, K, N)
 
-def _flatten_PQ(P: np.ndarray, Q: np.ndarray) -> np.ndarray:
-    """
-    Description:
-    Flattens P and Q into a single 1-D parameter vector [P_flat, Q_flat].
-
-    Args:
-        P (np.ndarray): P matrix (M x K).
-        Q (np.ndarray): Q matrix (N x K).
-
-    Returns:
-        np.ndarray: Flattened 1-D vector of length M*K + N*K.
-    """
-    return np.concatenate([P.ravel(), Q.ravel()])
-
 def _flatten_PQ_inplace(P: np.ndarray, Q: np.ndarray, out: np.ndarray) -> None:
     """
     Description:
@@ -60,7 +46,7 @@ def _flatten_PQ_inplace(P: np.ndarray, Q: np.ndarray, out: np.ndarray) -> None:
     memoryview(out[mk:])[:] = Q.ravel()
 
 def _unflatten_PQ(x: np.ndarray, P_out: np.ndarray, Q_out: np.ndarray,
-                  M: int, N: int, K: int) -> None:
+                  M: int, K: int) -> None:
     """
     Description:
     Unflattens a 1-D parameter vector back into pre-allocated P and Q matrices
@@ -71,7 +57,6 @@ def _unflatten_PQ(x: np.ndarray, P_out: np.ndarray, Q_out: np.ndarray,
         P_out (np.ndarray): Pre-allocated output P matrix (M x K).
         Q_out (np.ndarray): Pre-allocated output Q matrix (N x K).
         M (int): Number of SNPs.
-        N (int): Number of individuals.
         K (int): Number of ancestral populations.
 
     Returns:
@@ -156,7 +141,7 @@ def qnStep_ZAL(G: np.ndarray, P: np.ndarray, Q: np.ndarray,
     qn_extrapolate_ZAL(x_qn, x_next_buf, x_buf, U, V, n_cols, dim, UtUmV_workspace, coeff_workspace)
 
     # Unflatten and project into P, Q
-    _unflatten_PQ(x_qn, P, Q, M, N, K)
+    _unflatten_PQ(x_qn, P, Q, M, K)
     tools.mapP_d(P, M, K)
     tools.mapQ_d(Q, N, K)
 
@@ -196,10 +181,10 @@ def polish_br_qn(G: np.ndarray, P_init: np.ndarray, Q_init: np.ndarray,
         coeff_workspace = np.empty(Q_hist, dtype=np.float64)
 
     # EM buffers
-    P1 = np.zeros_like(P, dtype=np.float64)
-    Q1 = np.zeros_like(Q, dtype=np.float64)
-    P2 = np.zeros_like(P, dtype=np.float64)
-    Q2 = np.zeros_like(Q, dtype=np.float64)
+    P1 = np.empty_like(P, dtype=np.float64)
+    Q1 = np.empty_like(Q, dtype=np.float64)
+    P2 = np.empty_like(P, dtype=np.float64)
+    Q2 = np.empty_like(Q, dtype=np.float64)
     T = np.zeros_like(Q, dtype=np.float64)
     q_bat = np.zeros(N, dtype=np.float64)
 
@@ -224,7 +209,7 @@ def polish_br_qn(G: np.ndarray, P_init: np.ndarray, Q_init: np.ndarray,
     return P, Q
 
 
-def optimize_original(G: np.ndarray, P: np.ndarray, Q: np.ndarray, max_iter: int, check: int,
+def optimize_original(G: np.ndarray, P: np.ndarray, Q: np.ndarray, max_iter: int,
                       K: int, M: int, N: int, tol: float, Q_hist: int) -> tuple[np.ndarray, np.ndarray]:
     """
     Description:
@@ -236,7 +221,6 @@ def optimize_original(G: np.ndarray, P: np.ndarray, Q: np.ndarray, max_iter: int
         P (np.ndarray): Pre-initialized P matrix (M x K).
         Q (np.ndarray): Pre-initialized Q matrix (N x K).
         max_iter (int): Maximum SQP iterations.
-        check (int): Log-likelihood check frequency.
         K (int): Number of ancestral populations.
         M (int): Number of SNPs.
         N (int): Number of individuals.
@@ -246,22 +230,20 @@ def optimize_original(G: np.ndarray, P: np.ndarray, Q: np.ndarray, max_iter: int
     Returns:
         tuple[np.ndarray, np.ndarray]: Optimized (P, Q) matrices.
     """
-    ts = time.time()
-    
     # 1. Precompute Vt matrix from SVD of ones(1, K)
     _, _, vt = np.linalg.svd(np.ones((1, K)), full_matrices=True)
     v_kk = np.ascontiguousarray(vt.T, dtype=np.float64)
     
     # 2. Allocate buffers
-    XtX_q = np.zeros((N, K, K), dtype=np.float64)
-    Xtz_q = np.zeros((N, K), dtype=np.float64)
-    XtX_p = np.zeros((M, K, K), dtype=np.float64)
-    Xtz_p = np.zeros((M, K), dtype=np.float64)
+    XtX_q = np.empty((N, K, K), dtype=np.float64)
+    Xtz_q = np.empty((N, K), dtype=np.float64)
+    XtX_p = np.empty((M, K, K), dtype=np.float64)
+    Xtz_p = np.empty((M, K), dtype=np.float64)
     
-    P_next = np.zeros_like(P, dtype=np.float64)
-    Q_next = np.zeros_like(Q, dtype=np.float64)
-    P_next2 = np.zeros_like(P, dtype=np.float64)
-    Q_next2 = np.zeros_like(Q, dtype=np.float64)
+    P_next = np.empty_like(P, dtype=np.float64)
+    Q_next = np.empty_like(Q, dtype=np.float64)
+    P_next2 = np.empty_like(P, dtype=np.float64)
+    Q_next2 = np.empty_like(Q, dtype=np.float64)
     
     # QN history buffers
     dim = M * K + N * K
@@ -307,7 +289,7 @@ def optimize_original(G: np.ndarray, P: np.ndarray, Q: np.ndarray, max_iter: int
         n_cols = min(it, Q_hist)
         qn_extrapolate_ZAL(x_qn, x_next_buf, x_buf, U, V, n_cols, dim, UtUmV_workspace, coeff_workspace)
         
-        _unflatten_PQ(x_qn, P_qn, Q_qn, M, N, K)
+        _unflatten_PQ(x_qn, P_qn, Q_qn, M, K)
         
         sqp.project_p_box(P_qn, M, K)
         sqp.project_q_simplex(Q_qn, N, K)
@@ -319,12 +301,10 @@ def optimize_original(G: np.ndarray, P: np.ndarray, Q: np.ndarray, max_iter: int
             memoryview(P.ravel())[:] = memoryview(P_qn.ravel())
             memoryview(Q.ravel())[:] = memoryview(Q_qn.ravel())
             ll_new = ll_qn
-            step_type = "QN"
         else:
             memoryview(P.ravel())[:] = memoryview(P_next2.ravel())
             memoryview(Q.ravel())[:] = memoryview(Q_next2.ravel())
             ll_new = tools.loglikelihood(G, P_next2, Q_next2)
-            step_type = "basic"
         
         if ll_new > ll_best:
             ll_best = ll_new
