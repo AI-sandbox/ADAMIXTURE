@@ -288,6 +288,10 @@ def main() -> None:
         log.info(f"System not recognized: {system}")
         sys.exit(1)
 
+    if args.algorithm == 'brqn' and args.device == 'mps':
+        log.info("    SQP + ZAL QN (brqn) is not supported on MPS. Running on CPU.")
+        args.device = 'cpu'
+
     if args.device == 'gpu':
         if not torch.cuda.is_available():
             log.error("    GPU requested via --device gpu but CUDA is not available.")

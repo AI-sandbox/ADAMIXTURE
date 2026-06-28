@@ -247,6 +247,10 @@ def main() -> None:
     )
 
     device_str = args.device
+    if args.algorithm == 'brqn' and device_str == 'mps':
+        log.info("    Supervised SQP + ZAL QN (brqn) is not supported on MPS. Running on CPU.")
+        device_str = 'cpu'
+        args.device = 'cpu'
     use_gpu = device_str in ("cuda", "mps")
     utils.set_seed(args.seed)
 
