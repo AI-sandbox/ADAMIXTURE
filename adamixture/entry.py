@@ -1,3 +1,4 @@
+import argparse
 import logging
 import os
 import platform
@@ -34,8 +35,8 @@ def parse_args(argv: list[str]) -> configargparse.Namespace:
     parser.add_argument('--reg_adam', type=float, default=1e-8, help='Adam epsilon for numerical stability (default: 1e-8).')
     parser.add_argument('--algorithm', choices=['brqn', 'adamem'], default='brqn', help='Algorithm to use (brqn for SQP+ZAL QN, adamem for Adam-EM) (default: brqn).')
     parser.add_argument('--init', choices=['em', 'als'], default='als', help='Initialization method: random EM priming or SVD+ALS (default: als).')
-    parser.add_argument('--em_init_steps', type=int, default=5, help='Number of random-init EM priming steps for brqn (default: 5).')
-    parser.add_argument('--Q_hist', type=int, default=3, help='History depth for ZAL Quasi-Newton acceleration (default: 3).')
+    parser.add_argument('--em_init_steps', type=int, default=5, help=argparse.SUPPRESS)
+    parser.add_argument('--Q_hist', type=int, default=3, help=argparse.SUPPRESS)
 
     parser.add_argument('--lr_decay', type=float, default=0.5, help='Learning rate decay factor (default: 0.5).')
     parser.add_argument('--min_lr', type=float, default=1e-4, help='Minimum learning rate value (default: 1e-4).')

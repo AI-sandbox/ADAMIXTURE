@@ -1,3 +1,4 @@
+import argparse
 import logging
 import os
 import platform
@@ -78,7 +79,7 @@ def parse_args(argv: list[str]) -> configargparse.Namespace:
     parser.add_argument("--max_iter",      type=int,   default=10000,  help="Maximum Adam-EM iterations (default: 10000).")
     parser.add_argument("--check",         type=int,   default=5,      help="Log-likelihood check frequency (default: 5).")
     parser.add_argument('--algorithm', choices=['brqn', 'adamem'], default='brqn', help='Algorithm to use (brqn for SQP+ZAL QN, adamem for Adam-EM) (default: brqn).')
-    parser.add_argument('--Q_hist', type=int, default=3, help='History depth for ZAL Quasi-Newton acceleration (default: 3).')
+    parser.add_argument('--Q_hist', type=int, default=3, help=argparse.SUPPRESS)
 
     # ── Misc ──────────────────────────────────────────────────────────────────
     parser.add_argument("-s", "--seed",    type=int,   default=42,     help="Random seed (default: 42).")

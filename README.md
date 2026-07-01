@@ -3,7 +3,7 @@
 </p>
 
 <h3 align="center">
-  Adaptive First-Order Optimization for Biobank-Scale Genetic Clustering
+  Fast Biobank-Scale Population Genetics Clustering
 </h3>
 
 <p align="center">
@@ -16,9 +16,7 @@
 
 ---
 
-**ADAMIXTURE** is an unsupervised global ancestry inference method that scales the ADMIXTURE model to biobank-sized datasets. It combines the Expectation–Maximization (EM) framework with the Adam first-order optimizer, enabling parameter updates after a single EM step. This approach accelerates convergence while maintaining comparable or improved accuracy, substantially reducing runtime on large genotype datasets. For more information, we recommend reading [our preprint](https://www.biorxiv.org/content/10.64898/2026.02.13.700171).
-
-The software can be invoked via CLI and has a similar interface to ADMIXTURE (_e.g._ the output format is completely interchangeable).
+**ADAMIXTURE** is a fast CPU/GPU implementation of ADMIXTURE for biobank-scale genetic clustering. `.P` and `.Q` outputs remain compatible with ADMIXTURE.
 
 ## System requirements
 
@@ -50,7 +48,7 @@ $ pip install adamixture
 
 ## Running ADAMIXTURE
 
-To train a model, simply invoke the following commands from the root directory of the project. For more info about all the arguments, please run `adamixture --help`. Note that **BED**, **VCF** and **PGEN** are supported:
+To train a model, simply invoke the following commands from the root directory of the project. For more info about all the arguments, please run `adamixture --help`. Note that **BED**, **VCF** and **PGEN** are supported.
 
 As an example, the following ADMIXTURE call
 
@@ -170,23 +168,31 @@ All hyperparameters and flags can be explored with:
 $ adamixture --help
 ```
 
-Key optimizer arguments:
+Key arguments:
 
 | Argument | Default | Description |
 |---|---|---|
-| `--lr` | `0.005` | Adam learning rate |
-| `--beta1` | `0.80` | Adam β₁ |
-| `--beta2` | `0.88` | Adam β₂ |
-| `--reg_adam` | `1e-8` | Adam ε (numerical stability) |
-| `--lr_decay` | `0.5` | Learning rate decay factor |
-| `--min_lr` | `1e-4` | Minimum learning rate |
-| `--patience_adam` | `3` | Checks without improvement before decaying lr |
-| `--tol_adam` | `0.1` | Convergence tolerance |
-| `--max_iter` | `10000` | Maximum Adam-EM iterations |
+| `-k`, `--k` | required for single run | Number of ancestral populations |
+| `--min_k`, `--max_k` | unset | Inclusive K range for a multi-K sweep |
+| `--algorithm` | `brqn` | Solver to use: `brqn` for ADMIXTURE SQP + ZAL QN, or `adamem` |
+| `--init` | `als` | Initialization method: improved SVD+ALS (`als`) or random EM priming (`em`) |
+| `--tol` | `0.1` | Convergence tolerance for log-likelihood changes |
+| `--max_iter` | `10000` | Maximum optimization iterations |
 | `--check` | `5` | Log-likelihood evaluation frequency |
 | `-t` | `1` | Number of CPU threads |
 | `-s` | `42` | Random seed |
-| `--chunk_size` | `4096` | Number of SNPs in chunk operations |
+| `--device` | `cpu` | Device to use: `cpu`, `gpu`, or `mps` |
+| `--chunk_size` | `8192` | Number of SNPs in chunk operations |
+| `--chromosome-mode` | `autosomes` | Chromosome filter: `autosomes` keeps autosomes `1..--autosome-count`; `all` keeps every chromosome |
+| `--autosome-count` | `22` | Number of autosomes kept when `--chromosome-mode autosomes` |
+| `--cv` | `0` | Enable v-fold cross-validation; `--cv` without a value uses 5 folds |
+| `--no_freqs` | `False` | Do not save the `.P` allele-frequency matrix |
+
+## Algorithm note
+
+The ADAMIXTURE preprint introduced Adam-EM as an adaptive first-order optimizer for admixture inference. The package still includes this solver via `--algorithm adamem`.
+
+In the current implementation, the default is `--algorithm brqn`. Empirical benchmarking showed that block relaxation with ZAL quasi-Newton acceleration, when paired with our improved SVD+ALS initialization, reaches high-quality solutions in fewer iterations and better wall-clock time. For that reason, BR-QN is the default solver, while Adam-EM remains available for experimentation and reproducibility. Adam-EM tuning parameters are documented in [Troubleshooting and Tips](docs/troubleshooting.md).
 
 
 ## Troubleshooting and Tips
