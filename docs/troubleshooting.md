@@ -43,7 +43,7 @@ Adam-EM-specific parameters:
 | `--reg_adam` | `1e-8` | Adam epsilon for numerical stability |
 | `--lr_decay` | `0.5` | Learning-rate decay factor |
 | `--min_lr` | `1e-4` | Minimum learning rate |
-| `--patience_adam` | `3` | Checks without improvement before decaying the learning rate |
+| `--patience` | `3` | Checks without improvement before decaying the learning rate; also used by BR-QN convergence |
 | `--tol` | `0.1` | Convergence tolerance used by the Adam-EM stopping/check logic |
 | `--max_iter` | `10000` | Maximum Adam-EM iterations |
 | `--check` | `5` | Log-likelihood evaluation frequency |
@@ -53,7 +53,7 @@ Adam-EM-specific parameters:
 If you explicitly run `--algorithm adamem` on large-scale datasets (>100,000 samples, e.g., UK Biobank, All of Us) or high K values, these settings can be useful:
 
 ```console
---patience_adam 5 \
+--patience 5 \
 --lr_decay 0.85 \
 --lr 0.0075
 ```

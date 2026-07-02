@@ -34,7 +34,8 @@ def mapQ(Q_in: torch.Tensor) -> None:
     Q_in.div_(row_sums)
 
 def ALS_gpu(U: torch.Tensor, S: torch.Tensor, V: torch.Tensor, f: torch.Tensor,
-            seed: int, M: int, K: int, max_iter: int, tol: float, device: torch.device) -> tuple[torch.Tensor, torch.Tensor]:
+            seed: int, M: int, K: int, max_iter: int, tol: float,
+            device: torch.device) -> tuple[torch.Tensor, torch.Tensor]:
     """
     Description:
     Alternating Least Squares (ALS) implementation in PyTorch using Block Principal Pivoting.

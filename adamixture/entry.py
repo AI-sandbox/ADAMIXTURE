@@ -12,6 +12,9 @@ from ._version import __version__
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
 log = logging.getLogger(__name__)
 
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
+os.environ.setdefault("TORCHDYNAMO_SUPPRESS_ERRORS", "1")
+
 def parse_args(argv: list[str]) -> configargparse.Namespace:
     """
     Description:
@@ -25,22 +28,22 @@ def parse_args(argv: list[str]) -> configargparse.Namespace:
     """
     parser = configargparse.ArgumentParser(
         prog='adamixture',
-        description='Population clustering using ADAM-EM.',
+        description='Fast Biobank-Scale Population Genetics Clustering.',
         config_file_parser_class=configargparse.YAMLConfigFileParser
     )
 
-    parser.add_argument('--lr', type=float, default=0.005, help='Learning rate (default: 0.005).')
-    parser.add_argument('--beta1', type=float, default=0.80, help='Adam beta1 (1st moment decay) (default: 0.80).')
-    parser.add_argument('--beta2', type=float, default=0.88, help='Adam beta2 (2nd moment decay) (default: 0.88).')
-    parser.add_argument('--reg_adam', type=float, default=1e-8, help='Adam epsilon for numerical stability (default: 1e-8).')
+    parser.add_argument('--lr', type=float, default=0.005, help='[only with --algorithm adamem] Learning rate (default: 0.005).')
+    parser.add_argument('--beta1', type=float, default=0.80, help='[only with --algorithm adamem] Adam beta1 (1st moment decay) (default: 0.80).')
+    parser.add_argument('--beta2', type=float, default=0.88, help='[only with --algorithm adamem] Adam beta2 (2nd moment decay) (default: 0.88).')
+    parser.add_argument('--reg_adam', type=float, default=1e-8, help='[only with --algorithm adamem] Adam epsilon for numerical stability (default: 1e-8).')
     parser.add_argument('--algorithm', choices=['brqn', 'adamem'], default='brqn', help='Algorithm to use (brqn for SQP+ZAL QN, adamem for Adam-EM) (default: brqn).')
     parser.add_argument('--init', choices=['em', 'als'], default='als', help='Initialization method: random EM priming or SVD+ALS (default: als).')
     parser.add_argument('--em_init_steps', type=int, default=5, help=argparse.SUPPRESS)
     parser.add_argument('--Q_hist', type=int, default=3, help=argparse.SUPPRESS)
 
-    parser.add_argument('--lr_decay', type=float, default=0.5, help='Learning rate decay factor (default: 0.5).')
-    parser.add_argument('--min_lr', type=float, default=1e-4, help='Minimum learning rate value (default: 1e-4).')
-    parser.add_argument('--patience_adam', type=int, default=3, help='Patience for reducing the learning rate in Adam-EM (default: 3).')
+    parser.add_argument('--lr_decay', type=float, default=0.5, help='[only with --algorithm adamem] Learning rate decay factor (default: 0.5).')
+    parser.add_argument('--min_lr', type=float, default=1e-4, help='[only with --algorithm adamem] Minimum learning rate value (default: 1e-4).')
+    parser.add_argument('--patience', type=int, default=3, help='Patience for Adam-EM learning-rate decay and BR-QN convergence (default: 3).')
     parser.add_argument('--tol', type=float, default=0.1, help='Convergence tolerance (default: 0.1).')
 
     parser.add_argument('-s', '--seed', required=False, type=int, default=42, help='Seed (default: 42).')
@@ -54,22 +57,20 @@ def parse_args(argv: list[str]) -> configargparse.Namespace:
     parser.add_argument('-t', '--threads', required=False, default=1, type=int, help='Number of threads to be used in the execution (default: 1).')
     parser.add_argument('--device', required=False, default='cpu', choices=['cpu', 'gpu', 'mps'], help='Device to use (cpu, gpu, mps) (default: cpu).')
     parser.add_argument(
-        '--chromosome-mode', '--chromosome_mode',
-        dest='chromosome_mode',
+        '--chromosome_mode',
         choices=['all', 'autosomes'],
         default='autosomes',
         help='Chromosome filter for input variants: all or autosomes (default: autosomes).',
     )
     parser.add_argument(
-        '--autosome-count', '--autosome_count',
-        dest='autosome_count',
+        '--autosome_count',
         type=int,
         default=22,
-        help='Number of autosomes kept when --chromosome-mode=autosomes (default: 22).',
+        help='Number of autosomes kept when --chromosome_mode=autosomes (default: 22).',
     )
 
     parser.add_argument('--max_iter', type=int, default=10000, help='Maximum number of iterations for Adam EM (default: 10000).')
-    parser.add_argument('--check', type=int, default=5, help='Frequency of log-likelihood checks (default: 5).')
+    parser.add_argument('--check', type=int, default=5, help='[only with --algorithm adamem] Frequency of log-likelihood checks (default: 5).')
     parser.add_argument('--no_freqs', action='store_true', default=False, help='Do not save the P (allele frequencies) matrix (default: False).')
 
     parser.add_argument('--max_als', type=int, default=1000, help='Maximum number of iterations for ALS (default: 1000).')
@@ -140,7 +141,7 @@ def parse_args(argv: list[str]) -> configargparse.Namespace:
     if args.Q_hist < 1:
         parser.error("--Q_hist must be at least 1.")
     if args.autosome_count < 1:
-        parser.error("--autosome-count must be at least 1.")
+        parser.error("--autosome_count must be at least 1.")
 
     return args
 
@@ -156,7 +157,7 @@ def print_adamixture_banner(version: str = "1.0") -> None:
         None
     """
     banner = r"""
-      ___  ____   ___  __  __ _____       _______ _    _ _____  ______
+      ___  ____   ___  __  __ _____ _   _ _______ _    _ _____  ______
      / _ \|  _ \ / _ \|  \/  |_   _\ \ / /__   __| |  | |  __ \|  ____|
     / /_\ | | | / /_\ | \  / | | |  \ V /   | |  | |  | | |__) | |__
     |  _  | | | |  _  | |\/| | | |   > <    | |  | |  | |  _  /|  __|
@@ -269,7 +270,7 @@ def main() -> None:
     assert 0 <= args.beta2 < 1, "Adam beta2 must be in [0, 1)."
     assert 0 < args.lr_decay <= 1, "Learning rate decay (lr_decay) must be in (0, 1]."
     assert args.min_lr > 0, "Minimum learning rate (min_lr) must be positive."
-    assert args.patience_adam >= 1, "Patience (patience_adam) must be at least 1."
+    assert args.patience >= 1, "Patience must be at least 1."
     assert args.seed >= 0, "Seed must be non-negative."
     if args.k is not None:
         assert args.k >= 2, "Number of clusters (k) must be at least 2."

@@ -8,6 +8,9 @@ import time
 import configargparse
 import numpy as np
 
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
+os.environ.setdefault("TORCHDYNAMO_SUPPRESS_ERRORS", "1")
+
 from ._version import __version__
 from .entry import print_adamixture_banner
 
@@ -60,16 +63,16 @@ def parse_args(argv: list[str]) -> configargparse.Namespace:
     )
 
     # ── Adam-EM hyperparameters ────────────────────────────────────────────────
-    parser.add_argument("--lr",            type=float, default=0.005,  help="Learning rate (default: 0.005).")
-    parser.add_argument("--beta1",         type=float, default=0.80,   help="Adam beta1 (default: 0.80).")
-    parser.add_argument("--beta2",         type=float, default=0.88,   help="Adam beta2 (default: 0.88).")
-    parser.add_argument("--reg_adam",      type=float, default=1e-8,   help="Adam epsilon (default: 1e-8).")
-    parser.add_argument("--lr_decay",      type=float, default=0.5,    help="Learning rate decay factor (default: 0.5).")
-    parser.add_argument("--min_lr",        type=float, default=1e-4,   help="Minimum learning rate (default: 1e-4).")
-    parser.add_argument("--patience_adam", type=int,   default=3,      help="Patience for lr reduction (default: 3).")
+    parser.add_argument("--lr",            type=float, default=0.005,  help="[only with --algorithm adamem] Learning rate (default: 0.005).")
+    parser.add_argument("--beta1",         type=float, default=0.80,   help="[only with --algorithm adamem] Adam beta1 (default: 0.80).")
+    parser.add_argument("--beta2",         type=float, default=0.88,   help="[only with --algorithm adamem] Adam beta2 (default: 0.88).")
+    parser.add_argument("--reg_adam",      type=float, default=1e-8,   help="[only with --algorithm adamem] Adam epsilon (default: 1e-8).")
+    parser.add_argument("--lr_decay",      type=float, default=0.5,    help="[only with --algorithm adamem] Learning rate decay factor (default: 0.5).")
+    parser.add_argument("--min_lr",        type=float, default=1e-4,   help="[only with --algorithm adamem] Minimum learning rate (default: 1e-4).")
+    parser.add_argument("--patience",      type=int,   default=3,      help="Patience for lr reduction (default: 3).")
     parser.add_argument("--tol",           type=float, default=0.1,    help="Convergence tolerance (default: 0.1).")
     parser.add_argument("--max_iter",      type=int,   default=10000,  help="Maximum Adam-EM iterations (default: 10000).")
-    parser.add_argument("--check",         type=int,   default=5,      help="Log-likelihood check frequency (default: 5).")
+    parser.add_argument("--check",         type=int,   default=5,      help="[only with --algorithm adamem] Log-likelihood check frequency (default: 5).")
     parser.add_argument('--algorithm', choices=['brqn', 'adamem'], default='brqn', help='Algorithm to use (brqn for SQP+ZAL QN, adamem for Adam-EM) (default: brqn).')
     parser.add_argument('--Q_hist', type=int, default=3, help=argparse.SUPPRESS)
 
@@ -79,18 +82,16 @@ def parse_args(argv: list[str]) -> configargparse.Namespace:
     parser.add_argument("--chunk_size",    type=int,   default=4096,   help="SNP chunk size for I/O (default: 4096).")
     parser.add_argument("--device",        type=str,   default="cpu",  help="Computation device: cpu, cuda, or mps (default: cpu).")
     parser.add_argument(
-        "--chromosome-mode", "--chromosome_mode",
-        dest="chromosome_mode",
+        "--chromosome_mode",
         choices=["all", "autosomes"],
         default="autosomes",
         help="Chromosome filter for input variants: all or autosomes (default: autosomes).",
     )
     parser.add_argument(
-        "--autosome-count", "--autosome_count",
-        dest="autosome_count",
+        "--autosome_count",
         type=int,
         default=22,
-        help="Number of autosomes kept when --chromosome-mode=autosomes (default: 22).",
+        help="Number of autosomes kept when --chromosome_mode=autosomes (default: 22).",
     )
 
     # ── Plotting ──────────────────────────────────────────────────────────────
@@ -116,7 +117,7 @@ def parse_args(argv: list[str]) -> configargparse.Namespace:
         assert args.plot_format in ["pdf", "png", "jpg"], "Plot format must be pdf, png or jpg."
         assert 50 <= args.plot_dpi <= 1200, "DPI must be between 50 and 1200."
     if args.autosome_count < 1:
-        parser.error("--autosome-count must be at least 1.")
+        parser.error("--autosome_count must be at least 1.")
 
     return args
 
@@ -149,7 +150,7 @@ def main() -> None:
     assert 0 <= args.beta2 < 1, "Adam beta2 must be in [0, 1)."
     assert 0 < args.lr_decay <= 1, "Learning rate decay (lr_decay) must be in (0, 1]."
     assert args.min_lr > 0, "Minimum learning rate (min_lr) must be positive."
-    assert args.patience_adam >= 1, "Patience (patience_adam) must be at least 1."
+    assert args.patience >= 1, "Patience must be at least 1."
     assert args.seed >= 0, "Seed must be non-negative."
     assert args.max_iter >= 1, "Maximum iterations (max_iter) must be at least 1."
     assert args.check >= 1, "Check frequency (check) must be at least 1."
@@ -272,7 +273,7 @@ def main() -> None:
                 lr=args.lr, beta1=args.beta1, beta2=args.beta2, reg_adam=args.reg_adam,
                 max_iter=args.max_iter, check=args.check, M=M,
                 lr_decay=args.lr_decay, min_lr=args.min_lr,
-                patience_adam=args.patience_adam, tol_adam=args.tol,
+                patience=args.patience, tol_adam=args.tol,
                 device=device_obj, chunk_size=args.chunk_size, threads_per_block=threads_per_block,
             )
         Q_opt = Q_gpu.cpu().numpy()
@@ -288,7 +289,7 @@ def main() -> None:
                 lr=args.lr, beta1=args.beta1, beta2=args.beta2, reg_adam=args.reg_adam,
                 max_iter=args.max_iter, check=args.check, K=K, M=M, N=N,
                 lr_decay=args.lr_decay, min_lr=args.min_lr,
-                patience_adam=args.patience_adam, tol_adam=args.tol,
+                patience=args.patience, tol_adam=args.tol,
             )
 
     # ── Save output ───────────────────────────────────────────────────────────

@@ -12,6 +12,79 @@ from .snp_reader import SNPReader
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
 log = logging.getLogger(__name__)
 
+MIN_GPU_CHUNK_SIZE = 2
+MIN_CPU_CHUNK_SIZE = 2
+
+
+def is_cuda_oom(exc: BaseException) -> bool:
+    """
+    Return True for CUDA out-of-memory exceptions raised by PyTorch or CUDA extensions.
+    """
+    return isinstance(exc, torch.cuda.OutOfMemoryError) or "CUDA out of memory" in str(exc)
+
+
+def reduce_gpu_chunk_or_raise(chunk_size: int, exc: BaseException, context: str) -> int:
+    """
+    Halve a GPU chunk size after an OOM and clear the CUDA allocator cache.
+    """
+    if chunk_size <= MIN_GPU_CHUNK_SIZE:
+        raise exc
+
+    new_chunk_size = max(chunk_size // 2, MIN_GPU_CHUNK_SIZE)
+    exc.__traceback__ = None
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
+    log.warning(f"    CUDA out of memory: retrying with chunk_size={new_chunk_size}.")
+    return new_chunk_size
+
+
+def is_cpu_memory_error(exc: BaseException) -> bool:
+    """
+    Return True for CPU allocation failures raised by NumPy, PyTorch, or Cython.
+    """
+    message = str(exc).lower()
+    return isinstance(exc, MemoryError) or any(
+        phrase in message
+        for phrase in (
+            "unable to allocate",
+            "cannot allocate memory",
+            "out of memory",
+            "bad allocation",
+            "std::bad_alloc",
+            "defaultcpuallocator",
+        )
+    )
+
+
+def reduce_cpu_chunk_or_raise(chunk_size: int, exc: BaseException, context: str) -> int:
+    """
+    Halve a CPU chunk size after an allocation failure.
+    """
+    if chunk_size <= MIN_CPU_CHUNK_SIZE:
+        raise exc
+
+    new_chunk_size = max(chunk_size // 2, MIN_CPU_CHUNK_SIZE)
+    exc.__traceback__ = None
+    log.warning(f"    CPU out of memory: retrying with chunk_size={new_chunk_size}.")
+    return new_chunk_size
+
+
+def set_cuda_arch_list_if_needed(device: torch.device) -> None:
+    """
+    Set TORCH_CUDA_ARCH_LIST from the active CUDA device to avoid compiling
+    extensions for every visible GPU architecture.
+    """
+    import os
+
+    if "TORCH_CUDA_ARCH_LIST" in os.environ or device.type != "cuda":
+        return
+
+    device_index = device.index if device.index is not None else torch.cuda.current_device()
+    major, minor = torch.cuda.get_device_capability(device_index)
+    os.environ["TORCH_CUDA_ARCH_LIST"] = f"{major}.{minor}"
+
+
 def read_data(tr_file: str, packed: bool = False, chunk_size: int = 4096,
               chromosome_mode: str = "autosomes", autosome_count: int = 22,
               verbose: bool = True) -> tuple[torch.Tensor | np.ndarray, int, int]:
@@ -30,14 +103,26 @@ def read_data(tr_file: str, packed: bool = False, chunk_size: int = 4096,
     Returns:
         tuple[torch.Tensor | np.ndarray, int, int]: (genotype matrix, N samples, M SNPs)
     """
-    snp_reader = SNPReader()
-    G, N, M = snp_reader.read_data(
-        tr_file,
-        packed=packed,
-        chunk_size=chunk_size,
-        chromosome_mode=chromosome_mode,
-        autosome_count=autosome_count,
-    )
+    current_chunk_size = chunk_size
+    while True:
+        try:
+            if current_chunk_size != chunk_size:
+                log.warning(f"    Retrying data read with chunk_size={current_chunk_size}.")
+            snp_reader = SNPReader()
+            G, N, M = snp_reader.read_data(
+                tr_file,
+                packed=packed,
+                chunk_size=current_chunk_size,
+                chromosome_mode=chromosome_mode,
+                autosome_count=autosome_count,
+            )
+            break
+        except (MemoryError, RuntimeError) as exc:
+            if not is_cpu_memory_error(exc) or current_chunk_size <= MIN_CPU_CHUNK_SIZE:
+                raise
+            current_chunk_size = reduce_cpu_chunk_or_raise(
+                current_chunk_size, exc, "reading genotype data"
+            )
     if verbose:
         log.info(f"    Data contains {N} samples and {M} SNPs.")
 
@@ -283,6 +368,7 @@ def load_extensions(device: torch.device) -> None:
         import os
 
         from torch.utils.cpp_extension import load
+        set_cuda_arch_list_if_needed(device)
         current_dir = os.path.dirname(os.path.abspath(__file__))
         source_path = os.path.abspath(os.path.join(current_dir, "utils_c", "cuda", "pack2bit.cu"))
 
@@ -415,6 +501,39 @@ def get_logl_calculator(device: torch.device) -> Callable[[torch.Tensor, torch.T
         return loglikelihood_gpu(G, P, Q, M, N, batch_size, device, threads_per_block)
     return logl_gpu_wrapped
 
+
+def _calculate_frequencies_cpu_once(G: np.ndarray, M: int, N: int, chunk_size: int) -> np.ndarray:
+    """
+    Calculate allele frequencies on CPU in SNP chunks.
+    """
+    from .utils_c import tools
+
+    f = np.zeros(M, dtype=np.float32)
+    for start in range(0, M, chunk_size):
+        end = min(start + chunk_size, M)
+        tools.alleleFrequency(G[start:end], f[start:end], end - start, N)
+    return f
+
+
+def calculate_frequencies_cpu(G: np.ndarray, M: int, N: int, chunk_size: int) -> np.ndarray:
+    """
+    Calculate allele frequencies on CPU, retrying with smaller chunks on memory errors.
+    """
+    current_chunk_size = chunk_size
+
+    while True:
+        try:
+            if current_chunk_size != chunk_size:
+                log.warning(f"    Retrying frequency calculation with chunk_size={current_chunk_size}.")
+            return _calculate_frequencies_cpu_once(G, M, N, current_chunk_size)
+        except (MemoryError, RuntimeError) as exc:
+            if not is_cpu_memory_error(exc) or current_chunk_size <= MIN_CPU_CHUNK_SIZE:
+                raise
+            current_chunk_size = reduce_cpu_chunk_or_raise(
+                current_chunk_size, exc, "calculating allele frequencies"
+            )
+
+
 def get_centering_unpacker(device: torch.device, threads_per_block: int) -> Callable[[torch.Tensor, torch.Tensor, int, int, int], torch.Tensor]:
     """
     Description:
@@ -491,7 +610,7 @@ def freq_batch_math(G_chunk: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
 
 freq_batch_compiled = torch.compile(freq_batch_math, disable=not hasattr(torch, "compile"))
 
-def calculate_frequencies_gpu(G_torch: torch.Tensor, M: int, chunk_size: int, device_obj: torch.device, threads_per_block: int) -> torch.Tensor:
+def _calculate_frequencies_gpu_once(G_torch: torch.Tensor, M: int, chunk_size: int, device_obj: torch.device, threads_per_block: int) -> torch.Tensor:
     """
     Description:
     Calculates allele frequencies iteratively using GPU-accelerated chunks.
@@ -522,3 +641,24 @@ def calculate_frequencies_gpu(G_torch: torch.Tensor, M: int, chunk_size: int, de
     valid = denom_torch > 0
     f_torch[valid] = f_torch[valid] / (2.0 * denom_torch[valid])
     return f_torch
+
+
+def calculate_frequencies_gpu(G_torch: torch.Tensor, M: int, chunk_size: int, device_obj: torch.device, threads_per_block: int) -> torch.Tensor:
+    """
+    Calculate allele frequencies on GPU, retrying with smaller chunks on CUDA OOM.
+    """
+    current_chunk_size = chunk_size
+
+    while True:
+        try:
+            if current_chunk_size != chunk_size:
+                log.warning(f"    Retrying frequency calculation with chunk_size={current_chunk_size}.")
+            return _calculate_frequencies_gpu_once(
+                G_torch, M, current_chunk_size, device_obj, threads_per_block
+            )
+        except RuntimeError as exc:
+            if not is_cuda_oom(exc) or current_chunk_size <= MIN_GPU_CHUNK_SIZE:
+                raise
+            current_chunk_size = reduce_gpu_chunk_or_raise(
+                current_chunk_size, exc, "calculating allele frequencies"
+            )

@@ -152,14 +152,28 @@ cdef void _exact_bvls_bpp_ptr(const double* A, const double* b, double* x, int K
     cdef int i, j, iter_count
     cdef bint changed
     
-    # Initialize: everything Free (F=1), nothing at Upper (U=0)
+    # Start from the unconstrained solution. If it is already feasible,
+    # it is also the bounded optimum and BPP can be skipped.
+    changed = False
     for i in range(K):
         F[i] = 1
         U[i] = 0
-        x[i] = 0.0
+        b_subset[i] = b[i]
+    if not solve_subset_ptr(A, b_subset, x, F, K, aug, map_idx):
+        return
+    for i in range(K):
+        if x[i] < lower - 1e-8:
+            F[i] = 0
+            U[i] = 0
+            changed = True
+        elif x[i] > upper + 1e-8:
+            F[i] = 0
+            U[i] = 1
+            changed = True
+    if not changed:
+        return
         
-    for iter_count in range(50):
-        # Adjust b for subset solve: b_F_prime = b_F - A_FU * upper - A_FL * lower
+    for iter_count in range(1, 50):
         for i in range(K):
             if F[i] == 1:
                 b_subset[i] = b[i]
@@ -170,11 +184,9 @@ cdef void _exact_bvls_bpp_ptr(const double* A, const double* b, double* x, int K
                         else:
                             b_subset[i] -= A[i * K + j] * lower
         
-        # solve A_FF * x_F = b_subset_F
         if not solve_subset_ptr(A, b_subset, x, F, K, aug, map_idx):
             break
             
-        # Set x for non-free variables
         for i in range(K):
             if F[i] == 0:
                 if U[i] == 1:
@@ -182,7 +194,6 @@ cdef void _exact_bvls_bpp_ptr(const double* A, const double* b, double* x, int K
                 else:
                     x[i] = lower
                     
-        # Calculate gradient: y = Ax - b
         for i in range(K):
             y[i] = -b[i]
             for j in range(K):

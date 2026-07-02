@@ -75,8 +75,7 @@ def setup(G: torch.Tensor | np.ndarray, N: int, M: int, K_max: int, seed: int, p
         return device_obj, threads_per_block, None, None, None, None, G
 
     if device_obj.type == 'cpu':
-        f = np.zeros(M, dtype=np.float32)
-        tools.alleleFrequency(G, f, M, N)
+        f = utils.calculate_frequencies_cpu(G, M, N, chunk_size)
         log.info("    Frequencies calculated...\n")
         log.info("    Running SVD...\n")
         U, S, V = RSVD(G, N, M, f, K_max, seed, power, tol_svd, chunk_size)
@@ -177,7 +176,7 @@ def initialize_em_gpu(G: torch.Tensor, seed: int, M: int, N: int, K: int,
 
 def train_k(G: torch.Tensor | np.ndarray, N: int, M: int, K: int, U_max: np.ndarray | torch.Tensor, S_max: np.ndarray | torch.Tensor,
         V_max: np.ndarray | torch.Tensor, f: np.ndarray | torch.Tensor, seed: int, lr: float, beta1: float, beta2: float, reg_adam: float,
-        max_iter: int, check: int, max_als: int, tol_als: float, lr_decay: float, min_lr: float, chunk_size: int, patience_adam: int, tol_adam: float,
+        max_iter: int, check: int, max_als: int, tol_als: float, lr_decay: float, min_lr: float, chunk_size: int, patience: int, tol_adam: float,
         device_obj: torch.device, threads_per_block: int, original: bool = False, rtol: float = 1e-7, Q_hist: int = 3,
         init_original: str = 'em', em_init_steps: int = 5) -> tuple[np.ndarray, np.ndarray] | tuple[torch.Tensor, torch.Tensor]:
     """
@@ -206,7 +205,7 @@ def train_k(G: torch.Tensor | np.ndarray, N: int, M: int, K: int, U_max: np.ndar
         lr_decay (float): Learning rate decay factor.
         min_lr (float): Minimum learning rate.
         chunk_size (int): Chunk size for batched operations.
-        patience_adam (int): Patience for Adam-EM plateau detection.
+        patience (int): Patience for Adam-EM learning-rate decay and BR-QN convergence.
         tol_adam (float): Adam-EM convergence tolerance.
         device_obj (torch.device): Computation device.
         threads_per_block (int): CUDA threads per block.
@@ -233,11 +232,11 @@ def train_k(G: torch.Tensor | np.ndarray, N: int, M: int, K: int, U_max: np.ndar
 
         if original:
             log.info("    SQP + ZAL QN running on CPU...\n")
-            P, Q = optimize_original(G, P, Q, max_iter, K, M, N, rtol, Q_hist)
+            P, Q = optimize_original(G, P, Q, max_iter, K, M, N, rtol, Q_hist, patience)
         else:
             log.info("    Adam-EM running on CPU...\n")
             P, Q = optimize_parameters(G, P, Q, lr, beta1, beta2, reg_adam, max_iter,
-                                       check, K, M, N, lr_decay, min_lr, patience_adam, tol_adam)
+                                       check, K, M, N, lr_decay, min_lr, patience, tol_adam)
     else:
         if original and init_original == 'em':
             P, Q = initialize_em_gpu(G, seed, M, N, K, device_obj, chunk_size, threads_per_block, em_init_steps)
@@ -247,11 +246,10 @@ def train_k(G: torch.Tensor | np.ndarray, N: int, M: int, K: int, U_max: np.ndar
             S_cpu = S.cpu().numpy()
             V_cpu = V.cpu().numpy()
             f_cpu = f.cpu().numpy()
-            G_cpu = G.cpu().numpy() if isinstance(G, torch.Tensor) else G
             P_np, Q_np = ALS(U_cpu, S_cpu, V_cpu, f_cpu, seed, M, N, K, max_als, tol_als)
             P = torch.from_numpy(P_np).to(device_obj, dtype=torch.float32)
             Q = torch.from_numpy(Q_np).to(device_obj, dtype=torch.float32)
-            del U_cpu, S_cpu, V_cpu, f_cpu, G_cpu, P_np, Q_np
+            del U_cpu, S_cpu, V_cpu, f_cpu, P_np, Q_np
         else:
             log.info("    Running ALS on GPU...")
             U_k = U.contiguous()
@@ -269,10 +267,10 @@ def train_k(G: torch.Tensor | np.ndarray, N: int, M: int, K: int, U_max: np.ndar
         if original:
             log.info("    SQP + ZAL QN running on GPU...\n")
             P, Q = optimize_original_gpu(G, P, Q, max_iter, K, M, N, rtol, Q_hist,
-                                         device_obj, chunk_size, threads_per_block)
+                                         patience, device_obj, chunk_size, threads_per_block)
         else:
             log.info(f"    Adam-EM running on GPU ({device_obj})...\n")
             P, Q = optimize_parameters_gpu(G, P, Q, lr, beta1, beta2, reg_adam, max_iter,
-                                           check, M, N, lr_decay, min_lr, patience_adam, tol_adam,
+                                           check, K, M, N, lr_decay, min_lr, patience, tol_adam,
                                            device_obj, chunk_size, threads_per_block)
     return P, Q

@@ -4,6 +4,7 @@ import time
 
 import numpy as np
 
+from ..src import utils
 from ..src.utils_c import tools
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
@@ -26,8 +27,8 @@ def eigSVD(X: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     U = X @ (V * (1.0 / S))
     return np.ascontiguousarray(U[:, ::-1]), np.ascontiguousarray(S[::-1]), np.ascontiguousarray(V[:, ::-1])
 
-def RSVD(G: np.ndarray, N: int, M: int, f: np.ndarray, k: int, seed: int,
-        power: int, tol: float, chunk: int) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+def _RSVD_once(G: np.ndarray, N: int, M: int, f: np.ndarray, k: int, seed: int,
+               power: int, tol: float, chunk: int) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Description:
     Randomized Singular Value Decomposition with Dynamic Shifts (dashSVD).
@@ -137,3 +138,21 @@ def RSVD(G: np.ndarray, N: int, M: int, f: np.ndarray, k: int, seed: int,
     log.info(f"\n    Total time for SVD={total_time:.3f}s")
 
     return U, S, V
+
+
+def RSVD(G: np.ndarray, N: int, M: int, f: np.ndarray, k: int, seed: int,
+         power: int, tol: float, chunk: int) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Randomized SVD on CPU, retrying with smaller chunks on memory errors.
+    """
+    current_chunk = chunk
+
+    while True:
+        try:
+            if current_chunk != chunk:
+                log.warning(f"    Retrying SVD with chunk_size={current_chunk}.")
+            return _RSVD_once(G, N, M, f, k, seed, power, tol, current_chunk)
+        except (MemoryError, RuntimeError) as exc:
+            if not utils.is_cpu_memory_error(exc) or current_chunk <= utils.MIN_CPU_CHUNK_SIZE:
+                raise
+            current_chunk = utils.reduce_cpu_chunk_or_raise(current_chunk, exc, "running SVD")

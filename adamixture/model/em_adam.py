@@ -82,10 +82,10 @@ def emStep(G: np.ndarray, P0: np.ndarray, Q0: np.ndarray, T: np.ndarray, P1: np.
 def optimize_parameters(G: np.ndarray, P: np.ndarray, Q: np.ndarray, lr: float,
                         beta1: float, beta2: float, reg_adam: float, max_iter: int,
                         check: int, K: int, M: int, N: int, lr_decay: float, min_lr: float,
-                        patience_adam: int, tol_adam: float) -> tuple[np.ndarray, np.ndarray]:
+                        patience: int, tol_adam: float) -> tuple[np.ndarray, np.ndarray]:
     """
     Description:
-    Optimizes the P and Q matrices using Adam-accelerated Expectation-Maximization.
+    Optimize P and Q on CPU using Adam-accelerated EM with learning-rate decay.
 
     Args:
         G (np.ndarray): Input genotype matrix.
@@ -102,7 +102,7 @@ def optimize_parameters(G: np.ndarray, P: np.ndarray, Q: np.ndarray, lr: float,
         N (int): Number of individuals (columns in G).
         lr_decay (float): Learning rate decay factor.
         min_lr (float): Minimum learning rate value.
-        patience_adam (int): Number of checks without improvement before early stopping.
+        patience (int): Number of checks without improvement before reducing the learning rate.
         tol_adam (float): Convergence tolerance for log-likelihood.
 
     Returns:
@@ -162,7 +162,7 @@ def optimize_parameters(G: np.ndarray, P: np.ndarray, Q: np.ndarray, lr: float,
             else:
                 wait_lr += 1
 
-                if wait_lr >= patience_adam:
+                if wait_lr >= patience:
                     old_lr = lr
                     lr = max(lr * lr_decay, min_lr)
                     log.info(

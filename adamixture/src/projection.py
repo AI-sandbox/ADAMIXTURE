@@ -87,7 +87,7 @@ def _q_em_step_cpu(G: np.ndarray, P: np.ndarray, Q0: np.ndarray, T: np.ndarray,
 def optimize_projection(G: np.ndarray, P: np.ndarray, Q: np.ndarray,
                     lr: float, beta1: float, beta2: float, reg_adam: float,
                     max_iter: int, check: int, K: int, M: int, N: int,
-                    lr_decay: float, min_lr: float, patience_adam: int, tol_adam: float) -> np.ndarray:
+                    lr_decay: float, min_lr: float, patience: int, tol_adam: float) -> np.ndarray:
     """
     Description:
     Projects target samples onto pre-trained allele frequencies P using
@@ -109,7 +109,7 @@ def optimize_projection(G: np.ndarray, P: np.ndarray, Q: np.ndarray,
         N (int): Number of samples.
         lr_decay (float): Learning rate decay factor.
         min_lr (float): Minimum learning rate.
-        patience_adam (int): Checks without improvement before decaying lr.
+        patience (int): Checks without improvement before decaying lr.
         tol_adam (float): Convergence tolerance on log-likelihood.
 
     Returns:
@@ -157,7 +157,7 @@ def optimize_projection(G: np.ndarray, P: np.ndarray, Q: np.ndarray,
                 wait_lr = 0
             else:
                 wait_lr += 1
-                if wait_lr >= patience_adam:
+                if wait_lr >= patience:
                     old_lr = lr
                     lr = max(lr * lr_decay, min_lr)
                     log.info(
@@ -178,7 +178,7 @@ def optimize_projection(G: np.ndarray, P: np.ndarray, Q: np.ndarray,
 def optimize_projection_gpu(G: "torch.Tensor", P: "torch.Tensor", Q: "torch.Tensor",
                         lr: float, beta1: float, beta2: float, reg_adam: float,
                         max_iter: int, check: int, M: int,
-                        lr_decay: float, min_lr: float, patience_adam: int, tol_adam: float,
+                        lr_decay: float, min_lr: float, patience: int, tol_adam: float,
                         device: "torch.device", chunk_size: int, threads_per_block: int) -> "torch.Tensor":
     """
     Description:
@@ -198,7 +198,7 @@ def optimize_projection_gpu(G: "torch.Tensor", P: "torch.Tensor", Q: "torch.Tens
         M (int): Number of SNPs.
         lr_decay (float): Learning rate decay factor.
         min_lr (float): Minimum learning rate.
-        patience_adam (int): Patience before lr decay.
+        patience (int): Patience before lr decay.
         tol_adam (float): Convergence tolerance.
         device (torch.device): Computation device.
         chunk_size (int): SNP chunk size for batched EM.
@@ -308,7 +308,7 @@ def optimize_projection_gpu(G: "torch.Tensor", P: "torch.Tensor", Q: "torch.Tens
                 wait_lr = 0
             else:
                 wait_lr += 1
-                if wait_lr >= patience_adam:
+                if wait_lr >= patience:
                     old_lr = lr
                     lr = max(lr * lr_decay, min_lr)
                     log.info(f"    Plateau ({wait_lr} checks). Reducing lr: {old_lr:.3e} → {lr:.3e}")

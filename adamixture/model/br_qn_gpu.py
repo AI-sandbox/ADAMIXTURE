@@ -214,9 +214,10 @@ def compute_grad_hess_P_gpu(G: torch.Tensor, Q: torch.Tensor, P: torch.Tensor,
         XtX_p[i:end] = XtX_chunk
 
 
-def optimize_original_gpu(G: torch.Tensor, P: torch.Tensor, Q: torch.Tensor, max_iter: int,
-                          K: int, M: int, N: int, tol: float, Q_hist: int,
-                          device: torch.device, chunk_size: int, threads_per_block: int) -> tuple[torch.Tensor, torch.Tensor]:
+def _optimize_original_gpu_once(G: torch.Tensor, P: torch.Tensor, Q: torch.Tensor, max_iter: int,
+                                K: int, M: int, N: int, tol: float, Q_hist: int,
+                                patience: int, device: torch.device, chunk_size: int,
+                                threads_per_block: int) -> tuple[torch.Tensor, torch.Tensor]:
     """
     Description:
     Optimizes the P and Q matrices using the original ADMIXTURE algorithm on GPU:
@@ -232,6 +233,7 @@ def optimize_original_gpu(G: torch.Tensor, P: torch.Tensor, Q: torch.Tensor, max
         N (int): Number of individuals.
         tol (float): Relative convergence tolerance.
         Q_hist (int): Depth of ZAL Quasi-Newton acceleration history.
+        patience (int): Iterations without log-likelihood improvement before stopping.
         device (torch.device): Computation device.
         chunk_size (int): Size of chunks to process at once.
         threads_per_block (int): Threads per block for GPU kernels.
@@ -271,6 +273,7 @@ def optimize_original_gpu(G: torch.Tensor, P: torch.Tensor, Q: torch.Tensor, max
     # --- Initialize log-likelihood ---
     ll_prev_iter = -float('inf')
     ll_best = -float("inf")
+    wait = 0
     P_best = torch.empty_like(P)
     Q_best = torch.empty_like(Q)
 
@@ -339,10 +342,15 @@ def optimize_original_gpu(G: torch.Tensor, P: torch.Tensor, Q: torch.Tensor, max
             Q.copy_(Q_next2)
             ll_new = logl_calc(G, P_next2, Q_next2, M, N, chunk_size, threads_per_block)
 
+        best_before = ll_best
         if ll_new > ll_best:
             ll_best = ll_new
             P_best.copy_(P)
             Q_best.copy_(Q)
+        if best_before != -float("inf") and ll_new <= best_before + tol:
+            wait += 1
+        else:
+            wait = 0
 
         log.info(
             f"    Iteration {it}, "
@@ -354,8 +362,40 @@ def optimize_original_gpu(G: torch.Tensor, P: torch.Tensor, Q: torch.Tensor, max
         if abs(diff) < tol:
             log.info(f"    Converged at iteration {it}.")
             break
+        if wait >= patience:
+            log.info(f"    Converged at iteration {it} after {wait} iterations without improvement.")
+            break
 
         ll_prev_iter = ll_new
 
     log.info(f"\n    Final log-likelihood: {ll_best:.1f}")
     return P_best, Q_best
+
+
+def optimize_original_gpu(G: torch.Tensor, P: torch.Tensor, Q: torch.Tensor, max_iter: int,
+                          K: int, M: int, N: int, tol: float, Q_hist: int,
+                          patience: int, device: torch.device, chunk_size: int,
+                          threads_per_block: int) -> tuple[torch.Tensor, torch.Tensor]:
+    """
+    Run the BR-QN GPU optimizer, retrying the full optimizer with smaller chunks on CUDA OOM.
+    """
+    current_chunk_size = chunk_size
+    P_attempt = torch.empty_like(P)
+    Q_attempt = torch.empty_like(Q)
+
+    while True:
+        P_attempt.copy_(P)
+        Q_attempt.copy_(Q)
+        try:
+            if current_chunk_size != chunk_size:
+                log.warning(f"    Retrying SQP + ZAL QN with chunk_size={current_chunk_size}.")
+            return _optimize_original_gpu_once(
+                G, P_attempt, Q_attempt, max_iter, K, M, N, tol, Q_hist, patience,
+                device, current_chunk_size, threads_per_block
+            )
+        except RuntimeError as exc:
+            if not utils.is_cuda_oom(exc) or current_chunk_size <= utils.MIN_GPU_CHUNK_SIZE:
+                raise
+            current_chunk_size = utils.reduce_gpu_chunk_or_raise(
+                current_chunk_size, exc, "running SQP + ZAL QN"
+            )

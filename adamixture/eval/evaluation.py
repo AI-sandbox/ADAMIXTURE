@@ -59,8 +59,8 @@ def parse_input() -> argparse.Namespace:
     cfg_group.add_argument("--threads", type=int, default=1, help="CPU cores to use")
     cfg_group.add_argument("--bound", type=float, default=1e-5, help="Numerical stability clip")
     cfg_group.add_argument("--inverse", action="store_true", help="Invert frequency coding (1-P)")
-    cfg_group.add_argument("--chromosome-mode", choices=["all", "autosomes"], default="autosomes", help="Chromosome filter for input variants")
-    cfg_group.add_argument("--autosome-count", type=int, default=22, help="Number of autosomes kept when --chromosome-mode=autosomes")
+    cfg_group.add_argument("--chromosome_mode", choices=["all", "autosomes"], default="autosomes", help="Chromosome filter for input variants")
+    cfg_group.add_argument("--autosome_count", type=int, default=22, help="Number of autosomes kept when --chromosome_mode=autosomes")
 
     # Metrics Group
     metric_group = parser.add_argument_group("Metrics")
@@ -77,7 +77,7 @@ def parse_input() -> argparse.Namespace:
     if not is_validation and (not args.data_path or not args.pfile):
         parser.error("Log-likelihood requires input data (--data_path) and frequencies (--pfile).")
     if args.autosome_count < 1:
-        parser.error("--autosome-count must be at least 1.")
+        parser.error("--autosome_count must be at least 1.")
 
     return args
 

@@ -185,7 +185,7 @@ def _supervised_em_step_cpu(G: np.ndarray, P0: np.ndarray, Q0: np.ndarray, T: np
 def optimize_supervised(G: np.ndarray, P: np.ndarray, Q: np.ndarray, y: np.ndarray,
     lr: float, beta1: float, beta2: float, reg_adam: float,
     max_iter: int, check: int, K: int, M: int, N: int,
-    lr_decay: float, min_lr: float, patience_adam: int, tol_adam: float) -> tuple[np.ndarray, np.ndarray]:
+    lr_decay: float, min_lr: float, patience: int, tol_adam: float) -> tuple[np.ndarray, np.ndarray]:
     """
     Description:
     Optimises P and Q in supervised mode using Adam-EM on the CPU (numpy path).
@@ -210,7 +210,7 @@ def optimize_supervised(G: np.ndarray, P: np.ndarray, Q: np.ndarray, y: np.ndarr
         N (int): Number of samples.
         lr_decay (float): Learning rate decay factor.
         min_lr (float): Minimum learning rate.
-        patience_adam (int): Patience before lr decay.
+        patience (int): Patience before lr decay.
         tol_adam (float): Convergence tolerance.
 
     Returns:
@@ -263,7 +263,7 @@ def optimize_supervised(G: np.ndarray, P: np.ndarray, Q: np.ndarray, y: np.ndarr
                 wait_lr = 0
             else:
                 wait_lr += 1
-                if wait_lr >= patience_adam:
+                if wait_lr >= patience:
                     old_lr = lr
                     lr = max(lr * lr_decay, min_lr)
                     log.info(f"    Plateau ({wait_lr} checks). "
@@ -320,7 +320,7 @@ def optimize_supervised_gpu(
     y: np.ndarray,
     lr: float, beta1: float, beta2: float, reg_adam: float,
     max_iter: int, check: int, M: int,
-    lr_decay: float, min_lr: float, patience_adam: int, tol_adam: float,
+    lr_decay: float, min_lr: float, patience: int, tol_adam: float,
     device: "torch.device", chunk_size: int, threads_per_block: int,
 ) -> "tuple[torch.Tensor, torch.Tensor]":
     """
@@ -344,7 +344,7 @@ def optimize_supervised_gpu(
         M (int): Number of SNPs.
         lr_decay (float): Learning rate decay factor.
         min_lr (float): Minimum learning rate.
-        patience_adam (int): Patience before lr decay.
+        patience (int): Patience before lr decay.
         tol_adam (float): Convergence tolerance.
         device (torch.device): Computation device.
         chunk_size (int): SNP chunk size for batched EM.
@@ -423,7 +423,7 @@ def optimize_supervised_gpu(
                 wait_lr = 0
             else:
                 wait_lr += 1
-                if wait_lr >= patience_adam:
+                if wait_lr >= patience:
                     old_lr = lr
                     lr = max(lr * lr_decay, min_lr)
                     log.info(f"    Plateau ({wait_lr} checks). Reducing lr: {old_lr:.3e} → {lr:.3e}")

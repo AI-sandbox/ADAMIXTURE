@@ -218,7 +218,8 @@ def polish_br_qn(G: np.ndarray, P_init: np.ndarray, Q_init: np.ndarray,
 
 
 def optimize_original(G: np.ndarray, P: np.ndarray, Q: np.ndarray, max_iter: int,
-                      K: int, M: int, N: int, tol: float, Q_hist: int) -> tuple[np.ndarray, np.ndarray]:
+                      K: int, M: int, N: int, tol: float, Q_hist: int,
+                      patience: int) -> tuple[np.ndarray, np.ndarray]:
     """
     Description:
     Optimizes the P and Q matrices using the original ADMIXTURE algorithm on CPU:
@@ -234,6 +235,7 @@ def optimize_original(G: np.ndarray, P: np.ndarray, Q: np.ndarray, max_iter: int
         N (int): Number of individuals.
         tol (float): Relative convergence tolerance.
         Q_hist (int): Depth of ZAL Quasi-Newton acceleration history.
+        patience (int): Iterations without log-likelihood improvement before stopping.
 
     Returns:
         tuple[np.ndarray, np.ndarray]: Optimized (P, Q) matrices.
@@ -273,6 +275,7 @@ def optimize_original(G: np.ndarray, P: np.ndarray, Q: np.ndarray, max_iter: int
     # 3. Initialize log-likelihood
     ll_prev_iter = -float('inf')
     ll_best = -float("inf")
+    wait = 0
     P_best = np.empty_like(P)
     Q_best = np.empty_like(Q)
 
@@ -314,10 +317,15 @@ def optimize_original(G: np.ndarray, P: np.ndarray, Q: np.ndarray, max_iter: int
             memoryview(Q.ravel())[:] = memoryview(Q_next2.ravel())
             ll_new = tools.loglikelihood(G, P_next2, Q_next2)
 
+        best_before = ll_best
         if ll_new > ll_best:
             ll_best = ll_new
             memoryview(P_best.ravel())[:] = memoryview(P.ravel())
             memoryview(Q_best.ravel())[:] = memoryview(Q.ravel())
+        if best_before != -float("inf") and ll_new <= best_before + tol:
+            wait += 1
+        else:
+            wait = 0
 
         log.info(
             f"    Iteration {it}, "
@@ -328,6 +336,9 @@ def optimize_original(G: np.ndarray, P: np.ndarray, Q: np.ndarray, max_iter: int
         diff = ll_new - ll_prev_iter
         if abs(diff) < tol:
             log.info(f"    Converged at iteration {it}.")
+            break
+        if wait >= patience:
+            log.info(f"    Converged at iteration {it} after {wait} iterations without improvement.")
             break
 
         ll_prev_iter = ll_new

@@ -172,20 +172,15 @@ Key arguments:
 
 | Argument | Default | Description |
 |---|---|---|
-| `-k`, `--k` | required for single run | Number of ancestral populations |
-| `--min_k`, `--max_k` | unset | Inclusive K range for a multi-K sweep |
-| `--algorithm` | `brqn` | Solver to use: `brqn` for ADMIXTURE SQP + ZAL QN, or `adamem` |
 | `--init` | `als` | Initialization method: improved SVD+ALS (`als`) or random EM priming (`em`) |
 | `--tol` | `0.1` | Convergence tolerance for log-likelihood changes |
 | `--max_iter` | `10000` | Maximum optimization iterations |
-| `--check` | `5` | Log-likelihood evaluation frequency |
 | `-t` | `1` | Number of CPU threads |
 | `-s` | `42` | Random seed |
 | `--device` | `cpu` | Device to use: `cpu`, `gpu`, or `mps` |
 | `--chunk_size` | `8192` | Number of SNPs in chunk operations |
-| `--chromosome-mode` | `autosomes` | Chromosome filter: `autosomes` keeps autosomes `1..--autosome-count`; `all` keeps every chromosome |
-| `--autosome-count` | `22` | Number of autosomes kept when `--chromosome-mode autosomes` |
-| `--cv` | `0` | Enable v-fold cross-validation; `--cv` without a value uses 5 folds |
+| `--chromosome_mode` | `autosomes` | Chromosome filter: `autosomes` keeps autosomes `1..--autosome_count`; `all` keeps every chromosome |
+| `--autosome_count` | `22` | Number of autosomes kept when `--chromosome_mode autosomes` |
 | `--no_freqs` | `False` | Do not save the `.P` allele-frequency matrix |
 
 ## Algorithm note

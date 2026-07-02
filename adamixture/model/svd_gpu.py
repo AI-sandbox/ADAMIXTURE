@@ -37,9 +37,9 @@ def eigSVD_gpu(C: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tenso
     U, S, V = U[:, idx], S.flip(0), V[:, idx]
     return U, S, V
 
-def SVD_gpu(G: torch.Tensor, N: int, M: int, f: torch.Tensor, k: int, seed: int,
-            power: int, tol: float, chunk_size: int, device: torch.device,
-            threads_per_block: int) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+def _SVD_gpu_once(G: torch.Tensor, N: int, M: int, f: torch.Tensor, k: int, seed: int,
+                  power: int, tol: float, chunk_size: int, device: torch.device,
+                  threads_per_block: int) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """
     Description:
     Randomized SVD with Dynamic Shifts optimized for GPU. Processes 2-bit
@@ -152,3 +152,27 @@ def SVD_gpu(G: torch.Tensor, N: int, M: int, f: torch.Tensor, k: int, seed: int,
     log.info(f"\n    Total time for SVD={total_time:.3f}s")
 
     return U_final, S_final, V_final
+
+
+def SVD_gpu(G: torch.Tensor, N: int, M: int, f: torch.Tensor, k: int, seed: int,
+            power: int, tol: float, chunk_size: int, device: torch.device,
+            threads_per_block: int) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """
+    Run randomized SVD on GPU, retrying the full SVD with smaller chunks on CUDA OOM.
+    """
+    current_chunk_size = chunk_size
+
+    while True:
+        try:
+            if current_chunk_size != chunk_size:
+                log.warning(f"    Retrying SVD with chunk_size={current_chunk_size}.")
+            return _SVD_gpu_once(
+                G, N, M, f, k, seed, power, tol, current_chunk_size,
+                device, threads_per_block
+            )
+        except RuntimeError as exc:
+            if not utils.is_cuda_oom(exc) or current_chunk_size <= utils.MIN_GPU_CHUNK_SIZE:
+                raise
+            current_chunk_size = utils.reduce_gpu_chunk_or_raise(
+                current_chunk_size, exc, "running SVD"
+            )
