@@ -16,16 +16,34 @@ MIN_GPU_CHUNK_SIZE = 2
 MIN_CPU_CHUNK_SIZE = 2
 
 
+def is_gpu_oom(exc: BaseException) -> bool:
+    """
+    Return True for CUDA/MPS out-of-memory exceptions raised by PyTorch or device kernels.
+    """
+    message = str(exc).lower()
+    return isinstance(exc, torch.cuda.OutOfMemoryError) or any(
+        phrase in message
+        for phrase in (
+            "cuda out of memory",
+            "mps backend out of memory",
+            "mps out of memory",
+            "metal out of memory",
+            "out of memory on mps",
+            "out of memory on gpu",
+        )
+    )
+
+
 def is_cuda_oom(exc: BaseException) -> bool:
     """
-    Return True for CUDA out-of-memory exceptions raised by PyTorch or CUDA extensions.
+    Backward-compatible alias for GPU out-of-memory detection.
     """
-    return isinstance(exc, torch.cuda.OutOfMemoryError) or "CUDA out of memory" in str(exc)
+    return is_gpu_oom(exc)
 
 
 def reduce_gpu_chunk_or_raise(chunk_size: int, exc: BaseException, context: str) -> int:
     """
-    Halve a GPU chunk size after an OOM and clear the CUDA allocator cache.
+    Halve a GPU chunk size after an OOM and clear CUDA/MPS allocator caches.
     """
     if chunk_size <= MIN_GPU_CHUNK_SIZE:
         raise exc
@@ -34,8 +52,10 @@ def reduce_gpu_chunk_or_raise(chunk_size: int, exc: BaseException, context: str)
     exc.__traceback__ = None
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
+    if hasattr(torch, "mps") and hasattr(torch.mps, "empty_cache"):
+        torch.mps.empty_cache()
 
-    log.warning(f"    CUDA out of memory: retrying with chunk_size={new_chunk_size}.")
+    log.warning(f"    GPU out of memory while {context}: retrying with chunk_size={new_chunk_size}.")
     return new_chunk_size
 
 
@@ -391,6 +411,14 @@ def load_extensions(device: torch.device) -> None:
              sources=[os.path.join(current_dir, "utils_c", "cuda", "sqp_kernel.cu")],
              verbose=False, extra_cuda_cflags=cuda_flags, extra_cflags=cpp_flags)
 
+
+def is_packed_genotype_tensor(G: torch.Tensor, M: int) -> bool:
+    """
+    Return True when ``G`` is a 2-bit packed genotype matrix with ceil(M / 4) rows.
+    """
+    return isinstance(G, torch.Tensor) and G.ndim == 2 and G.size(0) != M
+
+
 def get_unpacker(device: torch.device, threads_per_block: int) -> Callable[[torch.Tensor, int, int, int], torch.Tensor]:
     """
     Description:
@@ -405,10 +433,13 @@ def get_unpacker(device: torch.device, threads_per_block: int) -> Callable[[torc
         Callable: A function with signature (G, start_idx, actual_chunk_size, M) -> torch.Tensor.
     """
     if device.type == 'mps':
+        from .utils_c import metal
+
         def unpack_mps(G: torch.Tensor, start_idx: int, actual_chunk_size: int, M: int) -> torch.Tensor:
             """
             Description:
-            Slices an unpacked genotype chunk and moves it to the MPS device.
+            Slices an unpacked genotype chunk or unpacks a 2-bit packed chunk
+            with a Metal kernel, returning a uint8 tensor on MPS.
 
             Args:
                 G (torch.Tensor): Unpacked genotype tensor.
@@ -419,6 +450,13 @@ def get_unpacker(device: torch.device, threads_per_block: int) -> Callable[[torc
             Returns:
                 torch.Tensor: Genotype chunk on the MPS device.
             """
+            if is_packed_genotype_tensor(G, M):
+                byte_start = start_idx // 4
+                byte_end = (start_idx + actual_chunk_size + 3) // 4
+                G_sub = G[byte_start:byte_end, :].to(device, non_blocking=True)
+                return metal.unpack2bit_gpu_chunk_uint8_mps(
+                    G_sub, start_idx, actual_chunk_size, M, byte_start
+                )
             return G[start_idx:start_idx + actual_chunk_size, :].to(device, non_blocking=True)
         return unpack_mps
 
@@ -445,6 +483,39 @@ def get_unpacker(device: torch.device, threads_per_block: int) -> Callable[[torc
 
     return unpack_cuda
 
+
+def loglikelihood_cpu_chunked(
+    G: torch.Tensor | np.ndarray,
+    P: torch.Tensor,
+    Q: torch.Tensor,
+    M: int,
+    batch_size: int,
+) -> float:
+    """
+    Compute log-likelihood on CPU in float64 for unpacked or 2-bit packed genotypes.
+    """
+    from .utils_c import tools
+
+    del batch_size
+
+    if isinstance(G, torch.Tensor):
+        G_cpu_tensor = G.detach().cpu()
+        G_cpu = G_cpu_tensor.numpy()
+        packed = is_packed_genotype_tensor(G, M)
+        G_ptr = G_cpu_tensor.data_ptr() if packed else None
+    else:
+        G_cpu = G
+        packed = G_cpu.shape[0] != M
+        G_ptr = G_cpu.ctypes.data if packed else None
+
+    P_cpu = np.ascontiguousarray(P.detach().cpu().numpy(), dtype=np.float64)
+    Q_cpu = np.ascontiguousarray(Q.detach().cpu().numpy(), dtype=np.float64)
+
+    if packed:
+        return tools.loglikelihood_packed(G_ptr, M, Q_cpu.shape[0], P_cpu, Q_cpu)
+    return tools.loglikelihood(np.ascontiguousarray(G_cpu), P_cpu, Q_cpu)
+
+
 def get_logl_calculator(device: torch.device) -> Callable[[torch.Tensor, torch.Tensor, torch.Tensor, int, int, int, int], float]:
     """
     Description:
@@ -458,7 +529,6 @@ def get_logl_calculator(device: torch.device) -> Callable[[torch.Tensor, torch.T
         Callable: A function with signature (G, P, Q, M, N, batch_size, threads_per_block) -> float.
     """
     if device.type == 'mps':
-        from .utils_c import tools
         def logl_mps(G: torch.Tensor, P: torch.Tensor, Q: torch.Tensor, M: int, N: int, batch_size: int, threads_per_block: int) -> float:
             """
             Description:
@@ -476,8 +546,8 @@ def get_logl_calculator(device: torch.device) -> Callable[[torch.Tensor, torch.T
             Returns:
                 float: Log-likelihood value.
             """
-            G_cpu = G.numpy() if isinstance(G, torch.Tensor) else G
-            return tools.loglikelihood(G_cpu, P.cpu().numpy().astype(np.float64), Q.cpu().numpy().astype(np.float64))
+            del N, threads_per_block
+            return loglikelihood_cpu_chunked(G, P, Q, M, batch_size)
         return logl_mps
 
     from ..model.em_adam_gpu import loglikelihood_gpu
@@ -548,10 +618,13 @@ def get_centering_unpacker(device: torch.device, threads_per_block: int) -> Call
         Callable: A function (G, f, start_idx, actual_chunk_size, M) -> centered_float32_chunk.
     """
     if device.type == 'mps':
+        from .utils_c import metal
+
         def unpack_center_mps(G: torch.Tensor, f: torch.Tensor, start_idx: int, actual_chunk_size: int, M: int) -> torch.Tensor:
             """
             Description:
-            Slices and centers an unpacked genotype chunk on MPS.
+            Slices and centers an unpacked genotype chunk, or unpacks and
+            centers a 2-bit packed chunk using Metal.
 
             Args:
                 G (torch.Tensor): Unpacked genotype tensor.
@@ -563,6 +636,13 @@ def get_centering_unpacker(device: torch.device, threads_per_block: int) -> Call
             Returns:
                 torch.Tensor: Centered float32 genotype chunk on MPS.
             """
+            if is_packed_genotype_tensor(G, M):
+                byte_start = start_idx // 4
+                byte_end = (start_idx + actual_chunk_size + 3) // 4
+                G_sub = G[byte_start:byte_end, :].to(device, non_blocking=True)
+                return metal.unpack2bit_gpu_chunk_center_mps(
+                    G_sub, f, start_idx, actual_chunk_size, M, byte_start
+                )
             G_chunk = G[start_idx:start_idx + actual_chunk_size, :].to(device, non_blocking=True)
             f_chunk = f[start_idx:start_idx + actual_chunk_size].unsqueeze(1)
             return G_chunk.float() - 2.0 * f_chunk
@@ -657,7 +737,7 @@ def calculate_frequencies_gpu(G_torch: torch.Tensor, M: int, chunk_size: int, de
                 G_torch, M, current_chunk_size, device_obj, threads_per_block
             )
         except RuntimeError as exc:
-            if not is_cuda_oom(exc) or current_chunk_size <= MIN_GPU_CHUNK_SIZE:
+            if not is_gpu_oom(exc) or current_chunk_size <= MIN_GPU_CHUNK_SIZE:
                 raise
             current_chunk_size = reduce_gpu_chunk_or_raise(
                 current_chunk_size, exc, "calculating allele frequencies"

@@ -2,7 +2,6 @@ import logging
 import time
 from collections.abc import Callable
 
-import numpy as np
 import torch
 
 from ..src import utils
@@ -266,11 +265,7 @@ def loglikelihood_gpu(G: torch.Tensor, P: torch.Tensor, Q: torch.Tensor, M: int,
         Total log-likelihood as a Python float.
     """
     if device.type == 'mps':
-        from ..src.utils_c import tools
-        G_np = G.numpy() if isinstance(G, torch.Tensor) else G
-        P_np = P.cpu().numpy().astype(np.float64)
-        Q_np = Q.cpu().numpy().astype(np.float64)
-        return tools.loglikelihood(G_np, P_np, Q_np)
+        return utils.loglikelihood_cpu_chunked(G, P, Q, M, batch_size)
 
     ll_tensor = torch.tensor(0.0, dtype=torch.float64, device=device)
     Q_64 = Q.to(torch.float64)
@@ -383,7 +378,7 @@ def optimize_parameters_gpu(G: torch.Tensor, P: torch.Tensor, Q: torch.Tensor, l
                 current_chunk_size, threads_per_block
             )
         except RuntimeError as exc:
-            if not utils.is_cuda_oom(exc) or current_chunk_size <= utils.MIN_GPU_CHUNK_SIZE:
+            if not utils.is_gpu_oom(exc) or current_chunk_size <= utils.MIN_GPU_CHUNK_SIZE:
                 raise
             current_chunk_size = utils.reduce_gpu_chunk_or_raise(
                 current_chunk_size, exc, "running Adam-EM"

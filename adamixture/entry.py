@@ -302,10 +302,6 @@ def main() -> None:
         log.info(f"System not recognized: {system}")
         sys.exit(1)
 
-    if args.algorithm == 'brqn' and args.device == 'mps':
-        log.info("    SQP + ZAL QN (brqn) is not supported on MPS. Running on CPU.")
-        args.device = 'cpu'
-
     if args.device == 'gpu':
         if not torch.cuda.is_available():
             log.error("    GPU requested via --device gpu but CUDA is not available.")
@@ -322,6 +318,13 @@ def main() -> None:
         if not torch.backends.mps.is_available():
             log.error("    MPS requested via --device mps but MPS is not available.")
             sys.exit(1)
+        if args.algorithm == 'brqn':
+            if args.k is not None and args.k > 32:
+                log.error(f"    Error: K={args.k} exceeds the current MPS BR-QN limit (MAX_K=32).")
+                sys.exit(1)
+            if args.max_k is not None and args.max_k > 32:
+                log.error(f"    Error: max_k={args.max_k} exceeds the current MPS BR-QN limit (MAX_K=32).")
+                sys.exit(1)
 
     # Final check: can we actually create a device object?
     try:

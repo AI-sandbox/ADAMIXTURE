@@ -240,18 +240,8 @@ def train_k(G: torch.Tensor | np.ndarray, N: int, M: int, K: int, U_max: np.ndar
     else:
         if original and init_original == 'em':
             P, Q = initialize_em_gpu(G, seed, M, N, K, device_obj, chunk_size, threads_per_block, em_init_steps)
-        elif device_obj.type == 'mps':
-            log.info("    Running ALS on CPU (device is MPS)...")
-            U_cpu = U.cpu().numpy()
-            S_cpu = S.cpu().numpy()
-            V_cpu = V.cpu().numpy()
-            f_cpu = f.cpu().numpy()
-            P_np, Q_np = ALS(U_cpu, S_cpu, V_cpu, f_cpu, seed, M, N, K, max_als, tol_als)
-            P = torch.from_numpy(P_np).to(device_obj, dtype=torch.float32)
-            Q = torch.from_numpy(Q_np).to(device_obj, dtype=torch.float32)
-            del U_cpu, S_cpu, V_cpu, f_cpu, P_np, Q_np
         else:
-            log.info("    Running ALS on GPU...")
+            log.info(f"    Running ALS on GPU ({device_obj})...")
             U_k = U.contiguous()
             S_k = S.contiguous()
             V_k = V.contiguous()
@@ -265,7 +255,7 @@ def train_k(G: torch.Tensor | np.ndarray, N: int, M: int, K: int, U_max: np.ndar
         log.info(f"    Initial log-likelihood for K={K}: {logl:.1f}.")
 
         if original:
-            log.info("    SQP + ZAL QN running on GPU...\n")
+            log.info(f"    SQP + ZAL QN running on GPU ({device_obj})...\n")
             P, Q = optimize_original_gpu(G, P, Q, max_iter, K, M, N, rtol, Q_hist,
                                          patience, device_obj, chunk_size, threads_per_block)
         else:

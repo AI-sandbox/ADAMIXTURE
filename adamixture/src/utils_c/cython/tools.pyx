@@ -84,6 +84,41 @@ cpdef double loglikelihood(uint8_t[:,::1] G, double[:,::1] P, double[:,::1] Q) n
         free(rec)
     return ll
 
+
+cpdef double loglikelihood_packed(uintptr_t G_ptr, size_t M, size_t N, double[:,::1] P, double[:,::1] Q) noexcept nogil:
+    """
+    Description:
+    Calculates log-likelihood from a 2-bit packed genotype matrix without
+    materialising the unpacked M x N matrix. Four SNP rows are stored per byte
+    for each sample.
+    """
+    cdef:
+        uint8_t* G = <uint8_t*>G_ptr
+        Py_ssize_t K = Q.shape[1]
+        size_t i, j
+        size_t byte_idx
+        uint8_t shift, g
+        uint8_t* packed_row
+        double ll = 0.0
+        double* rec
+        double g_d
+
+    with nogil, parallel():
+        rec = <double*>calloc(N, sizeof(double))
+        for j in prange(M, schedule='guided'):
+            _reconstruct(&Q[0,0], &P[j,0], rec, N, K)
+            byte_idx = j >> 2
+            shift = <uint8_t>((j & 3) << 1)
+            packed_row = &G[byte_idx * N]
+            for i in range(N):
+                g = (packed_row[i] >> shift) & 0x03
+                if g != 3:
+                    g_d = <double>g
+                    ll += g_d * log(rec[i]) + (2.0 - g_d) * log1p(-rec[i])
+                rec[i] = 0.0
+        free(rec)
+    return ll
+
 # Calculate SNP allele frequencies
 cpdef void alleleFrequency(uint8_t[:, ::1] G, float[::1] f, int M, int N) noexcept nogil:
     """

@@ -109,6 +109,6 @@ setup(
     ext_modules=cythonize(extensions),
     include_package_data=True,
     package_data={
-        "adamixture": ["src/utils_c/cuda/*.cu", "src/utils_c/cython/*.pyx"],
+        "adamixture": ["src/utils_c/cuda/*.cu", "src/utils_c/cython/*.pyx", "src/utils_c/metal/*.metal"],
     },
 )

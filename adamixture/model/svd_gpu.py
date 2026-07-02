@@ -171,7 +171,7 @@ def SVD_gpu(G: torch.Tensor, N: int, M: int, f: torch.Tensor, k: int, seed: int,
                 device, threads_per_block
             )
         except RuntimeError as exc:
-            if not utils.is_cuda_oom(exc) or current_chunk_size <= utils.MIN_GPU_CHUNK_SIZE:
+            if not utils.is_gpu_oom(exc) or current_chunk_size <= utils.MIN_GPU_CHUNK_SIZE:
                 raise
             current_chunk_size = utils.reduce_gpu_chunk_or_raise(
                 current_chunk_size, exc, "running SVD"

@@ -241,34 +241,44 @@ def _optimize_original_gpu_once(G: torch.Tensor, P: torch.Tensor, Q: torch.Tenso
     Returns:
         tuple[torch.Tensor, torch.Tensor]: Optimized (P, Q) tensors.
     """
-    # 1. Precompute Vt matrix from SVD of ones(1, K) on GPU
-    ones_K = torch.ones((1, K), dtype=torch.float64, device=device)
+    dtype = utils.get_dtype(device)
+
+    # 1. Precompute Vt matrix from SVD of ones(1, K). Build it on CPU so the
+    # MPS path never asks PyTorch for float64 or unsupported linalg kernels.
+    ones_K = torch.ones((1, K), dtype=torch.float64)
     _, _, vt = torch.linalg.svd(ones_K, full_matrices=True)
-    v_kk = vt.t().contiguous()
+    v_kk = vt.t().to(device=device, dtype=dtype).contiguous()
 
     # 2. Allocate buffers on GPU
-    dtype = utils.get_dtype(device)
-    XtX_q = torch.zeros((N, K, K), dtype=torch.float64, device=device)
-    Xtz_q = torch.zeros((N, K), dtype=torch.float64, device=device)
-    XtX_p = torch.zeros((M, K, K), dtype=torch.float64, device=device)
-    Xtz_p = torch.zeros((M, K), dtype=torch.float64, device=device)
+    XtX_q = torch.zeros((N, K, K), dtype=dtype, device=device)
+    Xtz_q = torch.zeros((N, K), dtype=dtype, device=device)
+    XtX_p = torch.zeros((M, K, K), dtype=dtype, device=device)
+    Xtz_p = torch.zeros((M, K), dtype=dtype, device=device)
 
     # QN history buffers
     dim = M * K + N * K
-    U = torch.zeros((dim, Q_hist), dtype=torch.float64, device=device)
-    V = torch.zeros((dim, Q_hist), dtype=torch.float64, device=device)
-    UV_diff = torch.zeros((dim, Q_hist), dtype=torch.float64, device=device)
+    U = torch.zeros((dim, Q_hist), dtype=dtype, device=device)
+    V = torch.zeros((dim, Q_hist), dtype=dtype, device=device)
+    UV_diff = torch.zeros((dim, Q_hist), dtype=dtype, device=device)
     P_qn = torch.empty_like(P)
     Q_qn = torch.empty_like(Q)
 
     # Pre-allocated buffers for ZAL QN acceleration
-    x_qn = torch.empty(dim, dtype=torch.float64, device=device)
-    x_buf = torch.empty(dim, dtype=torch.float64, device=device)
-    x_next_buf = torch.empty(dim, dtype=torch.float64, device=device)
-    x_next2_buf = torch.empty(dim, dtype=torch.float64, device=device)
+    x_qn = torch.empty(dim, dtype=dtype, device=device)
+    x_buf = torch.empty(dim, dtype=dtype, device=device)
+    x_next_buf = torch.empty(dim, dtype=dtype, device=device)
+    x_next2_buf = torch.empty(dim, dtype=dtype, device=device)
 
     unpacker = utils.get_unpacker(device, threads_per_block)
     logl_calc = utils.get_logl_calculator(device)
+    if device.type == "mps":
+        from ..src.utils_c import metal
+
+        sqp_solve_q = metal.sqp_solve_q_mps
+        sqp_solve_p = metal.sqp_solve_p_mps
+    else:
+        sqp_solve_q = torch.ops.sqp_kernel.sqp_solve_q_cuda
+        sqp_solve_p = torch.ops.sqp_kernel.sqp_solve_p_cuda
 
     # --- Initialize log-likelihood ---
     ll_prev_iter = -float('inf')
@@ -283,20 +293,20 @@ def _optimize_original_gpu_once(G: torch.Tensor, P: torch.Tensor, Q: torch.Tenso
         # --- SQP Update 1: (P, Q) -> (P_next, Q_next) ---
         compute_grad_hess_Q_gpu(G, Q, P, XtX_q, Xtz_q, M, chunk_size, unpacker, dtype)
         Xtz_q.neg_()
-        Q_next = torch.ops.sqp_kernel.sqp_solve_q_cuda(XtX_q, Xtz_q, Q, v_kk, N, K)
+        Q_next = sqp_solve_q(XtX_q, Xtz_q, Q, v_kk, N, K)
 
         compute_grad_hess_P_gpu(G, Q_next, P, XtX_p, Xtz_p, M, chunk_size, unpacker, dtype)
         Xtz_p.neg_()
-        P_next = torch.ops.sqp_kernel.sqp_solve_p_cuda(XtX_p, Xtz_p, P, M, K)
+        P_next = sqp_solve_p(XtX_p, Xtz_p, P, M, K)
 
         # --- SQP Update 2: (P_next, Q_next) -> (P_next2, Q_next2) ---
         compute_grad_hess_Q_gpu(G, Q_next, P_next, XtX_q, Xtz_q, M, chunk_size, unpacker, dtype)
         Xtz_q.neg_()
-        Q_next2 = torch.ops.sqp_kernel.sqp_solve_q_cuda(XtX_q, Xtz_q, Q_next, v_kk, N, K)
+        Q_next2 = sqp_solve_q(XtX_q, Xtz_q, Q_next, v_kk, N, K)
 
         compute_grad_hess_P_gpu(G, Q_next2, P_next, XtX_p, Xtz_p, M, chunk_size, unpacker, dtype)
         Xtz_p.neg_()
-        P_next2 = torch.ops.sqp_kernel.sqp_solve_p_cuda(XtX_p, Xtz_p, P_next, M, K)
+        P_next2 = sqp_solve_p(XtX_p, Xtz_p, P_next, M, K)
 
         # --- ZAL QN acceleration ---
         _flatten_PQ_gpu_inplace(P, Q, x_buf)
@@ -394,7 +404,7 @@ def optimize_original_gpu(G: torch.Tensor, P: torch.Tensor, Q: torch.Tensor, max
                 device, current_chunk_size, threads_per_block
             )
         except RuntimeError as exc:
-            if not utils.is_cuda_oom(exc) or current_chunk_size <= utils.MIN_GPU_CHUNK_SIZE:
+            if not utils.is_gpu_oom(exc) or current_chunk_size <= utils.MIN_GPU_CHUNK_SIZE:
                 raise
             current_chunk_size = utils.reduce_gpu_chunk_or_raise(
                 current_chunk_size, exc, "running SQP + ZAL QN"

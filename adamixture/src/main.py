@@ -38,7 +38,7 @@ def main(args: argparse.Namespace, t0: float) -> int:
 
         Path(args.save_dir).mkdir(parents=True, exist_ok=True)
 
-        training_packed = args.device == 'gpu' or 'cuda' in args.device
+        training_packed = args.device in ("gpu", "cuda", "mps") or 'cuda' in args.device
         G, N, M = utils.read_data(
             args.data_path,
             packed=training_packed,
