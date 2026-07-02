@@ -1,154 +1,150 @@
 name: Build and Publish
 
 on:
-  release:
-    types: [published]
+  release:
+    types: [published]
 
 jobs:
-  tests:
-    name: Run tests
-    runs-on: ${{ matrix.platform }}
-    strategy:
-      matrix:
-        platform: [ubuntu-latest, macos-14]
-        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
-    steps:
-      - uses: actions/checkout@v6
+  tests:
+    name: Run tests
+    runs-on: ${{ matrix.platform }}
+    strategy:
+      matrix:
+        platform: [ubuntu-latest, macos-14]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@v4
 
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v6
-        with:
-          python-version: ${{ matrix.python-version }}
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
 
-      - name: Configure OpenMP (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get install -y libgomp1
-          echo "CC=gcc" >> $GITHUB_ENV
-          echo "CFLAGS=-fopenmp" >> $GITHUB_ENV
-          echo "LDFLAGS=-fopenmp" >> $GITHUB_ENV
+      - name: Configure OpenMP (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get install -y libgomp1
+          echo "CC=gcc" >> $GITHUB_ENV
+          echo "CFLAGS=-fopenmp" >> $GITHUB_ENV
+          echo "LDFLAGS=-fopenmp" >> $GITHUB_ENV
 
-      - name: Install OpenMP (macOS only)
-        if: runner.os == 'macOS'
-        run: |
-          rm -rf "$(brew --repository)/Library/Taps/aws/homebrew-tap"
-          rm -rf "$(brew --repository)/Library/Taps/azure/homebrew-bicep"
-          brew install libomp
-          LIBOMP_PREFIX=$(brew --prefix libomp)
-          echo "CC=/usr/bin/clang" >> $GITHUB_ENV
-          echo "CFLAGS=-Xpreprocessor -fopenmp -I${LIBOMP_PREFIX}/include" >> $GITHUB_ENV
-          echo "LDFLAGS=-L${LIBOMP_PREFIX}/lib -lomp -Wl,-rpath,${LIBOMP_PREFIX}/lib" >> $GITHUB_ENV
+      - name: Install OpenMP (macOS only)
+        if: runner.os == 'macOS'
+        run: |
+          brew install libomp
+          LIBOMP_PREFIX=$(brew --prefix libomp)
+          echo "CC=/usr/bin/clang" >> $GITHUB_ENV
+          echo "CFLAGS=-Xpreprocessor -fopenmp -I${LIBOMP_PREFIX}/include" >> $GITHUB_ENV
+          echo "LDFLAGS=-L${LIBOMP_PREFIX}/lib -lomp -Wl,-rpath,${LIBOMP_PREFIX}/lib" >> $GITHUB_ENV
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install tox tox-gh-actions
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install tox tox-gh-actions
 
-      - name: Test with tox
-        run: python -m tox
-        env:
-          PLATFORM: ${{ matrix.platform }}
-          MPLBACKEND: Agg
+      - name: Test with tox
+        uses: GabrielBB/xvfb-action@v1
+        with:
+          run: python -m tox
+        env:
+          PLATFORM: ${{ matrix.platform }}
 
-  build_wheels:
-    name: Build wheels on ${{ matrix.os }}
-    needs: tests
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-14]
+  build_wheels:
+    name: Build wheels on ${{ matrix.os }}
+    needs: tests
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-14]
 
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-          fetch-tags: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      
+      - name: Export Clean Version
+        run: |
+          CLEAN_VERSION="${GITHUB_REF_NAME#v}"
+          echo "SETUPTOOLS_SCM_PRETEND_VERSION=$CLEAN_VERSION" >> $GITHUB_ENV
+          echo "Versión forzada a: $CLEAN_VERSION"
 
-      - name: Export Clean Version
-        run: |
-          CLEAN_VERSION="${GITHUB_REF_NAME#v}"
-          echo "SETUPTOOLS_SCM_PRETEND_VERSION=$CLEAN_VERSION" >> $GITHUB_ENV
-          echo "Versión forzada a: $CLEAN_VERSION"
+      - name: Install OpenMP (macOS)
+        if: runner.os == 'macOS'
+        run: brew install libomp
 
-      - name: Install OpenMP (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          rm -rf "$(brew --repository)/Library/Taps/aws/homebrew-tap"
-          rm -rf "$(brew --repository)/Library/Taps/azure/homebrew-bicep"
-          brew install libomp
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v2.19.2
+        env:
+          SETUPTOOLS_SCM_PRETEND_VERSION: ${{ env.SETUPTOOLS_SCM_PRETEND_VERSION }}
+          CIBW_BUILD: cp310-* cp311-* cp312-* cp313-* cp314-*
+          CIBW_SKIP: "pp* *musllinux* *i686*"
 
-      - name: Build wheels
-        uses: pypa/cibuildwheel@v4.1.0
-        env:
-          SETUPTOOLS_SCM_PRETEND_VERSION: ${{ env.SETUPTOOLS_SCM_PRETEND_VERSION }}
-          CIBW_BUILD: cp310-* cp311-* cp312-* cp313-* cp314-*
-          CIBW_SKIP: "pp* *musllinux* *i686*"
+          CIBW_ARCHS_LINUX: "x86_64"
+          CIBW_ARCHS_MACOS: "x86_64 arm64"
 
-          CIBW_ARCHS_LINUX: "x86_64"
-          CIBW_ARCHS_MACOS: "x86_64 arm64"
+          CIBW_ENVIRONMENT_MACOS: >
+            MACOSX_DEPLOYMENT_TARGET=14.0
+            CC=/usr/bin/clang
+            CFLAGS="-Xpreprocessor -fopenmp -I$(brew --prefix libomp)/include"
+            LDFLAGS="-L$(brew --prefix libomp)/lib -lomp -Wl,-rpath,$(brew --prefix libomp)/lib"
+            SETUPTOOLS_SCM_PRETEND_VERSION=${{ env.SETUPTOOLS_SCM_PRETEND_VERSION }}
+          
+          CIBW_ENVIRONMENT_LINUX: >
+            CFLAGS="-fopenmp"
+            LDFLAGS="-fopenmp"
+            SETUPTOOLS_SCM_PRETEND_VERSION=${{ env.SETUPTOOLS_SCM_PRETEND_VERSION }}
 
-          CIBW_ENVIRONMENT_MACOS: >
-            MACOSX_DEPLOYMENT_TARGET=14.0
-            CC=/usr/bin/clang
-            CFLAGS="-Xpreprocessor -fopenmp -I$(brew --prefix libomp)/include"
-            LDFLAGS="-L$(brew --prefix libomp)/lib -lomp -Wl,-rpath,$(brew --prefix libomp)/lib"
-            SETUPTOOLS_SCM_PRETEND_VERSION=${{ env.SETUPTOOLS_SCM_PRETEND_VERSION }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
+          path: ./wheelhouse/*.whl
 
-          CIBW_ENVIRONMENT_LINUX: >
-            CFLAGS="-fopenmp"
-            LDFLAGS="-fopenmp"
-            SETUPTOOLS_SCM_PRETEND_VERSION=${{ env.SETUPTOOLS_SCM_PRETEND_VERSION }}
+  build_sdist:
+    name: Build source distribution
+    needs: tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
 
-      - uses: actions/upload-artifact@v5
-        with:
-          name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
-          path: ./wheelhouse/*.whl
+      - name: Export Clean Version
+        run: |
+          CLEAN_VERSION="${GITHUB_REF_NAME#v}"
+          echo "SETUPTOOLS_SCM_PRETEND_VERSION=$CLEAN_VERSION" >> $GITHUB_ENV
 
-  build_sdist:
-    name: Build source distribution
-    needs: tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-          fetch-tags: true
+      - name: Build sdist
+        run: pipx run build --sdist
+        env:
+          SETUPTOOLS_SCM_PRETEND_VERSION: ${{ env.SETUPTOOLS_SCM_PRETEND_VERSION }}
 
-      - name: Export Clean Version
-        run: |
-          CLEAN_VERSION="${GITHUB_REF_NAME#v}"
-          echo "SETUPTOOLS_SCM_PRETEND_VERSION=$CLEAN_VERSION" >> $GITHUB_ENV
+      - uses: actions/upload-artifact@v4
+        with:
+          name: manual-sdist
+          path: dist/*.tar.gz
 
-      - name: Build sdist
-        run: pipx run build --sdist
-        env:
-          SETUPTOOLS_SCM_PRETEND_VERSION: ${{ env.SETUPTOOLS_SCM_PRETEND_VERSION }}
+  upload_pypi:
+    needs: [build_wheels, build_sdist]
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: cibw-*
+          path: dist
+          merge-multiple: true
 
-      - uses: actions/upload-artifact@v5
-        with:
-          name: manual-sdist
-          path: dist/*.tar.gz
+      - uses: actions/download-artifact@v4
+        with:
+          name: manual-sdist
+          path: dist
+          merge-multiple: true
 
-  upload_pypi:
-    needs: [build_wheels, build_sdist]
-    runs-on: ubuntu-latest
-    environment: pypi
-    permissions:
-      id-token: write
-    steps:
-      - uses: actions/download-artifact@v5
-        with:
-          pattern: cibw-*
-          path: dist
-          merge-multiple: true
-
-      - uses: actions/download-artifact@v5
-        with:
-          name: manual-sdist
-          path: dist
-          merge-multiple: true
-
-      - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          password: ${{ secrets.PYPI_API_TOKEN }}
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
