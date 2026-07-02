@@ -354,7 +354,8 @@ def _unflatten_Q(x: np.ndarray, Q_out: np.ndarray, N: int, K: int) -> None:
 
 
 def optimize_projection_original(G: np.ndarray, P: np.ndarray, Q: np.ndarray,
-                                 max_iter: int, K: int, M: int, N: int, tol: float, Q_hist: int) -> np.ndarray:
+                                 max_iter: int, K: int, M: int, N: int, tol: float,
+                                 Q_hist: int, patience: int) -> np.ndarray:
     """
     Description:
     Projects target samples onto pre-trained allele frequencies P using the
@@ -370,6 +371,7 @@ def optimize_projection_original(G: np.ndarray, P: np.ndarray, Q: np.ndarray,
         N (int): Number of individuals.
         tol (float): Convergence tolerance for log-likelihood improvement.
         Q_hist (int): ZAL-QN history depth.
+        patience (int): Iterations without best log-likelihood improvement before stopping.
 
     Returns:
         np.ndarray: Optimised Q matrix.
@@ -406,6 +408,7 @@ def optimize_projection_original(G: np.ndarray, P: np.ndarray, Q: np.ndarray,
     # 3. Initialize log-likelihood
     ll_prev_iter = -float('inf')
     ll_best = -float("inf")
+    wait = 0
     Q_best = np.empty_like(Q)
 
     for it in range(1, max_iter + 1):
@@ -440,9 +443,14 @@ def optimize_projection_original(G: np.ndarray, P: np.ndarray, Q: np.ndarray,
             memoryview(Q.ravel())[:] = memoryview(Q_next2.ravel())
             ll_new = tools.loglikelihood(G, P, Q_next2)
 
+        best_before = ll_best
         if ll_new > ll_best:
             ll_best = ll_new
             memoryview(Q_best.ravel())[:] = memoryview(Q.ravel())
+        if best_before != -float("inf") and ll_new <= best_before + tol:
+            wait += 1
+        else:
+            wait = 0
 
         log.info(
             f"    Iteration {it}, "
@@ -453,6 +461,9 @@ def optimize_projection_original(G: np.ndarray, P: np.ndarray, Q: np.ndarray,
         diff = ll_new - ll_prev_iter
         if abs(diff) < tol:
             log.info(f"    Converged at iteration {it}.")
+            break
+        if wait >= patience:
+            log.info(f"    Converged at iteration {it} after {wait} iterations without improvement.")
             break
 
         ll_prev_iter = ll_new
@@ -493,6 +504,7 @@ def _unflatten_Q_gpu(x: "torch.Tensor", Q: "torch.Tensor") -> None:
 
 def optimize_projection_original_gpu(G: "torch.Tensor", P: "torch.Tensor", Q: "torch.Tensor",
                                      max_iter: int, K: int, M: int, N: int, tol: float, Q_hist: int,
+                                     patience: int,
                                      device: "torch.device", chunk_size: int, threads_per_block: int) -> "torch.Tensor":
     """
     Description:
@@ -509,6 +521,7 @@ def optimize_projection_original_gpu(G: "torch.Tensor", P: "torch.Tensor", Q: "t
         N (int): Number of individuals.
         tol (float): Convergence tolerance for log-likelihood improvement.
         Q_hist (int): ZAL-QN history depth.
+        patience (int): Iterations without best log-likelihood improvement before stopping.
         device (torch.device): CUDA device.
         chunk_size (int): SNP chunk size for batched GPU work.
         threads_per_block (int): CUDA tuning parameter.
@@ -520,35 +533,44 @@ def optimize_projection_original_gpu(G: "torch.Tensor", P: "torch.Tensor", Q: "t
 
     from ..model.br_qn_gpu import compute_grad_hess_Q_gpu
 
-    # 1. Precompute Vt matrix from SVD of ones(1, K) on GPU
-    ones_K = torch.ones((1, K), dtype=torch.float64, device=device)
+    dtype = utils.get_dtype(device)
+
+    # 1. Precompute Vt matrix from SVD of ones(1, K). Keep this on CPU first
+    # so the MPS path never requests float64 linalg kernels on-device.
+    ones_K = torch.ones((1, K), dtype=torch.float64)
     _, _, vt = torch.linalg.svd(ones_K, full_matrices=True)
-    v_kk = vt.t().contiguous()
+    v_kk = vt.t().to(device=device, dtype=dtype).contiguous()
 
     # 2. Allocate buffers on GPU
-    dtype = utils.get_dtype(device)
-    XtX_q = torch.zeros((N, K, K), dtype=torch.float64, device=device)
-    Xtz_q = torch.zeros((N, K), dtype=torch.float64, device=device)
+    XtX_q = torch.zeros((N, K, K), dtype=dtype, device=device)
+    Xtz_q = torch.zeros((N, K), dtype=dtype, device=device)
 
     # QN history buffers on Q only (dim = N * K)
     dim = N * K
-    U = torch.zeros((dim, Q_hist), dtype=torch.float64, device=device)
-    V = torch.zeros((dim, Q_hist), dtype=torch.float64, device=device)
-    UV_diff = torch.zeros((dim, Q_hist), dtype=torch.float64, device=device)
+    U = torch.zeros((dim, Q_hist), dtype=dtype, device=device)
+    V = torch.zeros((dim, Q_hist), dtype=dtype, device=device)
+    UV_diff = torch.zeros((dim, Q_hist), dtype=dtype, device=device)
     Q_qn = torch.empty_like(Q)
 
     # Pre-allocated buffers for ZAL QN acceleration
-    x_qn = torch.empty(dim, dtype=torch.float64, device=device)
-    x_buf = torch.empty(dim, dtype=torch.float64, device=device)
-    x_next_buf = torch.empty(dim, dtype=torch.float64, device=device)
-    x_next2_buf = torch.empty(dim, dtype=torch.float64, device=device)
+    x_qn = torch.empty(dim, dtype=dtype, device=device)
+    x_buf = torch.empty(dim, dtype=dtype, device=device)
+    x_next_buf = torch.empty(dim, dtype=dtype, device=device)
+    x_next2_buf = torch.empty(dim, dtype=dtype, device=device)
 
     unpacker = utils.get_unpacker(device, threads_per_block)
     logl_calc = utils.get_logl_calculator(device)
+    if device.type == "mps":
+        from .utils_c import metal
+
+        sqp_solve_q = metal.sqp_solve_q_mps
+    else:
+        sqp_solve_q = torch.ops.sqp_kernel.sqp_solve_q_cuda
 
     # --- Initialize log-likelihood ---
     ll_prev_iter = -float('inf')
     ll_best = -float("inf")
+    wait = 0
     Q_best = torch.empty_like(Q)
 
     for it in range(1, max_iter + 1):
@@ -557,12 +579,12 @@ def optimize_projection_original_gpu(G: "torch.Tensor", P: "torch.Tensor", Q: "t
         # --- SQP Update 1: Q -> Q_next ---
         compute_grad_hess_Q_gpu(G, Q, P, XtX_q, Xtz_q, M, chunk_size, unpacker, dtype)
         Xtz_q.neg_()
-        Q_next = torch.ops.sqp_kernel.sqp_solve_q_cuda(XtX_q, Xtz_q, Q, v_kk, N, K)
+        Q_next = sqp_solve_q(XtX_q, Xtz_q, Q, v_kk, N, K)
 
         # --- SQP Update 2: Q_next -> Q_next2 ---
         compute_grad_hess_Q_gpu(G, Q_next, P, XtX_q, Xtz_q, M, chunk_size, unpacker, dtype)
         Xtz_q.neg_()
-        Q_next2 = torch.ops.sqp_kernel.sqp_solve_q_cuda(XtX_q, Xtz_q, Q_next, v_kk, N, K)
+        Q_next2 = sqp_solve_q(XtX_q, Xtz_q, Q_next, v_kk, N, K)
 
         # --- ZAL QN acceleration ---
         _flatten_Q_gpu_inplace(Q, x_buf)
@@ -608,9 +630,14 @@ def optimize_projection_original_gpu(G: "torch.Tensor", P: "torch.Tensor", Q: "t
             Q.copy_(Q_next2)
             ll_new = logl_calc(G, P, Q_next2, M, N, chunk_size, threads_per_block)
 
+        best_before = ll_best
         if ll_new > ll_best:
             ll_best = ll_new
             Q_best.copy_(Q)
+        if best_before != -float("inf") and ll_new <= best_before + tol:
+            wait += 1
+        else:
+            wait = 0
 
         log.info(
             f"    Iteration {it}, "
@@ -621,6 +648,9 @@ def optimize_projection_original_gpu(G: "torch.Tensor", P: "torch.Tensor", Q: "t
         diff = ll_new - ll_prev_iter
         if abs(diff) < tol:
             log.info(f"    Converged at iteration {it}.")
+            break
+        if wait >= patience:
+            log.info(f"    Converged at iteration {it} after {wait} iterations without improvement.")
             break
 
         ll_prev_iter = ll_new

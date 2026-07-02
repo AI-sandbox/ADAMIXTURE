@@ -263,6 +263,7 @@ def main() -> None:
 
     from .src import utils
     from .src.supervised import (
+        init_p_supervised_packed,
         init_p_supervised,
         init_q_supervised,
         optimize_supervised,
@@ -272,10 +273,6 @@ def main() -> None:
     )
 
     device_str = args.device
-    if args.algorithm == 'brqn' and device_str == 'mps':
-        log.info("    Supervised SQP + ZAL QN (brqn) is not supported on MPS. Running on CPU.")
-        device_str = 'cpu'
-        args.device = 'cpu'
     use_gpu = device_str in ("cuda", "mps")
     utils.set_seed(args.seed)
 
@@ -293,11 +290,14 @@ def main() -> None:
 
     K = int(y.max())
     assert K >= 2, f"Number of populations K (derived from labels) must be at least 2, but got {K}."
+    if args.algorithm == 'brqn' and device_str == 'mps' and K > 32:
+        log.error(f"    Error: K={K} exceeds the current MPS BR-QN limit (MAX_K=32).")
+        sys.exit(1)
 
     # ── Load genotype data ────────────────────────────────────────────────────
     G, N, M = utils.read_data(
         args.data_path,
-        packed=False,
+        packed=use_gpu,
         chunk_size=args.chunk_size,
         chromosome_mode=args.chromosome_mode,
         autosome_count=args.autosome_count,
@@ -313,7 +313,7 @@ def main() -> None:
     # ── Initialise P and Q ────────────────────────────────────────────────────
     rng = np.random.default_rng(args.seed)
 
-    P = init_p_supervised(G, y, K, M)
+    P = init_p_supervised_packed(G, y, K, M) if use_gpu else init_p_supervised(G, y, K, M)
 
     Q = rng.random(size=(N, K)).astype(np.float64)
     Q /= Q.sum(axis=1, keepdims=True)
@@ -329,27 +329,7 @@ def main() -> None:
         device_obj = torch.device(device_str)
         threads_per_block = utils.get_tuning_params(device_obj)
         utils.load_extensions(device_obj)
-        if device_obj.type == 'cuda':
-            previous_disable = logging.root.manager.disable
-            logging.disable(logging.CRITICAL)
-            try:
-                G_t, N_t, M_t = utils.read_data(
-                    args.data_path,
-                    packed=True,
-                    chunk_size=args.chunk_size,
-                    chromosome_mode=args.chromosome_mode,
-                    autosome_count=args.autosome_count,
-                    verbose=False,
-                )
-            finally:
-                logging.disable(previous_disable)
-            if N_t != N or M_t != M:
-                raise ValueError(
-                    f"GPU reread shape mismatch: supervised data was N={N}, M={M}; "
-                    f"packed data is N={N_t}, M={M_t}."
-                )
-        else:
-            G_t = torch.from_numpy(G) if not isinstance(G, torch.Tensor) else G
+        G_t = torch.from_numpy(G) if not isinstance(G, torch.Tensor) else G
         P_t = torch.tensor(P, dtype=utils.get_dtype(device_obj), device=device_obj)
         Q_t = torch.tensor(Q, dtype=utils.get_dtype(device_obj), device=device_obj)
         G_t = utils.manage_gpu_memory(
@@ -367,6 +347,7 @@ def main() -> None:
             P_gpu, Q_gpu = optimize_supervised_original_gpu(
                 G=G_t, P=P_t, Q=Q_t, y=y,
                 max_iter=args.max_iter, K=K, M=M, N=N, tol=args.tol, Q_hist=args.Q_hist,
+                patience=args.patience,
                 device=device_obj, chunk_size=args.chunk_size, threads_per_block=threads_per_block,
             )
         else:
@@ -385,6 +366,7 @@ def main() -> None:
             P_opt, Q_opt = optimize_supervised_original(
                 G=G, P=P, Q=Q, y=y,
                 max_iter=args.max_iter, K=K, M=M, N=N, tol=args.tol, Q_hist=args.Q_hist,
+                patience=args.patience,
             )
         else:
             P_opt, Q_opt = optimize_supervised(

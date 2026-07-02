@@ -81,6 +81,32 @@ def init_p_supervised(G: np.ndarray, y: np.ndarray, K: int, M: int, eps: float =
     return P.clip(eps, 1.0 - eps)
 
 
+def init_p_supervised_packed(G: "torch.Tensor", y: np.ndarray, K: int, M: int, eps: float = 1e-5) -> np.ndarray:
+    """
+    Initialises P from a 2-bit packed genotype matrix without materialising G unpacked.
+    """
+    G_np = G.numpy() if hasattr(G, "numpy") else G
+    P = np.full((M, K), 0.5, dtype=np.float64)
+    rows = np.arange(M, dtype=np.int64)
+    packed_rows = rows >> 2
+    shifts = ((rows & 3) << 1).astype(np.uint8)
+
+    for k in range(K):
+        idx = np.where(y == k + 1)[0]
+        if len(idx) == 0:
+            continue
+        packed = G_np[packed_rows[:, None], idx]
+        vals = (packed >> shifts[:, None]) & np.uint8(0x03)
+        missing = vals == 3
+        vals = vals.astype(np.float64, copy=False)
+        vals[missing] = 0.0
+        denom = 2.0 * (len(idx) - missing.sum(axis=1))
+        valid = denom > 0
+        P[valid, k] = vals.sum(axis=1)[valid] / denom[valid]
+
+    return P.clip(eps, 1.0 - eps)
+
+
 # ── CPU (numpy) implementation ────────────────────────────────────────────────
 
 def _snap_q_cpu(Q: np.ndarray, y: np.ndarray, K: int, eps: float = 1e-5) -> None:
@@ -437,7 +463,8 @@ def optimize_supervised_gpu(
 
 
 def optimize_supervised_original(G: np.ndarray, P: np.ndarray, Q: np.ndarray, y: np.ndarray,
-                                 max_iter: int, K: int, M: int, N: int, tol: float, Q_hist: int) -> tuple[np.ndarray, np.ndarray]:
+                                 max_iter: int, K: int, M: int, N: int, tol: float,
+                                 Q_hist: int, patience: int) -> tuple[np.ndarray, np.ndarray]:
     """
     Description:
     Optimises P and Q in supervised mode using the original ADMIXTURE algorithm
@@ -454,6 +481,7 @@ def optimize_supervised_original(G: np.ndarray, P: np.ndarray, Q: np.ndarray, y:
         N (int): Number of samples.
         tol (float): Convergence tolerance for log-likelihood improvement.
         Q_hist (int): ZAL-QN history depth.
+        patience (int): Iterations without best log-likelihood improvement before stopping.
 
     Returns:
         tuple[np.ndarray, np.ndarray]: Optimised (P, Q) matrices.
@@ -496,6 +524,7 @@ def optimize_supervised_original(G: np.ndarray, P: np.ndarray, Q: np.ndarray, y:
     # 3. Initialize log-likelihood
     ll_prev_iter = -float('inf')
     ll_best = -float("inf")
+    wait = 0
     P_best = np.empty_like(P)
     Q_best = np.empty_like(Q)
 
@@ -540,10 +569,15 @@ def optimize_supervised_original(G: np.ndarray, P: np.ndarray, Q: np.ndarray, y:
             memoryview(Q.ravel())[:] = memoryview(Q_next2.ravel())
             ll_new = tools.loglikelihood(G, P_next2, Q_next2)
 
+        best_before = ll_best
         if ll_new > ll_best:
             ll_best = ll_new
             memoryview(P_best.ravel())[:] = memoryview(P.ravel())
             memoryview(Q_best.ravel())[:] = memoryview(Q.ravel())
+        if best_before != -float("inf") and ll_new <= best_before + tol:
+            wait += 1
+        else:
+            wait = 0
 
         log.info(
             f"    Iteration {it}, "
@@ -555,6 +589,9 @@ def optimize_supervised_original(G: np.ndarray, P: np.ndarray, Q: np.ndarray, y:
         if abs(diff) < tol:
             log.info(f"    Converged at iteration {it}.")
             break
+        if wait >= patience:
+            log.info(f"    Converged at iteration {it} after {wait} iterations without improvement.")
+            break
 
         ll_prev_iter = ll_new
 
@@ -564,6 +601,7 @@ def optimize_supervised_original(G: np.ndarray, P: np.ndarray, Q: np.ndarray, y:
 
 def optimize_supervised_original_gpu(G: "torch.Tensor", P: "torch.Tensor", Q: "torch.Tensor", y: np.ndarray,
                                      max_iter: int, K: int, M: int, N: int, tol: float, Q_hist: int,
+                                     patience: int,
                                      device: "torch.device", chunk_size: int, threads_per_block: int) -> tuple["torch.Tensor", "torch.Tensor"]:
     """
     Description:
@@ -581,6 +619,7 @@ def optimize_supervised_original_gpu(G: "torch.Tensor", P: "torch.Tensor", Q: "t
         N (int): Number of samples.
         tol (float): Convergence tolerance for log-likelihood improvement.
         Q_hist (int): ZAL-QN history depth.
+        patience (int): Iterations without best log-likelihood improvement before stopping.
         device (torch.device): CUDA device.
         chunk_size (int): SNP chunk size for batched GPU work.
         threads_per_block (int): CUDA tuning parameter.
@@ -598,38 +637,49 @@ def optimize_supervised_original_gpu(G: "torch.Tensor", P: "torch.Tensor", Q: "t
         compute_grad_hess_Q_gpu,
     )
 
-    # 1. Precompute Vt matrix from SVD of ones(1, K) on GPU
-    ones_K = torch.ones((1, K), dtype=torch.float64, device=device)
+    dtype = utils.get_dtype(device)
+
+    # 1. Precompute Vt matrix from SVD of ones(1, K). Keep this on CPU first
+    # so the MPS path never requests float64 linalg kernels on-device.
+    ones_K = torch.ones((1, K), dtype=torch.float64)
     _, _, vt = torch.linalg.svd(ones_K, full_matrices=True)
-    v_kk = vt.t().contiguous()
+    v_kk = vt.t().to(device=device, dtype=dtype).contiguous()
 
     # 2. Allocate buffers on GPU
-    dtype = utils.get_dtype(device)
-    XtX_q = torch.zeros((N, K, K), dtype=torch.float64, device=device)
-    Xtz_q = torch.zeros((N, K), dtype=torch.float64, device=device)
-    XtX_p = torch.zeros((M, K, K), dtype=torch.float64, device=device)
-    Xtz_p = torch.zeros((M, K), dtype=torch.float64, device=device)
+    XtX_q = torch.zeros((N, K, K), dtype=dtype, device=device)
+    Xtz_q = torch.zeros((N, K), dtype=dtype, device=device)
+    XtX_p = torch.zeros((M, K, K), dtype=dtype, device=device)
+    Xtz_p = torch.zeros((M, K), dtype=dtype, device=device)
 
     # QN history buffers
     dim = M * K + N * K
-    U = torch.zeros((dim, Q_hist), dtype=torch.float64, device=device)
-    V = torch.zeros((dim, Q_hist), dtype=torch.float64, device=device)
-    UV_diff = torch.zeros((dim, Q_hist), dtype=torch.float64, device=device)
+    U = torch.zeros((dim, Q_hist), dtype=dtype, device=device)
+    V = torch.zeros((dim, Q_hist), dtype=dtype, device=device)
+    UV_diff = torch.zeros((dim, Q_hist), dtype=dtype, device=device)
     P_qn = torch.empty_like(P)
     Q_qn = torch.empty_like(Q)
 
     # Pre-allocated buffers for ZAL QN acceleration
-    x_qn = torch.empty(dim, dtype=torch.float64, device=device)
-    x_buf = torch.empty(dim, dtype=torch.float64, device=device)
-    x_next_buf = torch.empty(dim, dtype=torch.float64, device=device)
-    x_next2_buf = torch.empty(dim, dtype=torch.float64, device=device)
+    x_qn = torch.empty(dim, dtype=dtype, device=device)
+    x_buf = torch.empty(dim, dtype=dtype, device=device)
+    x_next_buf = torch.empty(dim, dtype=dtype, device=device)
+    x_next2_buf = torch.empty(dim, dtype=dtype, device=device)
 
     unpacker = utils.get_unpacker(device, threads_per_block)
     logl_calc = utils.get_logl_calculator(device)
+    if device.type == "mps":
+        from .utils_c import metal
+
+        sqp_solve_q = metal.sqp_solve_q_mps
+        sqp_solve_p = metal.sqp_solve_p_mps
+    else:
+        sqp_solve_q = torch.ops.sqp_kernel.sqp_solve_q_cuda
+        sqp_solve_p = torch.ops.sqp_kernel.sqp_solve_p_cuda
 
     # --- Initialize log-likelihood ---
     ll_prev_iter = -float('inf')
     ll_best = -float("inf")
+    wait = 0
     P_best = torch.empty_like(P)
     Q_best = torch.empty_like(Q)
 
@@ -639,22 +689,22 @@ def optimize_supervised_original_gpu(G: "torch.Tensor", P: "torch.Tensor", Q: "t
         # --- SQP Update 1: (P, Q) -> (P_next, Q_next) ---
         compute_grad_hess_Q_gpu(G, Q, P, XtX_q, Xtz_q, M, chunk_size, unpacker, dtype)
         Xtz_q.neg_()
-        Q_next = torch.ops.sqp_kernel.sqp_solve_q_cuda(XtX_q, Xtz_q, Q, v_kk, N, K)
+        Q_next = sqp_solve_q(XtX_q, Xtz_q, Q, v_kk, N, K)
         _snap_q_gpu(Q_next, y, K)
 
         compute_grad_hess_P_gpu(G, Q_next, P, XtX_p, Xtz_p, M, chunk_size, unpacker, dtype)
         Xtz_p.neg_()
-        P_next = torch.ops.sqp_kernel.sqp_solve_p_cuda(XtX_p, Xtz_p, P, M, K)
+        P_next = sqp_solve_p(XtX_p, Xtz_p, P, M, K)
 
         # --- SQP Update 2: (P_next, Q_next) -> (P_next2, Q_next2) ---
         compute_grad_hess_Q_gpu(G, Q_next, P_next, XtX_q, Xtz_q, M, chunk_size, unpacker, dtype)
         Xtz_q.neg_()
-        Q_next2 = torch.ops.sqp_kernel.sqp_solve_q_cuda(XtX_q, Xtz_q, Q_next, v_kk, N, K)
+        Q_next2 = sqp_solve_q(XtX_q, Xtz_q, Q_next, v_kk, N, K)
         _snap_q_gpu(Q_next2, y, K)
 
         compute_grad_hess_P_gpu(G, Q_next2, P_next, XtX_p, Xtz_p, M, chunk_size, unpacker, dtype)
         Xtz_p.neg_()
-        P_next2 = torch.ops.sqp_kernel.sqp_solve_p_cuda(XtX_p, Xtz_p, P_next, M, K)
+        P_next2 = sqp_solve_p(XtX_p, Xtz_p, P_next, M, K)
 
         # --- ZAL QN acceleration ---
         _flatten_PQ_gpu_inplace(P, Q, x_buf)
@@ -701,10 +751,15 @@ def optimize_supervised_original_gpu(G: "torch.Tensor", P: "torch.Tensor", Q: "t
             Q.copy_(Q_next2)
             ll_new = logl_calc(G, P_next2, Q_next2, M, N, chunk_size, threads_per_block)
 
+        best_before = ll_best
         if ll_new > ll_best:
             ll_best = ll_new
             P_best.copy_(P)
             Q_best.copy_(Q)
+        if best_before != -float("inf") and ll_new <= best_before + tol:
+            wait += 1
+        else:
+            wait = 0
 
         log.info(
             f"    Iteration {it}, "
@@ -715,6 +770,9 @@ def optimize_supervised_original_gpu(G: "torch.Tensor", P: "torch.Tensor", Q: "t
         diff = ll_new - ll_prev_iter
         if abs(diff) < tol:
             log.info(f"    Converged at iteration {it}.")
+            break
+        if wait >= patience:
+            log.info(f"    Converged at iteration {it} after {wait} iterations without improvement.")
             break
 
         ll_prev_iter = ll_new

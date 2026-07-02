@@ -190,10 +190,6 @@ def main() -> None:
     )
 
     device_str = args.device
-    if args.algorithm == 'brqn' and device_str == 'mps':
-        log.info("    SQP + ZAL QN (brqn) projection is not supported on MPS. Running on CPU.")
-        device_str = 'cpu'
-        args.device = 'cpu'
     use_gpu = device_str in ("cuda", "mps")
     utils.set_seed(args.seed)
 
@@ -213,10 +209,14 @@ def main() -> None:
     P = P.clip(1e-5, 1.0 - 1e-5)
     log.info(f"    P matrix loaded: {M_p} SNPs, K={K} populations.\n")
 
+    if args.algorithm == 'brqn' and device_str == 'mps' and K > 32:
+        log.error(f"    Error: K={K} exceeds the current MPS BR-QN limit (MAX_K=32).")
+        sys.exit(1)
+
     # ── Load target genotype data ─────────────────────────────────────────────
     G, N, M = utils.read_data(
         args.data_path,
-        packed=(device_str == "cuda"),
+        packed=device_str in ("cuda", "mps"),
         chunk_size=args.chunk_size,
         chromosome_mode=args.chromosome_mode,
         autosome_count=args.autosome_count,
@@ -265,6 +265,7 @@ def main() -> None:
             Q_gpu = optimize_projection_original_gpu(
                 G=G_t, P=P_t, Q=Q_t,
                 max_iter=args.max_iter, K=K, M=M, N=N, tol=args.tol, Q_hist=args.Q_hist,
+                patience=args.patience,
                 device=device_obj, chunk_size=args.chunk_size, threads_per_block=threads_per_block,
             )
         else:
@@ -282,6 +283,7 @@ def main() -> None:
             Q_opt = optimize_projection_original(
                 G=G, P=P, Q=Q,
                 max_iter=args.max_iter, K=K, M=M, N=N, tol=args.tol, Q_hist=args.Q_hist,
+                patience=args.patience,
             )
         else:
             Q_opt = optimize_projection(
