@@ -80,6 +80,7 @@ jobs:
           SETUPTOOLS_SCM_PRETEND_VERSION: ${{ env.SETUPTOOLS_SCM_PRETEND_VERSION }}
           CIBW_BUILD: cp310-* cp311-* cp312-* cp313-* cp314-*
           CIBW_SKIP: "pp* *musllinux* *i686*"
+          CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
 
           CIBW_ARCHS_LINUX: "x86_64"
           CIBW_ARCHS_MACOS: "x86_64 arm64"

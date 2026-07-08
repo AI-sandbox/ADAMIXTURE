@@ -300,7 +300,7 @@ def main() -> None:
     out_path.mkdir(parents=True, exist_ok=True)
     q_file = out_path / f"{args.name}.{K}.Q"
     np.savetxt(str(q_file), Q_opt, delimiter=" ", fmt="%.6f")
-    log.info(f"    Q matrix saved to: {q_file}")
+    log.info("    Q matrix saved.")
 
     # ── Optional plot ─────────────────────────────────────────────────────────
     if args.plot is not None:

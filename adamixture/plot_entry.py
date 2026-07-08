@@ -110,17 +110,14 @@ def _draw_brackets(ax, items: list[dict], y_bracket: float, fontsize: int = 6) -
 
     for item in items:
         x0, x1 = item['start'], item['end']
-        gap = min((x1 - x0) * 0.01, 10)
-        x0_br = x0 + gap if (x0 + gap) < x1 else x0
-        x1_br = x1 - gap if (x1 - gap) > x0 else x1
 
         # Horizontal line
-        ax.plot([x0_br, x1_br], [y_bracket, y_bracket],
+        ax.plot([x0, x1], [y_bracket, y_bracket],
                 color='#222222', lw=0.8, transform=trans, clip_on=False)
         # Vertical ticks
-        ax.plot([x0_br, x0_br], [y_bracket, y_bracket + 0.08],
+        ax.plot([x0, x0], [y_bracket, y_bracket + 0.08],
                 color='#222222', lw=0.8, transform=trans, clip_on=False)
-        ax.plot([x1_br, x1_br], [y_bracket, y_bracket + 0.08],
+        ax.plot([x1, x1], [y_bracket, y_bracket + 0.08],
                 color='#222222', lw=0.8, transform=trans, clip_on=False)
         # Label
         label_text = str(item['name']).title()
@@ -360,12 +357,12 @@ def main() -> None:
             colors = cmap(np.arange(K) % 20)
 
         Q_cum = np.cumsum(Q, axis=1)
-        x = np.arange(n_samples)
-        zeros = np.zeros(n_samples)
+        x = np.arange(n_samples + 1)
+        zeros = np.zeros(n_samples + 1)
 
         for j in range(K):
-            lower = Q_cum[:, j - 1] if j > 0 else zeros
-            upper = Q_cum[:, j]
+            lower = np.r_[Q_cum[:, j - 1], Q_cum[-1, j - 1]] if j > 0 else zeros
+            upper = np.r_[Q_cum[:, j], Q_cum[-1, j]]
             ax.fill_between(x, lower, upper, facecolor=colors[j], edgecolor='none', linewidth=0, rasterized=True)
 
         # Draw population boundaries (level 1)
@@ -414,7 +411,7 @@ def main() -> None:
     output_path = Path(args.save_dir) / f"{args.name}.{args.format}"
 
     fig.savefig(output_path, dpi=args.dpi, format=args.format, bbox_inches='tight')
-    log.info(f"    Multi-run plot saved to: {output_path}")
+    log.info(f"    Generating plot: {output_path.name}")
     plt.close(fig)
 
 

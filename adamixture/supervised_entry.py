@@ -385,12 +385,13 @@ def main() -> None:
 
     q_file = out_path / f"{args.name}.{K}.Q"
     np.savetxt(str(q_file), Q_opt, delimiter=" ", fmt="%.6f")
-    log.info(f"    Q matrix saved to: {q_file}")
 
     if not args.no_freqs:
         p_file = out_path / f"{args.name}.{K}.P"
         np.savetxt(str(p_file), P_opt, delimiter=" ", fmt="%.6f")
-        log.info(f"    P matrix saved to: {p_file}")
+        log.info("    Q and P matrices saved.")
+    else:
+        log.info("    Q matrix saved.")
 
     # ── Optional plot ─────────────────────────────────────────────────────────
     if args.plot is not None:

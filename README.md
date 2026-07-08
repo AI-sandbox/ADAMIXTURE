@@ -107,6 +107,8 @@ To leverage GPU acceleration (highly recommended for large datasets), use the `-
 > - For macOS users with Apple Silicon (M1/M2/M3/M4/M5), use `--device mps` to enable Metal Performance Shaders (MPS) acceleration. 
 > - Note that biobank-scale datasets are best handled on dedicated CUDA-capable GPUs due to high RAM requirements. 
 
+For a step-by-step guide on how to run a complete analysis workflow, see the [1000 Genomes Tutorial](tutorials/1000_genomes.ipynb).
+
 ## Multi-K Sweep
 
 Instead of running ADAMIXTURE for a single K, you can automatically sweep over a range of K values using `--min_k` and `--max_k`. The data is loaded once, and each K is trained sequentially:

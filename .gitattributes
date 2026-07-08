@@ -1,0 +1,3 @@
+# Exclude Jupyter Notebooks in tutorials from GitHub language statistics
+tutorials/*.ipynb linguist-detectable=false
+**/*.sh linguist-detectable=false

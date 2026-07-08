@@ -173,6 +173,9 @@ adamixture/demo/outputs/*
 !adamixture/demo/outputs/mps/adamem/
 !adamixture/demo/outputs/mps/adamem/*.expected
 
+# Temporary tutorial artifacts
+**/.tmp/
+
 # figures
 **figures**
 

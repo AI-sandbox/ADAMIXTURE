@@ -32,15 +32,12 @@ def _draw_brackets(ax, items: list[dict], y_bracket: float, fontsize: int = 6) -
 
     for item in items:
         x0, x1 = item['start'], item['end']
-        gap = min((x1 - x0) * 0.01, 10)
-        x0_br = x0 + gap if (x0 + gap) < x1 else x0
-        x1_br = x1 - gap if (x1 - gap) > x0 else x1
 
-        ax.plot([x0_br, x1_br], [y_bracket, y_bracket],
+        ax.plot([x0, x1], [y_bracket, y_bracket],
                 color='#222222', lw=0.8, transform=trans, clip_on=False)
-        ax.plot([x0_br, x0_br], [y_bracket, y_bracket + 0.08],
+        ax.plot([x0, x0], [y_bracket, y_bracket + 0.08],
                 color='#222222', lw=0.8, transform=trans, clip_on=False)
-        ax.plot([x1_br, x1_br], [y_bracket, y_bracket + 0.08],
+        ax.plot([x1, x1], [y_bracket, y_bracket + 0.08],
                 color='#222222', lw=0.8, transform=trans, clip_on=False)
         label_text = str(item['name']).title()
         if len(label_text) > _MAX_LABEL_LEN:
@@ -229,8 +226,8 @@ def plot_q_matrix(
     fig, ax = plt.subplots(figsize=(15, fig_height))
 
     Q_cum = np.cumsum(Q_sorted, axis=1)
-    x = np.arange(n_samples)
-    zeros = np.zeros(n_samples)
+    x = np.arange(n_samples + 1)
+    zeros = np.zeros(n_samples + 1)
 
     if custom_colors is not None and len(custom_colors) >= K:
         colors = custom_colors[:K]
@@ -239,8 +236,8 @@ def plot_q_matrix(
         colors = cmap(np.arange(K) % 20)
 
     for j in range(K):
-        lower = Q_cum[:, j - 1] if j > 0 else zeros
-        upper = Q_cum[:, j]
+        lower = np.r_[Q_cum[:, j - 1], Q_cum[-1, j - 1]] if j > 0 else zeros
+        upper = np.r_[Q_cum[:, j], Q_cum[-1, j]]
         ax.fill_between(x, lower, upper, facecolor=colors[j], edgecolor='none', linewidth=0, rasterized=True)
 
     ax.set_xlim(0, n_samples)
@@ -503,12 +500,12 @@ def plot_combined(args: argparse.Namespace, k_values: list[int], trained_plot: d
             colors = cmap(np.arange(K_curr) % 20)
 
         Q_cum = np.cumsum(Q_sorted, axis=1)
-        x = np.arange(n_samples)
-        zeros = np.zeros(n_samples)
+        x = np.arange(n_samples + 1)
+        zeros = np.zeros(n_samples + 1)
 
         for j in range(K_curr):
-            lower = Q_cum[:, j - 1] if j > 0 else zeros
-            upper = Q_cum[:, j]
+            lower = np.r_[Q_cum[:, j - 1], Q_cum[-1, j - 1]] if j > 0 else zeros
+            upper = np.r_[Q_cum[:, j], Q_cum[-1, j]]
             ax.fill_between(x, lower, upper, facecolor=colors[j], edgecolor='none', linewidth=0, rasterized=True)
 
         for boundary in pop_boundaries:
@@ -552,7 +549,7 @@ def plot_combined(args: argparse.Namespace, k_values: list[int], trained_plot: d
 
     single_plot_path = Path(args.save_dir) / f"{args.name}.{k_values[0]}_{k_values[-1]}.{args.plot_format}"
     fig.savefig(single_plot_path, dpi=args.plot_dpi, format=args.plot_format, bbox_inches='tight')
-    log.info(f"    Combined single plot saved to: {single_plot_path}")
+    log.info(f"    Generating plot: {single_plot_path.name}")
     plt.close(fig)
 
 
