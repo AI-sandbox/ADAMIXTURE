@@ -104,10 +104,14 @@ def assert_model_close_to_expected(
     np.testing.assert_allclose(P, expected_p, rtol=matrix_rtol, atol=matrix_atol)
     np.testing.assert_allclose(Q, expected_q, rtol=matrix_rtol, atol=matrix_atol)
 
-    actual_logl = tools.loglikelihood(G, np.ascontiguousarray(P), np.ascontiguousarray(Q))
+    actual_logl = tools.loglikelihood(
+        G,
+        np.ascontiguousarray(P, dtype=np.float64),
+        np.ascontiguousarray(Q, dtype=np.float64),
+    )
     expected_logl = tools.loglikelihood(
         G,
-        np.ascontiguousarray(expected_p),
-        np.ascontiguousarray(expected_q),
+        np.ascontiguousarray(expected_p, dtype=np.float64),
+        np.ascontiguousarray(expected_q, dtype=np.float64),
     )
     assert abs(actual_logl - expected_logl) <= logl_atol
