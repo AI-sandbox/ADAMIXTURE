@@ -193,7 +193,7 @@ Key arguments:
 
 ## Algorithm note
 
-The ADAMIXTURE preprint introduced Adam-EM as an adaptive first-order optimizer for admixture inference. The package still includes this solver via `--algorithm adamem`.
+The ADAMIXTURE paper introduced Adam-EM as an adaptive first-order optimizer for admixture inference. The package still includes this solver via `--algorithm adamem`.
 
 In the current implementation, the default is `--algorithm brqn`. Empirical benchmarking showed that block relaxation with ZAL quasi-Newton acceleration, when paired with our improved SVD+ALS initialization, reaches high-quality solutions in fewer iterations and better wall-clock time. For that reason, BR-QN is the default solver, while Adam-EM remains available for experimentation and reproducibility. Adam-EM tuning parameters are documented in [Troubleshooting and Tips](docs/troubleshooting.md).
 
@@ -208,14 +208,18 @@ This project is licensed under the BSD 3-Clause License - see the [LICENSE](LICE
 
 ## Cite
 
-When using this software, please cite the following preprint:
+When using this software, please cite the following paper:
 
 ```bibtex
 @article{saurina2026adamixture,
-  title={ADAMIXTURE: Adaptive First-Order Optimization for Biobank-Scale Genetic Clustering},
-  author={Saurina-i-Ricos, Joan and Mas Monserrat, Daniel and Ioannidis, Alexander G.},
-  journal={bioRxiv},
+  title={ADAMIXTURE: adaptive first-order optimization for biobank-scale genetic clustering},
+  author={Saurina-i-Ricos, Joan and Mas Montserrat, Daniel and Ioannidis, Alexander G.},
+  journal={Bioinformatics},
+  volume={42},
+  number={Supplement\_1},
+  pages={btag236},
   year={2026},
-  doi={10.64898/2026.02.13.700171},
-  url={https://doi.org/10.64898/2026.02.13.700171}
+  doi={10.1093/bioinformatics/btag236},
+  url={https://doi.org/10.1093/bioinformatics/btag236}
 }
+```

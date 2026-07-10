@@ -15,7 +15,7 @@ license: "custom"
 
 preferred-citation:
   type: article
-  title: "ADAMIXTURE: Adaptive First-Order Optimization for Biobank-Scale Genetic Clustering"
+  title: "ADAMIXTURE: adaptive first-order optimization for biobank-scale genetic clustering"
   authors:
     - family-names: "Saurina-i-Ricos"
       given-names: "Joan"
@@ -23,9 +23,11 @@ preferred-citation:
       given-names: "Daniel"
     - family-names: "Ioannidis"
       given-names: "Alexander G."
-  doi: "10.64898/2026.02.13.700171"
-  url: "https://www.biorxiv.org/content/10.64898/2026.02.13.700171"
-  journal: "bioRxiv"
-  publisher: "Cold Spring Harbor Laboratory"
+  doi: "10.1093/bioinformatics/btag236"
+  url: "https://doi.org/10.1093/bioinformatics/btag236"
+  journal: "Bioinformatics"
+  volume: "42"
+  issue: "Supplement_1"
+  pages: "btag236"
   year: 2026
-  month: 2
+  month: 7

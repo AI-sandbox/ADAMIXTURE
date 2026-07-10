@@ -169,7 +169,7 @@ def print_adamixture_banner(version: str = "1.0") -> None:
     Version: {version}
     Authors: Joan Saurina-i-Ricos, Daniel Mas Montserrat and
              Alexander G. Ioannidis.
-    Preprint: https://www.biorxiv.org/content/10.64898/2026.02.13.700171
+    Paper: https://doi.org/10.1093/bioinformatics/btag236
     """
 
     log.info("\n" + banner + info)
