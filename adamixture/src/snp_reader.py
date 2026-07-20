@@ -123,47 +123,47 @@ class SNPReader:
             return None
         return int(chrom)
 
-    def _keep_chromosome(self, chrom: str, chromosome_mode: str, autosome_count: int) -> bool:
+    def _keep_chromosome(self, chrom: str, chrom_mode: str, autosomes: int) -> bool:
         """
         Description:
         Decides whether a variant should be kept under the configured chromosome filter.
 
         Args:
             chrom (str): Chromosome label from the variant metadata.
-            chromosome_mode (str): Chromosome filter mode ("all" or "autosomes").
-            autosome_count (int): Number of autosomes kept when chromosome_mode is "autosomes".
+            chrom_mode (str): Chromosome filter mode ("all" or "autosomes").
+            autosomes (int): Number of autosomes kept when chrom_mode is "autosomes".
 
         Returns:
             bool: True if the variant should be kept, otherwise False.
         """
-        if chromosome_mode == "all":
+        if chrom_mode == "all":
             return True
-        if chromosome_mode != "autosomes":
-            raise ValueError("chromosome_mode must be 'all' or 'autosomes'")
-        if autosome_count < 1:
-            raise ValueError("autosome_count must be at least 1")
+        if chrom_mode != "autosomes":
+            raise ValueError("chrom_mode must be 'all' or 'autosomes'")
+        if autosomes < 1:
+            raise ValueError("autosomes must be at least 1")
 
         chrom_num = self._parse_chromosome_number(chrom)
-        return chrom_num is not None and 1 <= chrom_num <= autosome_count
+        return chrom_num is not None and 1 <= chrom_num <= autosomes
 
-    def _log_chromosome_filter(self, skipped: int, chromosome_mode: str, autosome_count: int) -> None:
+    def _log_chromosome_filter(self, skipped: int, chrom_mode: str, autosomes: int) -> None:
         """
         Description:
         Logs a warning when variants are skipped by the chromosome filter.
 
         Args:
             skipped (int): Number of skipped variants.
-            chromosome_mode (str): Chromosome filter mode ("all" or "autosomes").
-            autosome_count (int): Number of autosomes kept when chromosome_mode is "autosomes".
+            chrom_mode (str): Chromosome filter mode ("all" or "autosomes").
+            autosomes (int): Number of autosomes kept when chrom_mode is "autosomes".
 
         Returns:
             None
         """
         if skipped <= 0:
             return
-        if chromosome_mode == "autosomes":
+        if chrom_mode == "autosomes":
             log.warning(
-                f"        Warning: Skipped {skipped} SNPs outside autosomes 1..{autosome_count}."
+                f"        Warning: Skipped {skipped} SNPs outside autosomes 1..{autosomes}."
             )
         else:
             log.warning(f"        Warning: Skipped {skipped} SNPs excluded by chromosome filter.")
@@ -190,8 +190,8 @@ class SNPReader:
         file: str,
         packed: bool,
         chunk_size: int,
-        chromosome_mode: str,
-        autosome_count: int,
+        chrom_mode: str,
+        autosomes: int,
     ) -> tuple[torch.Tensor | np.ndarray, int, int]:
         """
         Description:
@@ -225,7 +225,7 @@ class SNPReader:
                 parts = line.strip().split()
                 if not parts:
                     continue
-                keep_mask.append(self._keep_chromosome(parts[0], chromosome_mode, autosome_count))
+                keep_mask.append(self._keep_chromosome(parts[0], chrom_mode, autosomes))
         keep_mask = np.array(keep_mask, dtype=bool)
 
         with self._materialize_binary(bed_file) as readable_bed_file:
@@ -235,7 +235,7 @@ class SNPReader:
             assert len(keep_mask) == M_total, "bim file doesn't match!"
 
             skipped = len(keep_mask) - keep_mask.sum()
-            self._log_chromosome_filter(skipped, chromosome_mode, autosome_count)
+            self._log_chromosome_filter(skipped, chrom_mode, autosomes)
 
             keep_idxs = np.flatnonzero(keep_mask).astype(np.uint32)
             M = keep_idxs.size
@@ -299,8 +299,8 @@ class SNPReader:
         file: str,
         packed: bool,
         chunk_size: int,
-        chromosome_mode: str,
-        autosome_count: int,
+        chrom_mode: str,
+        autosomes: int,
     ) -> tuple[torch.Tensor | np.ndarray, int, int]:
         """
         Description:
@@ -327,8 +327,8 @@ class SNPReader:
             G, N, M = read_vcf_file(
                 str(vcf_file),
                 chunk_size=chunk_size,
-                chromosome_mode=chromosome_mode,
-                autosome_count=autosome_count,
+                chrom_mode=chrom_mode,
+                autosomes=autosomes,
             )
             return np.ascontiguousarray(G), N, M
         else:
@@ -336,8 +336,8 @@ class SNPReader:
             G_packed_np, N, M = read_vcf_file_packed(
                 str(vcf_file),
                 chunk_size=chunk_size,
-                chromosome_mode=chromosome_mode,
-                autosome_count=autosome_count,
+                chrom_mode=chrom_mode,
+                autosomes=autosomes,
             )
             G_packed = torch.from_numpy(G_packed_np)
             return G_packed, N, M
@@ -347,8 +347,8 @@ class SNPReader:
         file: str,
         packed: bool,
         chunk_size: int,
-        chromosome_mode: str,
-        autosome_count: int,
+        chrom_mode: str,
+        autosomes: int,
     ) -> tuple[torch.Tensor | np.ndarray, int, int]:
         """
         Description:
@@ -382,7 +382,7 @@ class SNPReader:
                 parts = line.strip().split()
                 if not parts:
                     continue
-                keep_mask.append(self._keep_chromosome(parts[0], chromosome_mode, autosome_count))
+                keep_mask.append(self._keep_chromosome(parts[0], chrom_mode, autosomes))
         keep_mask = np.array(keep_mask, dtype=bool)
 
         with self._materialize_binary(pgen_file) as readable_pgen_file:
@@ -395,7 +395,7 @@ class SNPReader:
             )
 
             skipped = len(keep_mask) - keep_mask.sum()
-            self._log_chromosome_filter(skipped, chromosome_mode, autosome_count)
+            self._log_chromosome_filter(skipped, chrom_mode, autosomes)
 
             keep_idxs = np.flatnonzero(keep_mask).astype(np.uint32)
             M = keep_idxs.size
@@ -470,8 +470,8 @@ class SNPReader:
         file: str,
         packed: bool,
         chunk_size: int,
-        chromosome_mode: str,
-        autosome_count: int,
+        chrom_mode: str,
+        autosomes: int,
     ) -> tuple[torch.Tensor | np.ndarray, int, int]:
         """
         Description:
@@ -482,8 +482,8 @@ class SNPReader:
             file (str): Path to the genotype file.
             packed (bool): If True, returns a 2-bit packed torch.Tensor (BED, PGEN, VCF). Defaults to False.
             chunk_size (int): Size of chunks to read for VCF files. Defaults to 4096.
-            chromosome_mode (str): "all" to keep all chromosomes or "autosomes" to keep 1..autosome_count.
-            autosome_count (int): Number of autosomes when chromosome_mode is "autosomes".
+            chrom_mode (str): "all" to keep all chromosomes or "autosomes" to keep 1..autosomes.
+            autosomes (int): Number of autosomes when chrom_mode is "autosomes".
 
         Returns:
             tuple[torch.Tensor | np.ndarray, int, int]: (genotype matrix, N individuals, M SNPs)
@@ -492,21 +492,21 @@ class SNPReader:
         file_extensions = file_path.suffixes
         start = time.time()
 
-        if chromosome_mode not in {"all", "autosomes"}:
-            raise ValueError("chromosome_mode must be 'all' or 'autosomes'")
-        if autosome_count < 1:
-            raise ValueError("autosome_count must be at least 1")
+        if chrom_mode not in {"all", "autosomes"}:
+            raise ValueError("chrom_mode must be 'all' or 'autosomes'")
+        if autosomes < 1:
+            raise ValueError("autosomes must be at least 1")
 
         if '.bed' in file_extensions:
             self._check_files_exist(file, ['.bed', '.fam', '.bim'])
-            G, N, M = self._read_bed(file, packed, chunk_size, chromosome_mode, autosome_count)
+            G, N, M = self._read_bed(file, packed, chunk_size, chrom_mode, autosomes)
         elif '.vcf' in file_extensions:
             self._check_files_exist(file, ['.vcf'], match_any=True)
-            G, N, M = self._read_vcf(file, packed, chunk_size, chromosome_mode, autosome_count)
+            G, N, M = self._read_vcf(file, packed, chunk_size, chrom_mode, autosomes)
         elif '.pgen' in file_extensions:
             self._check_files_exist(file, ['.pgen', '.psam'])
             self._check_files_exist(file, ['.pvar', '.bim'], match_any=True)
-            G, N, M = self._read_pgen(file, packed, chunk_size, chromosome_mode, autosome_count)
+            G, N, M = self._read_pgen(file, packed, chunk_size, chrom_mode, autosomes)
         else:
             log.error("    Invalid format. Unrecognized file format. Make sure file ends with .bed, .pgen or .vcf .")
             sys.exit(1)

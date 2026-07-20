@@ -40,6 +40,8 @@ dependencies = [
     "pgenlib>=0.94.0",
     "zstandard>=0.25.0",
     "ninja",
+    "clumppling>=2.0.9",
+    "pillow",
 ]
 
 [project.urls]

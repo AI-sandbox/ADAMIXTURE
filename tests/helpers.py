@@ -3,7 +3,7 @@ from pathlib import Path
 
 import numpy as np
 
-from adamixture.src.plot import align_clusters_greedy
+from adamixture.src.plot import align_clusters_clumppling
 from adamixture.src.utils_c import tools
 
 
@@ -71,7 +71,7 @@ def align_model_to_expected(
     actual_p: np.ndarray,
     actual_q: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray]:
-    perm = align_clusters_greedy(expected_q, actual_q)
+    perm = align_clusters_clumppling(expected_q, actual_q)
     return actual_p[:, perm], actual_q[:, perm]
 
 

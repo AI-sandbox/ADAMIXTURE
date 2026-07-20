@@ -18,42 +18,72 @@ MIN_CPU_CHUNK_SIZE = 2
 
 def is_gpu_oom(exc: BaseException) -> bool:
     """
-    Return True for CUDA/MPS out-of-memory exceptions raised by PyTorch or device kernels.
+    Description:
+    Returns True for CUDA/MPS out-of-memory exceptions raised by PyTorch or device kernels.
+
+    Args:
+        exc (BaseException): Exception to check.
+
+    Returns:
+        bool: True if the exception is a GPU out-of-memory error.
     """
     message = str(exc).lower()
     return isinstance(exc, torch.cuda.OutOfMemoryError) or any(
         phrase in message
         for phrase in (
             "cuda out of memory",
+            "cuda error: out of memory",
             "mps backend out of memory",
             "mps out of memory",
             "metal out of memory",
             "out of memory on mps",
             "out of memory on gpu",
+            "out of memory",
         )
     )
 
 
 def is_cuda_oom(exc: BaseException) -> bool:
     """
+    Description:
     Backward-compatible alias for GPU out-of-memory detection.
+
+    Args:
+        exc (BaseException): Exception to check.
+
+    Returns:
+        bool: True if the exception is a GPU out-of-memory error.
     """
     return is_gpu_oom(exc)
 
 
 def reduce_gpu_chunk_or_raise(chunk_size: int, exc: BaseException, context: str) -> int:
     """
-    Halve a GPU chunk size after an OOM and clear CUDA/MPS allocator caches.
+    Description:
+    Halves GPU chunk size after an OOM and clears CUDA/MPS allocator caches.
+
+    Args:
+        chunk_size (int): Current GPU chunk size.
+        exc (BaseException): Out-of-memory exception.
+        context (str): Description of the operation for logging.
+
+    Returns:
+        int: Halved chunk size.
     """
     if chunk_size <= MIN_GPU_CHUNK_SIZE:
         raise exc
 
     new_chunk_size = max(chunk_size // 2, MIN_GPU_CHUNK_SIZE)
     exc.__traceback__ = None
+    import gc
+    gc.collect()
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
-    if hasattr(torch, "mps") and hasattr(torch.mps, "empty_cache"):
-        torch.mps.empty_cache()
+    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available() and hasattr(torch.mps, "empty_cache"):
+        try:
+            torch.mps.empty_cache()
+        except RuntimeError:
+            pass
 
     log.warning(f"    GPU out of memory while {context}: retrying with chunk_size={new_chunk_size}.")
     return new_chunk_size
@@ -61,7 +91,14 @@ def reduce_gpu_chunk_or_raise(chunk_size: int, exc: BaseException, context: str)
 
 def is_cpu_memory_error(exc: BaseException) -> bool:
     """
-    Return True for CPU allocation failures raised by NumPy, PyTorch, or Cython.
+    Description:
+    Returns True for CPU allocation failures raised by NumPy, PyTorch, or Cython.
+
+    Args:
+        exc (BaseException): Exception to check.
+
+    Returns:
+        bool: True if the exception is a CPU memory error.
     """
     message = str(exc).lower()
     return isinstance(exc, MemoryError) or any(
@@ -79,7 +116,16 @@ def is_cpu_memory_error(exc: BaseException) -> bool:
 
 def reduce_cpu_chunk_or_raise(chunk_size: int, exc: BaseException, context: str) -> int:
     """
-    Halve a CPU chunk size after an allocation failure.
+    Description:
+    Halves CPU chunk size after an allocation failure.
+
+    Args:
+        chunk_size (int): Current CPU chunk size.
+        exc (BaseException): Memory exception.
+        context (str): Description of the operation for logging.
+
+    Returns:
+        int: Halved chunk size.
     """
     if chunk_size <= MIN_CPU_CHUNK_SIZE:
         raise exc
@@ -92,8 +138,15 @@ def reduce_cpu_chunk_or_raise(chunk_size: int, exc: BaseException, context: str)
 
 def set_cuda_arch_list_if_needed(device: torch.device) -> None:
     """
-    Set TORCH_CUDA_ARCH_LIST from the active CUDA device to avoid compiling
+    Description:
+    Sets TORCH_CUDA_ARCH_LIST from the active CUDA device to avoid compiling
     extensions for every visible GPU architecture.
+
+    Args:
+        device (torch.device): Target computation device.
+
+    Returns:
+        None
     """
     import os
 
@@ -106,7 +159,7 @@ def set_cuda_arch_list_if_needed(device: torch.device) -> None:
 
 
 def read_data(tr_file: str, packed: bool = False, chunk_size: int = 4096,
-              chromosome_mode: str = "autosomes", autosome_count: int = 22,
+              chrom_mode: str = "autosomes", autosomes: int = 22,
               verbose: bool = True) -> tuple[torch.Tensor | np.ndarray, int, int]:
     """
     Description:
@@ -114,11 +167,11 @@ def read_data(tr_file: str, packed: bool = False, chunk_size: int = 4096,
 
     Args:
         tr_file (str): Path to the SNP data file.
-        packed (bool): If True, return a 2-bit packed torch.Tensor. Defaults to False.
-        chunk_size (int): Size of chunks to read for VCF files. Defaults to 4096.
-        verbose (bool): If True, log the number of samples and SNPs. Defaults to True.
-        chromosome_mode (str): "all" to keep all chromosomes or "autosomes" to keep 1..autosome_count.
-        autosome_count (int): Number of autosomes when chromosome_mode is "autosomes".
+        packed (bool): If True, return a 2-bit packed torch.Tensor.
+        chunk_size (int): Size of chunks to read for VCF files.
+        chrom_mode (str): "all" to keep all chromosomes or "autosomes" to keep 1..autosomes.
+        autosomes (int): Number of autosomes when chrom_mode is "autosomes".
+        verbose (bool): If True, log the number of samples and SNPs.
 
     Returns:
         tuple[torch.Tensor | np.ndarray, int, int]: (genotype matrix, N samples, M SNPs)
@@ -133,8 +186,8 @@ def read_data(tr_file: str, packed: bool = False, chunk_size: int = 4096,
                 tr_file,
                 packed=packed,
                 chunk_size=current_chunk_size,
-                chromosome_mode=chromosome_mode,
-                autosome_count=autosome_count,
+                chrom_mode=chrom_mode,
+                autosomes=autosomes,
             )
             break
         except (MemoryError, RuntimeError) as exc:
@@ -203,7 +256,7 @@ def write_outputs(Q: np.ndarray, run_name: str, K: int, out_path: str | Path, P:
         run_name (str): Identifier for the run, used in file naming.
         K (int): Number of populations, included in the file name.
         out_path (str | Path): Directory where the output files should be saved.
-        P (np.ndarray, optional): P matrix to be saved. Defaults to None.
+        P (np.ndarray, optional): P matrix to be saved.
 
     Returns:
         None
@@ -277,9 +330,8 @@ def manage_gpu_memory(
         K (int): Number of ancestral populations.
         chunk_size (int): Expected batch size for computations.
         algorithm (str): Optimizer name ("adamem" or "brqn").
-        q_hist (int): ZAL-QN history depth used by "brqn". Defaults to 3.
+        q_hist (int): ZAL-QN history depth used by "brqn".
         include_initialization (bool): Whether to include SVD/ALS initialization buffers.
-            Defaults to True.
 
     Returns:
         torch.Tensor | np.ndarray: Genotype tensor on the selected device.
@@ -376,7 +428,7 @@ def manage_gpu_memory(
 def load_extensions(device: torch.device) -> None:
     """
     Description:
-    Dynamically compiles and loads the `pack2bit` CUDA extension using Ninja.
+    Dynamically compiles and loads CUDA extensions using Ninja.
 
     Args:
         device (torch.device): The computation device. Triggered only if 'cuda'.
@@ -384,37 +436,57 @@ def load_extensions(device: torch.device) -> None:
     Returns:
         None
     """
-    if device.type == 'cuda':
-        import os
+    if device.type != "cuda":
+        return
 
-        from torch.utils.cpp_extension import load
-        set_cuda_arch_list_if_needed(device)
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        source_path = os.path.abspath(os.path.join(current_dir, "utils_c", "cuda", "pack2bit.cu"))
+    import os
+    from torch.utils.cpp_extension import load
 
-        if not os.path.exists(source_path):
-            log.error(f"CUDA source files not found in {os.path.join(current_dir, 'utils_c', 'cuda')}")
-            return
+    set_cuda_arch_list_if_needed(device)
 
-        log.info("    Loading CUDA extensions...")
-        cuda_flags = ['-O3', '--use_fast_math']
-        cpp_flags = ['-O3']
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    cuda_dir = os.path.join(current_dir, "utils_c", "cuda")
 
-        load(name="pack2bit", sources=[source_path],
-             verbose=False, extra_cuda_cflags=cuda_flags, extra_cflags=cpp_flags)
+    extensions = [
+        "pack2bit",
+        "bvls_kernel",
+        "sqp_kernel",
+    ]
 
-        load(name="bvls_kernel",
-             sources=[os.path.join(current_dir, "utils_c", "cuda", "bvls_kernel.cu")],
-             verbose=False, extra_cuda_cflags=cuda_flags, extra_cflags=cpp_flags)
+    missing = [ext for ext in extensions if not os.path.exists(os.path.join(cuda_dir, f"{ext}.cu"))]
+    if missing:
+        log.error(f"CUDA source files not found: {', '.join(missing)}")
+        return
 
-        load(name="sqp_kernel",
-             sources=[os.path.join(current_dir, "utils_c", "cuda", "sqp_kernel.cu")],
-             verbose=False, extra_cuda_cflags=cuda_flags, extra_cflags=cpp_flags)
+    log.info("    Loading CUDA extensions...")
 
+    device_index = device.index if device.index is not None else torch.cuda.current_device()
+    major, minor = torch.cuda.get_device_capability(device_index)
+    arch_tag = f"sm{major}{minor}"
+
+    cuda_flags = ["-O3", "--use_fast_math"]
+    cpp_flags = ["-O3"]
+
+    for ext in extensions:
+        load(
+            name=f"{ext}_{arch_tag}",
+            sources=[os.path.join(cuda_dir, f"{ext}.cu")],
+            verbose=False,
+            extra_cuda_cflags=cuda_flags,
+            extra_cflags=cpp_flags,
+        )
 
 def is_packed_genotype_tensor(G: torch.Tensor, M: int) -> bool:
     """
-    Return True when ``G`` is a 2-bit packed genotype matrix with ceil(M / 4) rows.
+    Description:
+    Returns True when G is a 2-bit packed genotype matrix with ceil(M / 4) rows.
+
+    Args:
+        G (torch.Tensor): Genotype tensor to check.
+        M (int): Total number of SNPs.
+
+    Returns:
+        bool: True if tensor is 2-bit packed.
     """
     return isinstance(G, torch.Tensor) and G.ndim == 2 and G.size(0) != M
 
@@ -492,7 +564,18 @@ def loglikelihood_cpu_chunked(
     batch_size: int,
 ) -> float:
     """
-    Compute log-likelihood on CPU in float64 for unpacked or 2-bit packed genotypes.
+    Description:
+    Computes log-likelihood on CPU in float64 for unpacked or 2-bit packed genotypes.
+
+    Args:
+        G (torch.Tensor | np.ndarray): Genotype matrix.
+        P (torch.Tensor): Allele-frequency matrix.
+        Q (torch.Tensor): Ancestry-proportion matrix.
+        M (int): Number of SNPs.
+        batch_size (int): Batch size parameter.
+
+    Returns:
+        float: Computed log-likelihood.
     """
     from .utils_c import tools
 
@@ -574,7 +657,17 @@ def get_logl_calculator(device: torch.device) -> Callable[[torch.Tensor, torch.T
 
 def _calculate_frequencies_cpu_once(G: np.ndarray, M: int, N: int, chunk_size: int) -> np.ndarray:
     """
-    Calculate allele frequencies on CPU in SNP chunks.
+    Description:
+    Calculates allele frequencies on CPU in SNP chunks.
+
+    Args:
+        G (np.ndarray): Genotype matrix.
+        M (int): Number of SNPs.
+        N (int): Number of samples.
+        chunk_size (int): SNP chunk size.
+
+    Returns:
+        np.ndarray: Computed 1D allele frequency array.
     """
     from .utils_c import tools
 
@@ -587,7 +680,17 @@ def _calculate_frequencies_cpu_once(G: np.ndarray, M: int, N: int, chunk_size: i
 
 def calculate_frequencies_cpu(G: np.ndarray, M: int, N: int, chunk_size: int) -> np.ndarray:
     """
-    Calculate allele frequencies on CPU, retrying with smaller chunks on memory errors.
+    Description:
+    Calculates allele frequencies on CPU, retrying with smaller chunks on memory errors.
+
+    Args:
+        G (np.ndarray): Genotype matrix.
+        M (int): Number of SNPs.
+        N (int): Number of samples.
+        chunk_size (int): Initial SNP chunk size.
+
+    Returns:
+        np.ndarray: Computed 1D allele frequency array.
     """
     current_chunk_size = chunk_size
 
@@ -725,7 +828,18 @@ def _calculate_frequencies_gpu_once(G_torch: torch.Tensor, M: int, chunk_size: i
 
 def calculate_frequencies_gpu(G_torch: torch.Tensor, M: int, chunk_size: int, device_obj: torch.device, threads_per_block: int) -> torch.Tensor:
     """
-    Calculate allele frequencies on GPU, retrying with smaller chunks on CUDA OOM.
+    Description:
+    Calculates allele frequencies on GPU, retrying with smaller chunks on CUDA OOM.
+
+    Args:
+        G_torch (torch.Tensor): Genotype tensor.
+        M (int): Number of SNPs.
+        chunk_size (int): Initial SNP chunk size.
+        device_obj (torch.device): GPU computation device.
+        threads_per_block (int): Threads per block for CUDA operations.
+
+    Returns:
+        torch.Tensor: Computed 1D allele frequency tensor.
     """
     current_chunk_size = chunk_size
 

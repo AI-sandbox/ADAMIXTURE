@@ -5,6 +5,7 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
+from PIL import Image
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
 logging.getLogger("matplotlib").setLevel(logging.WARNING)
@@ -553,11 +554,11 @@ def plot_combined(args: argparse.Namespace, k_values: list[int], trained_plot: d
     plt.close(fig)
 
 
-def align_clusters_greedy(ref_Q: np.ndarray, query_Q: np.ndarray) -> np.ndarray:
+def align_clusters_clumppling(ref_Q: np.ndarray, query_Q: np.ndarray) -> np.ndarray:
     """
     Description:
-    Aligns query cluster columns to reference cluster columns using a greedy
-    minimum-cost matching.
+    Aligns query cluster columns to reference cluster columns using Clumppling's
+    Integer Linear Programming (ILP) optimization method.
 
     Args:
         ref_Q (np.ndarray): Reference Q matrix.
@@ -566,38 +567,318 @@ def align_clusters_greedy(ref_Q: np.ndarray, query_Q: np.ndarray) -> np.ndarray:
     Returns:
         np.ndarray: Permutation array for the query_Q columns.
     """
+    import contextlib
+    import io
+
+    with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+        from clumppling.core import align_ILP
+
     K_ref = ref_Q.shape[1]
     K_query = query_Q.shape[1]
 
-    cost_matrix = np.zeros((K_ref, K_query))
-    for i in range(K_ref):
-        for j in range(K_query):
-            diff = ref_Q[:, i] - query_Q[:, j]
-            cost_matrix[i, j] = np.dot(diff, diff)
+    if K_ref <= K_query:
+        opt_obj, idxQ2P = align_ILP(ref_Q, query_Q)
+        if idxQ2P is not None and len(idxQ2P) > 0:
+            perm_map: dict = {}
+            for q_col, r_col in enumerate(idxQ2P):
+                perm_map.setdefault(r_col, []).append(q_col)
 
-    ref_indices = set()
-    query_indices = set()
-    matches = {} # maps ref_idx -> query_idx
+            perm = []
+            used_q = set()
+            for r in range(K_ref):
+                if r in perm_map:
+                    q_cols = perm_map[r]
+                    if len(q_cols) > 1:
+                        q_cols.sort(key=lambda j: float(np.dot(ref_Q[:, r] - query_Q[:, j], ref_Q[:, r] - query_Q[:, j])))
+                    perm.append(q_cols[0])
+                    used_q.add(q_cols[0])
 
-    sorted_costs = np.argsort(cost_matrix.flatten())
-    for idx in sorted_costs:
-        r, c = np.unravel_index(idx, (K_ref, K_query))
-        if r not in ref_indices and c not in query_indices:
-            ref_indices.add(r)
-            query_indices.add(c)
-            matches[r] = c
-        if len(ref_indices) == min(K_ref, K_query):
-            break
+            for j in range(K_query):
+                if j not in used_q:
+                    perm.append(j)
 
-    # Construct the permutation of query_Q columns:
-    perm = []
-    # 1. Add matched columns in order of ref_Q
-    for r in range(K_ref):
-        if r in matches:
-            perm.append(matches[r])
+            return np.array(perm, dtype=int)
+    else:
+        opt_obj, idxP2Q = align_ILP(query_Q, ref_Q)
+        if idxP2Q is not None and len(idxP2Q) > 0:
+            perm = []
+            used_q = set()
+            for i in range(K_ref):
+                q_j = idxP2Q[i]
+                if q_j not in used_q:
+                    perm.append(q_j)
+                    used_q.add(q_j)
 
-    # 2. Add remaining unmatched query columns
-    unmatched_query = [c for c in range(K_query) if c not in query_indices]
-    perm.extend(unmatched_query)
+            for j in range(K_query):
+                if j not in used_q:
+                    perm.append(j)
 
-    return np.array(perm, dtype=int)
+            return np.array(perm, dtype=int)
+
+    return np.arange(K_query, dtype=int)
+
+
+def plot_multirun_clumppling(
+    all_qs: list[dict],
+    output_path: str | Path,
+    labels: list[str] | None,
+    custom_colors: list[str] | None,
+    dpi: int,
+    format: str,
+) -> None:
+    """
+    Description:
+    Generates a multi-run stacked bar chart using Clumppling's native plotting functions.
+
+    Args:
+        all_qs (list[dict]): List of dicts with 'id', 'K', 'Q' keys for each run.
+        output_path (str | Path): File path to save the plot.
+        labels (list[str] | None): Level-1 population labels, one per sample.
+        custom_colors (list[str] | None): Custom colors, one per cluster.
+        dpi (int): Resolution in dots per inch.
+        format (str): Output format (e.g. 'png', 'pdf').
+
+    Returns:
+        None
+    """
+    from clumppling.plot import load_default_cmap, parse_custom_cmap, plot_memberships_list
+
+    max_k = max(run['K'] for run in all_qs)
+    if custom_colors and len(custom_colors) >= max_k:
+        cmap = parse_custom_cmap(custom_colors, max_k)
+    else:
+        cmap = load_default_cmap(max_k)
+
+    Q_list = [run['Q'] for run in all_qs]
+    names = [f"{run['id']} (K={run['K']})" for run in all_qs]
+    ind_labels = labels if labels is not None else []
+
+    fig = plot_memberships_list(
+        Q_list=Q_list,
+        cmap=cmap,
+        names=names,
+        ind_labels=ind_labels,
+        fontsize=12,
+    )
+    out_path = Path(output_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(str(out_path), bbox_inches='tight', dpi=dpi, transparent=False)
+    log.info(f"    Clumppling multi-run plot saved to: {out_path}")
+    plt.close(fig)
+
+
+def plot_clumppling_mode_graph(
+    all_qs: list[dict],
+    output_path: str | Path,
+    labels: list[str] | None,
+    custom_colors: list[str] | None,
+    dpi: int,
+    format: str,
+    comm_min: float,
+    comm_max: float,
+    test_comm: bool,
+    cd_res: float,
+    cd_method: str,
+) -> None:
+    """
+    Description:
+    Generates Clumppling's mode-detection and hierarchical alignment graph
+    visualization across K values and runs (producing the mode tree diagram
+    and the membership alignment graph with connection cost lines).
+
+    Args:
+        all_qs (list[dict]): List of dicts with 'id', 'K', 'Q' keys for each run.
+        output_path (str | Path): File path to save the combined plot.
+        labels (list[str] | None): Level-1 population labels, one per sample.
+        custom_colors (list[str] | None): Custom colors, one per cluster.
+        dpi (int): Resolution in dots per inch.
+        format (str): Output format (e.g. 'png', 'pdf').
+        comm_min (float): Minimum cost threshold for mode separation.
+        comm_max (float): Maximum cost threshold for mode separation.
+        test_comm (bool): Whether to perform statistical test for community structure.
+        cd_res (float): Resolution parameter for Louvain community detection.
+        cd_method (str): Community detection method ('louvain', 'leiden', 'custom').
+
+    Returns:
+        None
+    """
+    import contextlib
+    import io
+    import tempfile
+
+    # Suppress cdlib "Note: to be able to use all crisp methods..." warnings
+    with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+        from clumppling.core import (
+            align_across_k,
+            align_within_k_all_K,
+            detect_modes_all_K,
+            extract_modes_all_K,
+            reorderQ_across_k,
+        )
+        from clumppling.parseInput import extract_meta_input
+        from clumppling.plot import (
+            load_default_cmap,
+            parse_custom_cmap,
+            plot_alignment_graph,
+            plot_graph,
+        )
+        from clumppling.utils import get_mode_prop, get_modes_all_K
+
+    # Silence Clumppling loggers
+    for _name in list(logging.Logger.manager.loggerDict):
+        if _name.startswith("clumppling"):
+            logging.getLogger(_name).setLevel(logging.WARNING)
+
+    out_path_obj = Path(output_path)
+    out_dir = out_path_obj.parent
+    base_name = out_path_obj.stem
+
+    if labels is not None and len(labels) > 0:
+        label_order_map = {lbl: idx for idx, lbl in enumerate(dict.fromkeys(labels))}
+        label_keys = [label_order_map[lbl] for lbl in labels]
+        sort_idx = np.argsort(label_keys, kind='stable')
+        labels = [labels[i] for i in sort_idx]
+        all_qs = [{'id': item['id'], 'K': item['K'], 'Q': item['Q'][sort_idx, :]} for item in all_qs]
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_path = Path(tmp_dir)
+        processed_input_dir = tmp_path / "input"
+        processed_input_dir.mkdir(parents=True, exist_ok=True)
+
+        grouped_by_k: dict[int, list[np.ndarray]] = {}
+        for item in all_qs:
+            K = item['K']
+            grouped_by_k.setdefault(K, []).append(item['Q'])
+
+        K_range = sorted(grouped_by_k.keys())
+        K_max = max(K_range)
+
+        global_id = 1
+        metadata = []
+        for K in K_range:
+            q_list = grouped_by_k[K]
+            for rep_idx, Q in enumerate(q_list, 1):
+                q_filename = f"{global_id}_K{K}R{rep_idx}.Q"
+                out_q_path = processed_input_dir / q_filename
+                np.savetxt(out_q_path, Q, delimiter=' ')
+                metadata.append(f"{out_q_path},{out_q_path},{K}")
+                global_id += 1
+
+        meta_out_path = processed_input_dir / "input_meta.txt"
+        with open(meta_out_path, "w") as f:
+            f.write("\n".join(metadata))
+
+        Q_names, _, K2IDs = extract_meta_input(str(processed_input_dir))
+        n_runs_per_K = [len(K2IDs[K]) for K in K_range]
+
+        clump_out_dir = tmp_path / "clump_out"
+        clump_out_dir.mkdir(parents=True, exist_ok=True)
+
+        alignment_withinK_list, cost_withinK_list = align_within_k_all_K(
+            Q_names, K_range, K2IDs, qfile_dir=str(processed_input_dir), output_dir=str(clump_out_dir)
+        )
+
+        modes_all_K_list, cost_matrices_list = detect_modes_all_K(
+            K_range, cost_withinK_list, Q_names, K2IDs,
+            comm_min=comm_min, comm_max=comm_max, test_comm=test_comm,
+            res=cd_res, method=cd_method
+        )
+
+        modes_dir = clump_out_dir / "modes"
+        extract_res = extract_modes_all_K(
+            K_range, K2IDs, Q_names, cost_matrices_list, modes_all_K_list,
+            alignment_withinK_list, str(processed_input_dir), str(modes_dir)
+        )
+
+        if isinstance(extract_res, tuple):
+            cd_res_list = extract_res[0]
+        else:
+            cd_res_list = extract_res
+
+        mode_names_list, Q_rep_modes_list, Q_avg_modes_list = get_modes_all_K(K_range, cd_res_list)
+        mode_sizes = get_mode_prop(cd_res_list, 'Size')
+        mode_sims = get_mode_prop(cd_res_list, 'Performance')
+
+        alignment_acrossK, cost_acrossK, best_acrossK_out, major_acrossK_out = align_across_k(
+            K_range, Q_rep_modes_list, mode_names_list, merge=True
+        )
+
+        anchor_pairs = best_acrossK_out["Best Pair"].tolist()
+        aligned_Qs_allK, all_modes_alignment = reorderQ_across_k(
+            K_range, Q_rep_modes_list, mode_names_list, alignment_acrossK, anchor_pairs
+        )
+
+        if custom_colors and len(custom_colors) >= K_max:
+            cmap = parse_custom_cmap(custom_colors, K_max)
+        else:
+            cmap = load_default_cmap(K_max)
+
+
+
+        y_aspect = 3 if K_max < 5 else 3 + K_max / 5
+        wspace_padding = 1.3 if K_max < 8 else 1.15
+
+        fig_tree = plot_alignment_graph(
+            K_range, names_list=mode_names_list, cmap=cmap,
+            alignment_acrossK=alignment_acrossK, all_modes_alignment=all_modes_alignment,
+            anchor_pairs=anchor_pairs, alt_color=True, ls_alt=['-', '--'],
+            y_aspect=y_aspect, wspace_padding=wspace_padding
+        )
+
+        tree_path = tmp_path / "mode_tree.png"
+        fig_tree.savefig(str(tree_path), bbox_inches='tight', dpi=dpi, transparent=False)
+        plt.close(fig_tree)
+
+        ind_labels = labels if labels is not None else []
+        mode_labels_list = [
+            [
+                f"{mode_name.title().replace('_', ' ')} ({mode_sizes[mode_name]}/{n_runs_per_K[i_K]})"
+                for mode_name in mode_names
+            ]
+            for i_K, mode_names in enumerate(mode_names_list)
+        ]
+        right_labels_list = [
+            [f"sim {mode_sims[mode_name]:.3f}" for mode_name in mode_names]
+            for i_K, mode_names in enumerate(mode_names_list)
+        ]
+        Q_modes_reordered_list = [
+            [aligned_Qs_allK[mode_name] for mode_name in mode_names]
+            for mode_names in mode_names_list
+        ]
+
+        width_scale = 3 / K_max + 0.7 if K_max > 10 else 1.0
+        height_scale = 5 / len(K_range) if len(K_range) < 5 else 1.0
+
+        order_cls_by_label = True if (ind_labels and len(ind_labels) > 0) else False
+
+        fig_graph = plot_graph(
+            K_range, Q_modes_reordered_list, cmap,
+            names_list=mode_names_list, labels_list=mode_labels_list,
+            right_labels_list=right_labels_list, cost_acrossK=cost_acrossK,
+            ind_labels=ind_labels, fontsize=14, alt_color=True,
+            order_refQ=None, order_cls_by_label=order_cls_by_label,
+            width_scale=width_scale, height_scale=height_scale
+        )
+
+        graph_path = tmp_path / "mode_graph.png"
+        fig_graph.savefig(str(graph_path), bbox_inches='tight', dpi=dpi, transparent=False)
+        plt.close(fig_graph)
+
+        img_tree = Image.open(tree_path)
+        img_graph = Image.open(graph_path)
+
+        total_width = max(img_tree.width, img_graph.width)
+        total_height = img_tree.height + img_graph.height + 40
+
+        combined_img = Image.new('RGB', (total_width, total_height), (255, 255, 255))
+        offset_x_tree = (total_width - img_tree.width) // 2
+        combined_img.paste(img_tree, (offset_x_tree, 0))
+        offset_x_graph = (total_width - img_graph.width) // 2
+        combined_img.paste(img_graph, (offset_x_graph, img_tree.height + 40))
+
+        if format.lower() == 'pdf':
+            combined_img.save(out_path_obj, "PDF", resolution=float(dpi))
+        else:
+            combined_img.save(out_path_obj, dpi=(dpi, dpi))
+
+    log.info(f"    Clumppling multi-run mode graph saved to: {out_path_obj}")

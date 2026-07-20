@@ -34,8 +34,8 @@ def test_reader_unpacked_matches_expected(filename: str, label: str) -> None:
         str(DATA_DIR / filename),
         packed=False,
         chunk_size=CHUNK_SIZE,
-        chromosome_mode="autosomes",
-        autosome_count=22,
+        chrom_mode="autosomes",
+        autosomes=22,
         verbose=False,
     )
 
@@ -57,8 +57,8 @@ def test_reader_packed_matches_expected(filename: str, label: str) -> None:
         str(DATA_DIR / filename),
         packed=True,
         chunk_size=CHUNK_SIZE,
-        chromosome_mode="autosomes",
-        autosome_count=22,
+        chrom_mode="autosomes",
+        autosomes=22,
         verbose=False,
     )
     G_np = to_numpy(G)

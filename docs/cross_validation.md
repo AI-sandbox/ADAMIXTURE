@@ -21,6 +21,6 @@ This trains models for K = 2 to 12, reporting the CV error at each K so you can 
 
 ## Argument
 
-| Argument | Description |
+| Argument &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Description |
 |---|---|
-| `--cv` | Number of CV folds. Use `--cv` alone to default to 5-fold, or specify e.g. `--cv 10` |
+| `--cv` | Number of CV folds. Use `--cv` alone to default to 5-fold, or specify e.g. `--cv 10`. |

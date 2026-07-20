@@ -18,12 +18,12 @@ $ adamixture-project \
 
 ## Key arguments
 
-| Argument | Description |
+| Argument &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Description |
 |---|---|
-| `--data_path` | Path to target genotype data (BED, VCF or PGEN) |
-| `--p_path` | Path to pre-trained P matrix (M × K, whitespace-delimited) |
-| `--save_dir` | Output directory |
-| `--name` | Run name prefix for output files |
-| `--device` | Computation device: `cpu`, `cuda`, or `mps` (default: `cpu`) |
+| `--data_path` | Path to target genotype data (BED, VCF or PGEN). |
+| `--p_path` | Path to pre-trained P matrix (M × K, whitespace-delimited). |
+| `--save_dir` | Output directory. |
+| `--name` | Run name prefix for output files. |
+| `--device` | Computation device: `cpu`, `cuda`, or `mps` (default: `cpu`). |
 
 The output is a single `.Q` file (one row per sample, K columns). All `--plot`, `--labels`, `--labels2`, `--labels3`, and `--colors` flags work identically to the main `adamixture` command.

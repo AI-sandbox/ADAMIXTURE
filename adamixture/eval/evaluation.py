@@ -59,8 +59,8 @@ def parse_input() -> argparse.Namespace:
     cfg_group.add_argument("--threads", type=int, default=1, help="CPU cores to use")
     cfg_group.add_argument("--bound", type=float, default=1e-5, help="Numerical stability clip")
     cfg_group.add_argument("--inverse", action="store_true", help="Invert frequency coding (1-P)")
-    cfg_group.add_argument("--chromosome_mode", choices=["all", "autosomes"], default="autosomes", help="Chromosome filter for input variants")
-    cfg_group.add_argument("--autosome_count", type=int, default=22, help="Number of autosomes kept when --chromosome_mode=autosomes")
+    cfg_group.add_argument("--chrom_mode", choices=["all", "autosomes"], default="autosomes", help="Chromosome filter for input variants")
+    cfg_group.add_argument("--autosomes", type=int, default=22, help="Number of autosomes kept when --chrom_mode=autosomes")
 
     # Metrics Group
     metric_group = parser.add_argument_group("Metrics")
@@ -76,8 +76,8 @@ def parse_input() -> argparse.Namespace:
         parser.error("Validation metrics (--rmse, --jsd) require ground truth file (--tfile).")
     if not is_validation and (not args.data_path or not args.pfile):
         parser.error("Log-likelihood requires input data (--data_path) and frequencies (--pfile).")
-    if args.autosome_count < 1:
-        parser.error("--autosome_count must be at least 1.")
+    if args.autosomes < 1:
+        parser.error("--autosomes must be at least 1.")
 
     return args
 
@@ -192,8 +192,8 @@ def run_fitting_eval(args: argparse.Namespace, est_props: np.ndarray) -> None:
         args.data_path,
         packed=False,
         chunk_size=4096,
-        chromosome_mode=args.chromosome_mode,
-        autosome_count=args.autosome_count,
+        chrom_mode=args.chrom_mode,
+        autosomes=args.autosomes,
     )
     genotypes = genotypes_data[0]
     M = genotypes.shape[0]

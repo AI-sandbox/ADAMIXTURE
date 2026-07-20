@@ -48,8 +48,8 @@ def cuda_bed_data():
         str(DATA_DIR / "demo_data.bed"),
         packed=True,
         chunk_size=CHUNK_SIZE,
-        chromosome_mode="autosomes",
-        autosome_count=22,
+        chrom_mode="autosomes",
+        autosomes=22,
         verbose=False,
     )
 
@@ -60,8 +60,8 @@ def cuda_unpacked_data():
         str(DATA_DIR / "demo_data.bed"),
         packed=False,
         chunk_size=CHUNK_SIZE,
-        chromosome_mode="autosomes",
-        autosome_count=22,
+        chrom_mode="autosomes",
+        autosomes=22,
         verbose=False,
     )
 

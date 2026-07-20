@@ -10,7 +10,7 @@ import numpy as np
 import torch
 
 from . import utils
-from .adamixture import setup, train_k
+from .adamixture import setup, train_k, initialize_k
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
 log = logging.getLogger(__name__)
@@ -36,6 +36,9 @@ def main(args: argparse.Namespace, t0: float) -> int:
         else:
             k_values = [int(args.k)]
 
+        n_inits = int(args.n_inits)
+        K_max = max(k_values)
+
         Path(args.save_dir).mkdir(parents=True, exist_ok=True)
 
         training_packed = args.device in ("gpu", "cuda", "mps") or 'cuda' in args.device
@@ -43,70 +46,146 @@ def main(args: argparse.Namespace, t0: float) -> int:
             args.data_path,
             packed=training_packed,
             chunk_size=args.chunk_size,
-            chromosome_mode=args.chromosome_mode,
-            autosome_count=args.autosome_count,
-        )
-
-        K_max = max(k_values)
-        device_obj, threads_per_block, f, U, S, V, G = setup(
-            G, N, M, K_max,
-            int(args.seed), int(args.power), float(args.tol_svd),
-            int(args.chunk_size), args.device,
-            original=(args.algorithm == 'brqn'), init_original=args.init,
-            q_hist=args.Q_hist,
+            chrom_mode=args.chrom_mode,
+            autosomes=args.autosomes,
         )
 
         trained: dict[int, tuple] = {}
         trained_plot: dict[int, tuple] = {}
         previous_Q = None
 
-        for K in k_values:
-            log.info(f"\n    Running on K = {K}.\n")
-            t_k = time.time()
-
-            P, Q = train_k(
-                G, N, M, K, U, S, V, f,
-                int(args.seed), float(args.lr), float(args.beta1), float(args.beta2),
-                float(args.reg_adam), int(args.max_iter), int(args.check),
-                int(args.max_als), float(args.tol_als),
-                float(args.lr_decay), float(args.min_lr), int(args.chunk_size),
-                int(args.patience), float(args.tol),
-                device_obj, threads_per_block,
-                original=(args.algorithm == 'brqn'), rtol=float(args.tol), Q_hist=args.Q_hist,
-                init_original=args.init,
-                em_init_steps=int(args.em_init_steps),
+        if n_inits == 1:
+            device_obj, threads_per_block, f, U, S, V, G = setup(
+                G, N, M, K_max,
+                int(args.seed), int(args.power), float(args.tol_svd),
+                int(args.chunk_size), args.device,
+                original=(args.algorithm == 'brqn'), init_original=args.init,
+                q_hist=args.Q_hist,
             )
 
-            P_np = P.cpu().numpy() if isinstance(P, torch.Tensor) else P
-            Q_np = Q.cpu().numpy() if isinstance(Q, torch.Tensor) else Q
+            for K in k_values:
+                log.info(f"\n    Running on K = {K}.\n")
+                t_k = time.time()
 
-            if previous_Q is not None:
-                from .plot import align_clusters_greedy
-                perm = align_clusters_greedy(previous_Q, Q_np)
-                Q_np = Q_np[:, perm]
-                P_np = P_np[:, perm]
+                P, Q = train_k(
+                    G, N, M, K, U, S, V, f,
+                    int(args.seed), float(args.lr), float(args.beta1), float(args.beta2),
+                    float(args.reg_adam), int(args.max_iter), int(args.check),
+                    int(args.max_als), float(args.tol_als),
+                    float(args.lr_decay), float(args.min_lr), int(args.chunk_size),
+                    int(args.patience), float(args.tol),
+                    device_obj, threads_per_block,
+                    original=(args.algorithm == 'brqn'), rtol=float(args.tol), Q_hist=args.Q_hist,
+                    init_original=args.init,
+                    em_init_steps=int(args.em_init_steps),
+                )
 
-            previous_Q = Q_np
-            trained_plot[K] = (P_np, Q_np)
+                P_np = P.cpu().numpy() if isinstance(P, torch.Tensor) else P
+                Q_np = Q.cpu().numpy() if isinstance(Q, torch.Tensor) else Q
 
-            utils.write_outputs(Q_np, args.name, K, args.save_dir,
-                                P=None if args.no_freqs else P_np)
+                if previous_Q is not None:
+                    from .plot import align_clusters_clumppling
+                    perm = align_clusters_clumppling(previous_Q, Q_np)
+                    Q_np = Q_np[:, perm]
+                    P_np = P_np[:, perm]
 
-            if args.plot is not None:
-                from .plot import plot_single_k
-                plot_single_k(args, K, Q_np)
+                previous_Q = Q_np
+                trained_plot[K] = (P_np, Q_np)
 
-            if args.cv:
-                trained[K] = (P, Q)
+                utils.write_outputs(Q_np, args.name, K, args.save_dir,
+                                    P=None if args.no_freqs else P_np)
 
-            log.info(f"\n    K={K} completed in {time.time() - t_k:.2f} seconds.")
+                should_plot_k = (len(k_values) == 1 and args.plot is not None) or (len(k_values) > 1 and getattr(args, 'plot_single', None) is not None)
+                if should_plot_k:
+                    from .plot import plot_single_k
+                    plot_single_k(args, K, Q_np)
+
+                if args.cv:
+                    trained[K] = (P, Q)
+
+                log.info(f"\n    K={K} completed in {time.time() - t_k:.2f} seconds.")
+
+            del U, S, V, f
+
+        else:
+            device_obj, threads_per_block, f, _, _, _, G = setup(
+                G, N, M, K_max,
+                int(args.seed), int(args.power), float(args.tol_svd),
+                int(args.chunk_size), args.device,
+                original=(args.algorithm == 'brqn'), init_original=args.init,
+                q_hist=args.Q_hist,
+                compute_svd=False,
+            )
+
+            for K in k_values:
+                log.info(f"\n    Running on K = {K} with {n_inits} initialization(s).\n")
+                t_k = time.time()
+
+                best_P, best_Q, best_logl = None, None, -np.inf
+                for init_idx in range(n_inits):
+                    init_seed = int(args.seed) + init_idx
+                    log.info(f"\n    --- Initialization {init_idx + 1}/{n_inits} (seed={init_seed}) ---\n")
+
+                    P, Q, logl = initialize_k(
+                        G, N, M, K, f, init_seed,
+                        int(args.power), float(args.tol_svd),
+                        int(args.max_als), float(args.tol_als),
+                        int(args.chunk_size), device_obj, threads_per_block,
+                        original=(args.algorithm == 'brqn'),
+                        init_original=args.init,
+                        em_init_steps=int(args.em_init_steps),
+                    )
+
+                    if logl > best_logl:
+                        best_logl = logl
+                        best_P, best_Q = P, Q
+
+                log.info(f"\n    Best initialization log-likelihood for K={K}: {best_logl:.1f}")
+                P, Q = train_k(
+                    G, N, M, K, None, None, None, f,
+                    int(args.seed), float(args.lr), float(args.beta1), float(args.beta2),
+                    float(args.reg_adam), int(args.max_iter), int(args.check),
+                    int(args.max_als), float(args.tol_als),
+                    float(args.lr_decay), float(args.min_lr), int(args.chunk_size),
+                    int(args.patience), float(args.tol),
+                    device_obj, threads_per_block,
+                    original=(args.algorithm == 'brqn'), rtol=float(args.tol), Q_hist=args.Q_hist,
+                    init_original=args.init,
+                    em_init_steps=int(args.em_init_steps),
+                    P_init=best_P, Q_init=best_Q,
+                )
+
+                P_np = P.cpu().numpy() if isinstance(P, torch.Tensor) else P
+                Q_np = Q.cpu().numpy() if isinstance(Q, torch.Tensor) else Q
+
+                if previous_Q is not None:
+                    from .plot import align_clusters_clumppling
+                    perm = align_clusters_clumppling(previous_Q, Q_np)
+                    Q_np = Q_np[:, perm]
+                    P_np = P_np[:, perm]
+
+                previous_Q = Q_np
+                trained_plot[K] = (P_np, Q_np)
+
+                utils.write_outputs(Q_np, args.name, K, args.save_dir,
+                                    P=None if args.no_freqs else P_np)
+
+                should_plot_k = (len(k_values) == 1 and args.plot is not None) or (len(k_values) > 1 and getattr(args, 'plot_single', None) is not None)
+                if should_plot_k:
+                    from .plot import plot_single_k
+                    plot_single_k(args, K, Q_np)
+
+                if args.cv:
+                    trained[K] = (P, Q)
+
+                log.info(f"\n    K={K} completed in {time.time() - t_k:.2f} seconds.")
+
+            del f
 
         # Combined single plot for all K sweep values
-        if hasattr(args, 'plot_single') and args.plot_single is not None and len(k_values) > 1:
+        if len(k_values) > 1 and getattr(args, 'plot', None) is not None:
             from .plot import plot_combined
             plot_combined(args, k_values, trained_plot)
-
-        del U, S, V, f
 
         # CROSS-VALIDATION (after all training):
         cv_results: dict[int, float] = {}
@@ -126,8 +205,8 @@ def main(args: argparse.Namespace, t0: float) -> int:
                         args.data_path,
                         packed=False,
                         chunk_size=args.chunk_size,
-                        chromosome_mode=args.chromosome_mode,
-                        autosome_count=args.autosome_count,
+                        chrom_mode=args.chrom_mode,
+                        autosomes=args.autosomes,
                         verbose=False,
                     )
                 finally:

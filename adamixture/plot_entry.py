@@ -11,7 +11,7 @@ _fix_macos_libomp()
 import matplotlib.pyplot as plt
 import numpy as np
 
-from .src.plot import align_clusters_greedy
+from .src.plot import align_clusters_clumppling, plot_clumppling_mode_graph
 
 # Global logging configuration
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
@@ -158,12 +158,21 @@ def main() -> None:
     parser.add_argument('-n', '--name', default='adamixture_plots', help='Output base filename (default: adamixture_plots).')
     parser.add_argument('--resolution', '--dpi', type=int, default=300, dest='dpi', help='DPI/resolution for the output plot')
     parser.add_argument('--format', type=str, choices=['png', 'pdf', 'jpg'], default='png', help='Output format')
+    parser.add_argument('--clumppling', action='store_true', help='Use Clumppling mode graph and alignment visualization instead of standard plot')
+    parser.add_argument('--comm_min', type=float, default=1e-4, help='Clumppling minimum cost threshold for mode separation (default: 1e-4)')
+    parser.add_argument('--comm_max', type=float, default=1e-2, help='Clumppling maximum cost threshold for mode separation (default: 1e-2)')
+    parser.add_argument('--no_test_comm', action='store_true', help='Skip statistical test for community structure in Clumppling mode detection')
+    parser.add_argument('--cd_res', type=float, default=1.0, help='Resolution parameter for community detection (default: 1.0)')
+    parser.add_argument('--cd_method', choices=['louvain', 'leiden', 'custom'], default='louvain', help='Community detection method (default: louvain)')
 
     args = parser.parse_args()
 
     # VALIDATE PARAMETERS:
     assert args.format in ['pdf', 'png', 'jpg'], "Plot format must be pdf, png or jpg."
     assert 50 <= args.dpi <= 1200, "Plot resolution must be between 50 and 1200."
+    assert args.comm_min > 0, "comm_min must be greater than 0."
+    assert args.comm_max > args.comm_min, "comm_max must be greater than comm_min."
+    assert args.cd_res > 0, "cd_res must be greater than 0."
 
     runs_info = parse_filemap(args.filemap)
     if not runs_info:
@@ -240,19 +249,34 @@ def main() -> None:
                 log.error(f"    Error: Provided colors file has {len(custom_colors)} colors, but highest K in filemap is {max_k}.")
                 sys.exit(1)
 
+    if args.clumppling:
+        log.info("    Using Clumppling mode graph and alignment visualization.")
+        output_path = Path(args.save_dir) / f"{args.name}.{args.format}"
+        plot_clumppling_mode_graph(
+            all_qs=all_qs,
+            output_path=output_path,
+            labels=labels,
+            custom_colors=custom_colors,
+            dpi=args.dpi,
+            format=args.format,
+            comm_min=args.comm_min,
+            comm_max=args.comm_max,
+            test_comm=not args.no_test_comm,
+            cd_res=args.cd_res,
+            cd_method=args.cd_method,
+        )
+        return
+
+    # ── Standard multi-run stacked bar plot ───────────────────────────────────
     num_runs = len(all_qs)
-    all_qs.sort(key=lambda x: x['K'])
+    log.info(f"    Generating standard multi-run plot ({num_runs} runs).")
 
-    # Align clusters across all sequential runs (even if K is different!)
+    # Align cluster columns sequentially across runs for color consistency
     for i in range(1, num_runs):
-        ref_Q = all_qs[i - 1]['Q']
-        curr_Q = all_qs[i]['Q']
-        perm = align_clusters_greedy(ref_Q, curr_Q)
-        all_qs[i]['Q'] = curr_Q[:, perm]
+        perm = align_clusters_clumppling(all_qs[i - 1]['Q'], all_qs[i]['Q'])
+        all_qs[i]['Q'] = all_qs[i]['Q'][:, perm]
 
-
-
-    # ── Pre-compute the sorted order once (from the first run / first Q) ──────
+    # Pre-compute the sorted order once (from the first run / first Q)
     # All runs share the same samples so we derive a single sort order.
     first_Q = all_qs[0]['Q']
     n_samples_global = first_Q.shape[0]

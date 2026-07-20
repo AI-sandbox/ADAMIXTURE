@@ -127,18 +127,18 @@ $ adamixture -k 8 --cv --data_path data.bed --save_dir out/ --name test
 
 ## Plotting
 
-By default, ADAMIXTURE automatically generates a `png` plot at `300` DPI without needing any additional flags. → [Full documentation](docs/plotting.md)
+By default, ADAMIXTURE automatically generates a `png` plot at `300` DPI without needing any additional flags. Powered by [**Clumppling**](https://github.com/PopGenClustering/Clumppling), it automatically aligns clusters across runs and K values. → [Full documentation](docs/plotting.md)
 
 Plots can include hierarchical population labels if you provide the arguments (`--labels`, `--labels2`, `--labels3`).
 
-If you want to customize the format and resolution (e.g., to generate a PDF), you must use the appropriate flag depending on your execution mode:
+If you want to customize the format and resolution (e.g., to generate a PDF), use `--plot` (or `--plot_single` for individual per-K plots in multi-K sweeps):
 
-- **Single K runs** (`-k`): Use `--plot_single`. Note that `--plot` will be ignored in single K mode.
+- **Single K runs** (`-k`): Use `--plot`.
   ```console
-  $ adamixture -k 8 --data_path data.bed --save_dir out/ --name test --plot_single pdf 300
+  $ adamixture -k 8 --data_path data.bed --save_dir out/ --name test --plot pdf 300
   ```
 
-- **Multi-K sweeps** (`--min_k` and `--max_k`): Use `--plot` to configure the combined sweep plot.
+- **Multi-K sweeps** (`--min_k` and `--max_k`): Use `--plot` to configure the combined sweep plot (or `--plot_single` for individual plots per K).
   ```console
   $ adamixture --min_k 2 --max_k 10 --data_path data.bed --save_dir out/ --name test --plot pdf 300
   ```
@@ -178,18 +178,19 @@ $ adamixture --help
 
 Key arguments:
 
-| Argument | Default | Description |
+| Argument &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Default | Description |
 |---|---|---|
-| `--init` | `als` | Initialization method: improved SVD+ALS (`als`) or random EM priming (`em`) |
-| `--tol` | `0.1` | Convergence tolerance for log-likelihood changes |
-| `--max_iter` | `10000` | Maximum optimization iterations |
-| `-t` | `1` | Number of CPU threads |
-| `-s` | `42` | Random seed |
-| `--device` | `cpu` | Device to use: `cpu`, `gpu`, or `mps` |
-| `--chunk_size` | `8192` | Number of SNPs in chunk operations |
-| `--chromosome_mode` | `autosomes` | Chromosome filter: `autosomes` keeps autosomes `1..--autosome_count`; `all` keeps every chromosome |
-| `--autosome_count` | `22` | Number of autosomes kept when `--chromosome_mode autosomes` |
-| `--no_freqs` | `False` | Do not save the `.P` allele-frequency matrix |
+| `--init` | `als` | Initialization method: SVD+ALS (`als`) or random EM priming (`em`). |
+| `--tol` | `0.1` | Convergence tolerance for log-likelihood changes. |
+| `--max_iter` | `10000` | Maximum optimization iterations. |
+| `-t` | `1` | Number of CPU threads. |
+| `-s` | `42` | Random seed. |
+| `--device` | `cpu` | Device to use: `cpu`, `gpu`, or `mps`. |
+| `--chunk_size` | `8192` | Number of SNPs in chunk operations. |
+| `--n_inits` | `5` | Number of independent initializations (keeps run with best log-likelihood). |
+| `--chrom_mode` | `autosomes` | Chromosome filter: `autosomes` keeps autosomes `1 to --autosomes`; `all` keeps every chromosome. |
+| `--autosomes` | `22` | Number of autosomes kept when `--chrom_mode autosomes`. |
+| `--no_freqs` | `False` | Do not save the `.P` allele-frequency matrix. |
 
 ## Algorithm note
 

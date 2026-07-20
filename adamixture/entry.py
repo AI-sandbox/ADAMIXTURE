@@ -56,18 +56,8 @@ def parse_args(argv: list[str]) -> configargparse.Namespace:
     parser.add_argument('--name', required=True, type=str, help='Experiment/model name.')
     parser.add_argument('-t', '--threads', required=False, default=1, type=int, help='Number of threads to be used in the execution (default: 1).')
     parser.add_argument('--device', required=False, default='cpu', choices=['cpu', 'gpu', 'mps'], help='Device to use (cpu, gpu, mps) (default: cpu).')
-    parser.add_argument(
-        '--chromosome_mode',
-        choices=['all', 'autosomes'],
-        default='autosomes',
-        help='Chromosome filter for input variants: all or autosomes (default: autosomes).',
-    )
-    parser.add_argument(
-        '--autosome_count',
-        type=int,
-        default=22,
-        help='Number of autosomes kept when --chromosome_mode=autosomes (default: 22).',
-    )
+    parser.add_argument('--chrom_mode', choices=['all', 'autosomes'], default='autosomes', help='Chromosome filter for input variants: all or autosomes (default: autosomes).')
+    parser.add_argument('--autosomes', type=int, default=22, help='Number of autosomes kept when --chrom_mode=autosomes (default: 22).')
 
     parser.add_argument('--max_iter', type=int, default=10000, help='Maximum number of iterations for Adam EM (default: 10000).')
     parser.add_argument('--check', type=int, default=5, help='[only with --algorithm adamem] Frequency of log-likelihood checks (default: 5).')
@@ -78,9 +68,10 @@ def parse_args(argv: list[str]) -> configargparse.Namespace:
     parser.add_argument('--power', type=int, default=5, help='Number of power iterations for SVD (default: 5).')
     parser.add_argument('--tol_svd', type=float, default=1e-1, help='Convergence tolerance for SVD (default: 1e-1).')
     parser.add_argument('--chunk_size', type=int, default=8192, help='Number of SNPs in chunk operations for SVD (default: 8192).')
+    parser.add_argument('--n_inits', type=int, default=5, help='Number of independent initializations; the run with the best log-likelihood is kept (default: 5).')
     parser.add_argument('--cv', nargs='?', const=5, default=0, type=int, help='Enable v-fold cross-validation on genotype entries (default: 5).')
-    parser.add_argument('--plot', nargs='*', help='Generate a single combined plot of all Q matrices across the K sweep (Optional: [format] [resolution]) (default: png 300).')
-    parser.add_argument('--plot_single', nargs='*', help='Generate individual plots for each K in the sweep (Optional: [format] [resolution]) (default: png 300).')
+    parser.add_argument('--plot', nargs='*', help='Generate plot (single plot for -k, or combined sweep plot for multi-K) (Optional: [format] [resolution]) (default: png 300).')
+    parser.add_argument('--plot_single', nargs='*', help='[Multi-K mode only] Generate individual plots for each K in the sweep (Optional: [format] [resolution]) (default: png 300).')
     parser.add_argument('--labels', type=str, help='Path to population labels file (level 1, one label per sample).')
     parser.add_argument('--labels2', type=str, help='Path to level-2 population grouping file (one label per sample).')
     parser.add_argument('--labels3', type=str, help='Path to level-3 population grouping file (one label per sample).')
@@ -88,32 +79,30 @@ def parse_args(argv: list[str]) -> configargparse.Namespace:
 
     args = parser.parse_args(argv)
 
-    # Configure Plots:
-    cli_plot_combined = args.plot
-    cli_plot_individual = args.plot_single
-
+    # Validation: need either --k or both --min_k and --max_k
     has_single = args.k is not None
+    has_range = args.min_k is not None and args.max_k is not None
+    if not has_single and not has_range:
+        parser.error("Must specify either --k or both --min_k and --max_k.")
+    if has_range and args.min_k > args.max_k:
+        parser.error("--min_k must be <= --max_k.")
 
-    if cli_plot_combined is None and cli_plot_individual is None:
-        if has_single:
-            cli_plot_individual = []
-        else:
-            cli_plot_combined = []
-    elif cli_plot_individual is not None:
-        if '--plot' not in argv:
-            cli_plot_combined = None
+    # Configure Plotting Arguments:
+    if has_single:
+        if args.plot is None and args.plot_single is not None:
+            args.plot = args.plot_single
+        args.plot_single = None
 
-    args.plot = cli_plot_individual
-    args.plot_single = cli_plot_combined
+        if args.plot is None:
+            args.plot = []
+    else:
+        if args.plot is None and args.plot_single is None:
+            args.plot = []
 
     args.plot_format = 'png'
     args.plot_dpi = 300
 
-    active_plot_val = None
-    if args.plot is not None:
-        active_plot_val = args.plot
-    elif args.plot_single is not None:
-        active_plot_val = args.plot_single
+    active_plot_val = args.plot if args.plot is not None else args.plot_single
 
     if active_plot_val is not None:
         if len(active_plot_val) > 0:
@@ -128,20 +117,12 @@ def parse_args(argv: list[str]) -> configargparse.Namespace:
         assert args.plot_format in ['pdf', 'png', 'jpg'], f"Invalid plot format: {args.plot_format}. Must be pdf, png or jpg."
         assert 50 <= args.plot_dpi <= 1200, f"Invalid resolution: {args.plot_dpi}. Must be between 50 and 1200."
 
-    # Validation: need either --k or both --min_k and --max_k
-    has_single = args.k is not None
-    has_range = args.min_k is not None and args.max_k is not None
-    if not has_single and not has_range:
-        parser.error("Must specify either --k or both --min_k and --max_k.")
-    if has_range and args.min_k > args.max_k:
-        parser.error("--min_k must be <= --max_k.")
-
     if args.tol <= 0.0:
         parser.error("--tol must be greater than 0.")
     if args.Q_hist < 1:
         parser.error("--Q_hist must be at least 1.")
-    if args.autosome_count < 1:
-        parser.error("--autosome_count must be at least 1.")
+    if args.autosomes < 1:
+        parser.error("--autosomes must be at least 1.")
 
     return args
 
@@ -255,6 +236,7 @@ def main() -> None:
     os.environ["OPENBLAS_MAX_THREADS"] = th
 
     # VALIDATE PARAMETERS:
+    assert args.threads >= 1, "Threads (threads) must be at least 1."
     assert args.lr > 0, "Learning rate (lr) must be positive."
     assert 0 <= args.beta1 < 1, "Adam beta1 must be in [0, 1)."
     assert 0 <= args.beta2 < 1, "Adam beta2 must be in [0, 1)."
@@ -266,17 +248,23 @@ def main() -> None:
         assert args.k >= 2, "Number of clusters (k) must be at least 2."
     if args.min_k is not None:
         assert args.min_k >= 2, "Minimum K (min_k) must be at least 2."
+    if args.max_k is not None and args.min_k is not None:
+        assert args.max_k >= args.min_k, "Maximum K (max_k) must be >= minimum K (min_k)."
     assert args.max_iter >= 1, "Maximum iterations (max_iter) must be at least 1."
     assert args.check >= 1, "Check frequency (check) must be at least 1."
     assert args.max_als >= 1, "Maximum ALS iterations (max_als) must be at least 1."
     assert args.em_init_steps >= 0, "EM initialization steps (em_init_steps) must be non-negative."
     assert args.chunk_size >= 1, "Chunk size must be at least 1."
+    assert args.power >= 1, "Power iterations (power) must be at least 1."
+    assert args.Q_hist >= 1, "Q history (Q_hist) must be at least 1."
+    assert args.autosomes >= 1, "Autosome count (autosomes) must be at least 1."
     assert args.tol > 0, "Tolerance (tol) must be positive."
     assert args.tol_als > 0, "ALS tolerance (tol_als) must be positive."
     assert args.tol_svd > 0, "SVD tolerance (tol_svd) must be positive."
     assert args.reg_adam >= 0, "Adam regularization (reg_adam) must be non-negative."
     assert args.plot_format in ['pdf', 'png', 'jpg'], "Plot format must be pdf, png or jpg."
     assert 50 <= args.plot_dpi <= 1200, "Plot resolution must be between 50 and 1200."
+    assert 1 <= args.n_inits <= 10, "Number of initializations (n_inits) must be between 1 and 10."
     assert args.cv >= 0, "CV folds (cv) must be >= 0 (0 disables CV)."
     if args.cv:
         assert args.cv >= 2, "CV folds (cv) must be at least 2 when CV is enabled."

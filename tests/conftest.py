@@ -30,8 +30,8 @@ def demo_bed_data() -> tuple[np.ndarray, int, int]:
         str(DATA_DIR / "demo_data.bed"),
         packed=False,
         chunk_size=CHUNK_SIZE,
-        chromosome_mode="autosomes",
-        autosome_count=22,
+        chrom_mode="autosomes",
+        autosomes=22,
         verbose=False,
     )
 

@@ -21,7 +21,7 @@ log = logging.getLogger(__name__)
 
 def setup(G: torch.Tensor | np.ndarray, N: int, M: int, K_max: int, seed: int, power: int,
           tol_svd: float, chunk_size: int, device: str, original: bool = False,
-          init_original: str = 'em', q_hist: int = 3) -> tuple:
+          init_original: str = 'em', q_hist: int = 3, compute_svd: bool = True) -> tuple:
     """
     Description:
     One-time initialisation shared across all K values in a sweep:
@@ -41,6 +41,8 @@ def setup(G: torch.Tensor | np.ndarray, N: int, M: int, K_max: int, seed: int, p
         original (bool): If True, run original ADMIXTURE after initialization.
         init_original (str): Initialization used by --original ('em' or 'als').
         q_hist (int): ZAL-QN history depth used when original is True.
+        compute_svd (bool): If True, compute Randomized SVD. If False, return
+            None for U, S, V (frequencies are still computed). Defaults to True.
 
     Returns:
         tuple: (device_obj, threads_per_block, f, U, S, V, G) where G may
@@ -77,17 +79,23 @@ def setup(G: torch.Tensor | np.ndarray, N: int, M: int, K_max: int, seed: int, p
     if device_obj.type == 'cpu':
         f = utils.calculate_frequencies_cpu(G, M, N, chunk_size)
         log.info("    Frequencies calculated...\n")
-        log.info("    Running SVD...\n")
-        U, S, V = RSVD(G, N, M, f, K_max, seed, power, tol_svd, chunk_size)
+        if compute_svd:
+            log.info("    Running SVD...\n")
+            U, S, V = RSVD(G, N, M, f, K_max, seed, power, tol_svd, chunk_size)
+        else:
+            U, S, V = None, None, None
     else:
         algorithm = 'brqn' if original else 'adamem'
         G = utils.manage_gpu_memory(G, device_obj, M, N, K_max, chunk_size, algorithm, q_hist)
 
         f = utils.calculate_frequencies_gpu(G, M, chunk_size, device_obj, threads_per_block)
         log.info("    Frequencies calculated.\n")
-        log.info("    Running SVD on GPU...\n")
-        U, S, V = SVD_gpu(G, N, M, f, K_max, seed, power, tol_svd,
-                          chunk_size, device_obj, threads_per_block)
+        if compute_svd:
+            log.info("    Running SVD on GPU...\n")
+            U, S, V = SVD_gpu(G, N, M, f, K_max, seed, power, tol_svd,
+                              chunk_size, device_obj, threads_per_block)
+        else:
+            U, S, V = None, None, None
 
     return device_obj, threads_per_block, f, U, S, V, G
 
@@ -174,11 +182,81 @@ def initialize_em_gpu(G: torch.Tensor, seed: int, M: int, N: int, K: int,
     return P, Q
 
 
+def initialize_k(G: torch.Tensor | np.ndarray, N: int, M: int, K: int,
+                  f: np.ndarray | torch.Tensor, seed: int, power: int, tol_svd: float,
+                  max_als: int, tol_als: float, chunk_size: int,
+                  device_obj: torch.device, threads_per_block: int,
+                  original: bool = False, init_original: str = 'em',
+                  em_init_steps: int = 5) -> tuple:
+    """
+    Description:
+    Run one initialization (SVD + ALS, or random EM) for a single K value.
+    Returns the initialized P, Q matrices and the initial log-likelihood.
+
+    Args:
+        G (torch.Tensor | np.ndarray): Genotype matrix.
+        N (int): Number of individuals.
+        M (int): Number of SNPs.
+        K (int): Number of ancestral populations.
+        f (np.ndarray | torch.Tensor): Allele frequencies (None when using EM init).
+        seed (int): Random seed for this initialization.
+        power (int): Power iterations for Randomized SVD.
+        tol_svd (float): Convergence tolerance for SVD.
+        max_als (int): Maximum ALS iterations.
+        tol_als (float): ALS convergence tolerance.
+        chunk_size (int): Chunk size for batched operations.
+        device_obj (torch.device): Computation device.
+        threads_per_block (int): CUDA tuning parameter.
+        original (bool): If True, use original ADMIXTURE algorithm.
+        init_original (str): Initialization method ('em' or 'als').
+        em_init_steps (int): Number of EM priming steps.
+
+    Returns:
+        tuple: (P, Q, logl) — initialized matrices and initial log-likelihood.
+    """
+    if original and init_original == 'em':
+        if device_obj.type == 'cpu':
+            P, Q = initialize_em_cpu(G, seed, M, N, K, em_init_steps)
+            logl = tools.loglikelihood(G, P, Q)
+        else:
+            P, Q = initialize_em_gpu(G, seed, M, N, K, device_obj, chunk_size,
+                                     threads_per_block, em_init_steps)
+            if device_obj.type == 'cuda':
+                torch.cuda.empty_cache()
+            logl_calc = utils.get_logl_calculator(device_obj)
+            logl = logl_calc(G, P, Q, M, N, chunk_size, threads_per_block)
+        log.info(f"    Initial log-likelihood for K={K}: {logl:.1f}.")
+        return P, Q, logl
+
+    if device_obj.type == 'cpu':
+        log.info("    Running SVD...\n")
+        U, S, V = RSVD(G, N, M, f, K, seed, power, tol_svd, chunk_size)
+        log.info("    Running ALS...")
+        P, Q = ALS(U, S, V, f, seed, M, N, K, max_als, tol_als)
+        logl = tools.loglikelihood(G, P, Q)
+    else:
+        log.info(f"    Running SVD on GPU ({device_obj})...\n")
+        U, S, V = SVD_gpu(G, N, M, f, K, seed, power, tol_svd,
+                          chunk_size, device_obj, threads_per_block)
+        log.info(f"    Running ALS on GPU ({device_obj})...")
+        P, Q = ALS_gpu(U.contiguous(), S.contiguous(), V.contiguous(),
+                       f, seed, M, K, max_als, tol_als, device_obj)
+        if device_obj.type == 'cuda':
+            torch.cuda.empty_cache()
+        logl_calc = utils.get_logl_calculator(device_obj)
+        logl = logl_calc(G, P, Q, M, N, chunk_size, threads_per_block)
+
+    log.info(f"    Initial log-likelihood for K={K}: {logl:.1f}.")
+    return P, Q, logl
+
+
 def train_k(G: torch.Tensor | np.ndarray, N: int, M: int, K: int, U_max: np.ndarray | torch.Tensor, S_max: np.ndarray | torch.Tensor,
         V_max: np.ndarray | torch.Tensor, f: np.ndarray | torch.Tensor, seed: int, lr: float, beta1: float, beta2: float, reg_adam: float,
         max_iter: int, check: int, max_als: int, tol_als: float, lr_decay: float, min_lr: float, chunk_size: int, patience: int, tol_adam: float,
         device_obj: torch.device, threads_per_block: int, original: bool = False, rtol: float = 1e-7, Q_hist: int = 3,
-        init_original: str = 'em', em_init_steps: int = 5) -> tuple[np.ndarray, np.ndarray] | tuple[torch.Tensor, torch.Tensor]:
+        init_original: str = 'em', em_init_steps: int = 5,
+        P_init: np.ndarray | torch.Tensor | None = None,
+        Q_init: np.ndarray | torch.Tensor | None = None) -> tuple[np.ndarray, np.ndarray] | tuple[torch.Tensor, torch.Tensor]:
     """
     Description:
     Trains ADAMIXTURE for a single K value, using pre-computed SVD results.
@@ -213,23 +291,47 @@ def train_k(G: torch.Tensor | np.ndarray, N: int, M: int, K: int, U_max: np.ndar
         rtol (float): Convergence tolerance for original ADMIXTURE.
         Q_hist (int): History depth for original ADMIXTURE.
         init_original (str): Initialization used by --original ('em' or 'als').
+        P_init (np.ndarray | torch.Tensor | None): Pre-initialized P matrix. If
+            provided with Q_init, skip the initialization phase. Defaults to None.
+        Q_init (np.ndarray | torch.Tensor | None): Pre-initialized Q matrix. If
+            provided with P_init, skip the initialization phase. Defaults to None.
 
     Returns:
         tuple: (P, Q) — numpy arrays on CPU, GPU tensors on CUDA/MPS.
     """
-    U = U_max[:, :K] if U_max is not None else None
-    S = S_max[:K] if S_max is not None else None
-    V = V_max[:, :K] if V_max is not None else None
+    if P_init is not None and Q_init is not None:
+        P, Q = P_init, Q_init
+    else:
+        U = U_max[:, :K] if U_max is not None else None
+        S = S_max[:K] if S_max is not None else None
+        V = V_max[:, :K] if V_max is not None else None
+
+        if device_obj.type == 'cpu':
+            if original and init_original == 'em':
+                P, Q = initialize_em_cpu(G, seed, M, N, K, em_init_steps)
+            else:
+                log.info("    Running ALS...")
+                P, Q = ALS(U, S, V, f, seed, M, N, K, max_als, tol_als)
+            logl = tools.loglikelihood(G, P, Q)
+            log.info(f"    Initial log-likelihood for K={K}: {logl:.1f}.")
+        else:
+            if original and init_original == 'em':
+                P, Q = initialize_em_gpu(G, seed, M, N, K, device_obj, chunk_size, threads_per_block, em_init_steps)
+            else:
+                log.info(f"    Running ALS on GPU ({device_obj})...")
+                U_k = U.contiguous()
+                S_k = S.contiguous()
+                V_k = V.contiguous()
+                P, Q = ALS_gpu(U_k, S_k, V_k, f, seed, M, K, max_als, tol_als, device_obj)
+
+            if device_obj.type == 'cuda':
+                torch.cuda.empty_cache()
+
+            logl_calc = utils.get_logl_calculator(device_obj)
+            logl = logl_calc(G, P, Q, M, N, chunk_size, threads_per_block)
+            log.info(f"    Initial log-likelihood for K={K}: {logl:.1f}.")
 
     if device_obj.type == 'cpu':
-        if original and init_original == 'em':
-            P, Q = initialize_em_cpu(G, seed, M, N, K, em_init_steps)
-        else:
-            log.info("    Running ALS...")
-            P, Q = ALS(U, S, V, f, seed, M, N, K, max_als, tol_als)
-        logl = tools.loglikelihood(G, P, Q)
-        log.info(f"    Initial log-likelihood for K={K}: {logl:.1f}.")
-
         if original:
             log.info("    SQP + ZAL QN running on CPU...\n")
             P, Q = optimize_original(G, P, Q, max_iter, K, M, N, rtol, Q_hist, patience)
@@ -238,22 +340,6 @@ def train_k(G: torch.Tensor | np.ndarray, N: int, M: int, K: int, U_max: np.ndar
             P, Q = optimize_parameters(G, P, Q, lr, beta1, beta2, reg_adam, max_iter,
                                        check, K, M, N, lr_decay, min_lr, patience, tol_adam)
     else:
-        if original and init_original == 'em':
-            P, Q = initialize_em_gpu(G, seed, M, N, K, device_obj, chunk_size, threads_per_block, em_init_steps)
-        else:
-            log.info(f"    Running ALS on GPU ({device_obj})...")
-            U_k = U.contiguous()
-            S_k = S.contiguous()
-            V_k = V.contiguous()
-            P, Q = ALS_gpu(U_k, S_k, V_k, f, seed, M, K, max_als, tol_als, device_obj)
-
-        if device_obj.type == 'cuda':
-            torch.cuda.empty_cache()
-
-        logl_calc = utils.get_logl_calculator(device_obj)
-        logl = logl_calc(G, P, Q, M, N, chunk_size, threads_per_block)
-        log.info(f"    Initial log-likelihood for K={K}: {logl:.1f}.")
-
         if original:
             log.info(f"    SQP + ZAL QN running on GPU ({device_obj})...\n")
             P, Q = optimize_original_gpu(G, P, Q, max_iter, K, M, N, rtol, Q_hist,

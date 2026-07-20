@@ -1,0 +1,10 @@
+configargparse>=1.5.3
+Cython>=3.0.0
+numpy>=2.0.0
+matplotlib>=3.5.0
+torch>=2.6.0
+pgenlib>=0.94.0
+zstandard>=0.25.0
+ninja
+clumppling>=2.0.9
+pillow

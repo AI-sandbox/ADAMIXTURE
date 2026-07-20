@@ -84,18 +84,8 @@ def parse_args(argv: list[str]) -> configargparse.Namespace:
     parser.add_argument("-t", "--threads", type=int,   default=1,      help="Number of CPU threads (default: 1).")
     parser.add_argument("--chunk_size",    type=int,   default=4096,   help="SNP chunk size for I/O (default: 4096).")
     parser.add_argument("--device",        type=str,   default="cpu",  help="Computation device: cpu, cuda, or mps (default: cpu).")
-    parser.add_argument(
-        "--chromosome_mode",
-        choices=["all", "autosomes"],
-        default="autosomes",
-        help="Chromosome filter for input variants: all or autosomes (default: autosomes).",
-    )
-    parser.add_argument(
-        "--autosome_count",
-        type=int,
-        default=22,
-        help="Number of autosomes kept when --chromosome_mode=autosomes (default: 22).",
-    )
+    parser.add_argument("--chrom_mode", choices=["all", "autosomes"], default="autosomes", help="Chromosome filter for input variants: all or autosomes (default: autosomes).")
+    parser.add_argument("--autosomes", type=int, default=22, help="Number of autosomes kept when --chrom_mode=autosomes (default: 22).")
 
     # ── Plotting ──────────────────────────────────────────────────────────────
     parser.add_argument("--plot",    nargs="*",  default=[], help="Generate a plot after projection. Optional: [format] [dpi].")
@@ -119,8 +109,8 @@ def parse_args(argv: list[str]) -> configargparse.Namespace:
                 parser.error(f"Invalid DPI value: {args.plot[1]}")
         assert args.plot_format in ["pdf", "png", "jpg"], "Plot format must be pdf, png or jpg."
         assert 50 <= args.plot_dpi <= 1200, "DPI must be between 50 and 1200."
-    if args.autosome_count < 1:
-        parser.error("--autosome_count must be at least 1.")
+    if args.autosomes < 1:
+        parser.error("--autosomes must be at least 1.")
 
     return args
 
@@ -146,6 +136,7 @@ def main() -> None:
     args = parse_args(arg_list[1:])
 
     # VALIDATE PARAMETERS:
+    assert args.threads >= 1, "Threads (threads) must be at least 1."
     assert args.lr > 0, "Learning rate (lr) must be positive."
     assert 0 <= args.beta1 < 1, "Adam beta1 must be in [0, 1)."
     assert 0 <= args.beta2 < 1, "Adam beta2 must be in [0, 1)."
@@ -156,6 +147,7 @@ def main() -> None:
     assert args.max_iter >= 1, "Maximum iterations (max_iter) must be at least 1."
     assert args.check >= 1, "Check frequency (check) must be at least 1."
     assert args.chunk_size >= 1, "Chunk size must be at least 1."
+    assert args.autosomes >= 1, "Autosome count (autosomes) must be at least 1."
     assert args.tol > 0, "Tolerance (tol) must be positive."
     assert args.reg_adam >= 0, "Adam regularization (reg_adam) must be non-negative."
     assert args.plot_format in ['pdf', 'png', 'jpg'], "Plot format must be pdf, png or jpg."
@@ -219,8 +211,8 @@ def main() -> None:
         args.data_path,
         packed=device_str in ("cuda", "mps"),
         chunk_size=args.chunk_size,
-        chromosome_mode=args.chromosome_mode,
-        autosome_count=args.autosome_count,
+        chrom_mode=args.chrom_mode,
+        autosomes=args.autosomes,
     )
 
     if M != M_p:

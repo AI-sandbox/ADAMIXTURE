@@ -51,15 +51,15 @@ $ adamixture-supervised --data_path data.bed \
 
 ## Key arguments
 
-| Argument | Description |
+| Argument &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Description |
 |---|---|
-| `--data_path` | Path to genotype data (BED, VCF or PGEN) |
-| `--labels` | Labels file (required). Population name or `-` per sample |
-| `--level` | Labels level to use for supervision: `1`, `2`, or `3` (default: `1`) |
-| `--save_dir` | Output directory |
-| `--name` | Run name prefix |
-| `-k` / `--k` | Number of ancestral populations K |
-| `--device` | Computation device: `cpu`, `cuda`, or `mps` (default: `cpu`) |
-| `--no_freqs` | Skip saving the P matrix |
+| `--data_path` | Path to genotype data (BED, VCF or PGEN). |
+| `--labels` | Labels file (required). Population name or `-` per sample. |
+| `--level` | Labels level to use for supervision: `1`, `2`, or `3` (default: `1`). |
+| `--save_dir` | Output directory. |
+| `--name` | Run name prefix. |
+| `-k` / `--k` | Number of ancestral populations K. |
+| `--device` | Computation device: `cpu`, `cuda`, or `mps` (default: `cpu`). |
+| `--no_freqs` | Skip saving the P matrix. |
 
 Outputs: a `.Q` file (all samples) and optionally a `.P` file. All `--plot`, `--labels`, `--labels2`, `--labels3`, and `--colors` flags are supported.

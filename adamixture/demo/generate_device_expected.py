@@ -99,8 +99,8 @@ def generate_algorithm(device: str, algorithm: str) -> None:
         str(data_path),
         packed=True,
         chunk_size=CHUNK_SIZE,
-        chromosome_mode="autosomes",
-        autosome_count=22,
+        chrom_mode="autosomes",
+        autosomes=22,
         verbose=True,
     )
 
