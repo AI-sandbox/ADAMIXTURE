@@ -18,6 +18,10 @@ from .utils_c import (
     get_mean_packed,
     get_mean_unpacked,
     pack_genotypes,
+    read_bed,
+    read_bed_packed,
+    read_pgen_file,
+    read_pgen_file_packed,
     read_vcf_file,
     read_vcf_file_packed,
     replace_missing_with_three,
@@ -342,62 +346,42 @@ class SNPReader:
             skipped = len(keep_mask) - keep_mask.sum()
             self._log_chromosome_filter(skipped, chrom_mode, autosomes, specific_chrom)
 
-            keep_idxs = np.flatnonzero(keep_mask).astype(np.uint32)
-            M = keep_idxs.size
-
             if not packed:
-                import pgenlib as pg
+                with open(readable_bed_file, "rb") as bed:
+                    B_raw = np.fromfile(bed, dtype=np.uint8, offset=3)
 
-                G_raw = np.empty((M, N), dtype=np.int8)
-                pgen_reader = pg.PgenReader(
-                    str(readable_bed_file).encode(),
-                    raw_sample_ct=N,
-                    variant_ct=keep_mask.size,
-                )
-                try:
-                    if M > 0:
-                        pgen_reader.read_list(keep_idxs, G_raw)
-                finally:
-                    pgen_reader.close()
+                assert (B_raw.shape[0] % N_bytes) == 0, "bim file doesn't match!"
+                M = B_raw.shape[0] // N_bytes
+                B_raw = B_raw.reshape(M, N_bytes)
 
-                replace_missing_with_three(G_raw)
-                G = G_raw.view(np.uint8)
+                B = np.ascontiguousarray(B_raw[keep_mask])
+                M = B.shape[0]
+
+                G = np.zeros((M, N), dtype=np.uint8)
+                read_bed(B, G)
+                del B, B_raw
                 return G, N, M
+            else:
+                log.info("        Reading BED in packed 2-bit format for GPU use.")
+                with open(readable_bed_file, "rb") as f:
+                    f.seek(3)
+                    buffer = bytearray(f.read())
 
-            log.info("        Reading BED in packed 2-bit format for GPU use.")
-            import pgenlib as pg
+                B_raw = np.frombuffer(buffer, dtype=np.uint8)
+                assert (B_raw.shape[0] % N_bytes) == 0, "bim file doesn't match!"
+                M = B_raw.shape[0] // N_bytes
 
-            M_bytes = (M + 3) // 4
-            G_packed = torch.zeros((M_bytes, N), dtype=torch.uint8)
-            variants_per_chunk = max(4, (chunk_size // 4) * 4)
-            G_chunk = np.empty((variants_per_chunk, N), dtype=np.int8)
+                B_raw = B_raw.reshape(M, N_bytes)
+                B_raw = np.ascontiguousarray(B_raw[keep_mask])
+                M = B_raw.shape[0]
 
-            pgen_reader = pg.PgenReader(
-                str(readable_bed_file).encode(),
-                raw_sample_ct=N,
-                variant_ct=M_total,
-            )
-            try:
-                for start in range(0, M, variants_per_chunk):
-                    stop = min(start + variants_per_chunk, M)
-                    chunk_len = stop - start
-                    packed_start = start // 4
-                    packed_len = (chunk_len + 3) // 4
-                    G_chunk_view = G_chunk[:chunk_len]
+                B = torch.from_numpy(B_raw)
+                M_bytes = (M + 3) // 4
+                G = torch.zeros((M_bytes, N), dtype=torch.uint8)
 
-                    pgen_reader.read_list(keep_idxs[start:stop], G_chunk_view)
-                    replace_missing_with_three(G_chunk_view)
-                    pack_genotypes(
-                        G_chunk_view.view(np.uint8).ctypes.data,
-                        G_packed[packed_start].data_ptr(),
-                        chunk_len,
-                        N,
-                        packed_len,
-                    )
-            finally:
-                pgen_reader.close()
-
-            return G_packed, N, M
+                read_bed_packed(B.data_ptr(), G.data_ptr(), M, N_bytes, N, M_bytes)
+                del B, B_raw
+                return G, N, M
 
     def _read_vcf(
         self,
@@ -481,7 +465,6 @@ class SNPReader:
             tuple[torch.Tensor | np.ndarray, int, int]: (genotype matrix, N individuals, M SNPs)
         """
         log.info("    Input format is PGEN.")
-        import pgenlib as pg
 
         base_path = self._get_base_path(file)
         pgen_file = self._resolve_existing(base_path, [".pgen"], requested_file=file)
@@ -507,55 +490,25 @@ class SNPReader:
         keep_mask = np.array(keep_mask, dtype=bool)
 
         with self._materialize_binary(pgen_file) as readable_pgen_file:
-            with pg.PgenReader(str(readable_pgen_file).encode()) as pgen_reader:
-                num_vars = pgen_reader.get_variant_ct()
-                num_samples = pgen_reader.get_raw_sample_ct()
-
-            assert len(keep_mask) == num_vars, (
-                f"Variant file line count {len(keep_mask)} does not match PGEN variant count {num_vars}!"
-            )
-
-            skipped = len(keep_mask) - keep_mask.sum()
-            self._log_chromosome_filter(skipped, chrom_mode, autosomes, specific_chrom)
-
-            keep_idxs = np.flatnonzero(keep_mask).astype(np.uint32)
-            M = keep_idxs.size
-            N = num_samples
-
             if packed:
                 log.info("        Reading PGEN in packed 2-bit format for GPU use.")
-                M_bytes = (M + 3) // 4
-                G_packed = torch.zeros((M_bytes, N), dtype=torch.uint8)
-                variants_per_chunk = max(4, (chunk_size // 4) * 4)
-                G_chunk = np.empty((variants_per_chunk, N), dtype=np.int8)
+                G_packed, N, M = read_pgen_file_packed(
+                    str(readable_pgen_file),
+                    chunk_size,
+                    chrom_mode,
+                    autosomes,
+                    orig_filepath=str(pgen_file),
+                )
+                return torch.from_numpy(G_packed), N, M
 
-                with pg.PgenReader(str(readable_pgen_file).encode()) as pgen_reader:
-                    for start in range(0, M, variants_per_chunk):
-                        stop = min(start + variants_per_chunk, M)
-                        chunk_len = stop - start
-                        packed_start = start // 4
-                        packed_len = (chunk_len + 3) // 4
-                        G_chunk_view = G_chunk[:chunk_len]
-
-                        pgen_reader.read_list(keep_idxs[start:stop], G_chunk_view)
-                        replace_missing_with_three(G_chunk_view)
-                        pack_genotypes(
-                            G_chunk_view.view(np.uint8).ctypes.data,
-                            G_packed[packed_start].data_ptr(),
-                            chunk_len,
-                            N,
-                            packed_len,
-                        )
-                return G_packed, N, M
-
-            G_raw = np.empty((M, N), dtype=np.int8)
-            with pg.PgenReader(str(readable_pgen_file).encode()) as pgen_reader:
-                if M > 0:
-                    pgen_reader.read_list(keep_idxs, G_raw)
-            replace_missing_with_three(G_raw)
-            G = G_raw.view(np.uint8)
-
-            return G, N, M
+            G_np, N, M = read_pgen_file(
+                str(readable_pgen_file),
+                chunk_size,
+                chrom_mode,
+                autosomes,
+                orig_filepath=str(pgen_file),
+            )
+            return G_np, N, M
 
     def _check_files_exist(self, file: str, extensions: list[str], match_any: bool = False):
         """

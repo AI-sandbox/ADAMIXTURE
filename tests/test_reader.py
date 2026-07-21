@@ -141,4 +141,3 @@ def test_zero_snps_exits_with_error(filename: str) -> None:
             verbose=False,
         )
     assert exc_info.value.code == 1
-

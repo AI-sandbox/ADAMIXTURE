@@ -46,6 +46,7 @@ The package can be easily installed in at most a few minutes using `pip` (make s
 $ pip install adamixture
 ```
 
+
 ## Running ADAMIXTURE
 
 To train a model, simply invoke the following commands from the root directory of the project. For more info about all the arguments, please run `adamixture --help`. Note that **BED**, **VCF** and **PGEN** are supported.
@@ -201,6 +202,11 @@ In the current implementation, the default is `--algorithm brqn`. Empirical benc
 
 
 ## Troubleshooting and Tips
+
+Common issues and platform notes:
+- **macOS**: Install `libomp` via Homebrew (`brew install libomp`) before compiling.
+- **Windows**: Pre-compiled wheels are provided on PyPI (`pip install adamixture`). If compiling from source (`pip install -e .`), install [Build Tools for Visual Studio](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022) with **Desktop development with C++**.
+- **CUDA**: Set `CUDA_HOME` or install `nvcc` via Conda (`conda install -c nvidia nvcc`).
 
 → [Full documentation](docs/troubleshooting.md)
 

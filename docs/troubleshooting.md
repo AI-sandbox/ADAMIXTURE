@@ -8,6 +8,11 @@ ADAMIXTURE requires OpenMP for parallel processing. On macOS you **must** instal
 $ brew install libomp
 ```
 
+## Windows: C++ Build Tools for Source Installation
+
+> [!NOTE]  
+> **Windows users:** Pre-compiled wheels are provided on PyPI for 64-bit Windows (`pip install adamixture`). If compiling ADAMIXTURE from source on Windows, please ensure you have installed the [Build Tools for Visual Studio](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022) with the **Desktop development with C++** workload selected.
+
 ## CUDA issues
 
 If you get an error similar to the following when using the GPU:

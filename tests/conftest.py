@@ -15,7 +15,6 @@ for env_var in (
 import pytest
 
 np = pytest.importorskip("numpy")
-pytest.importorskip("pgenlib")
 pytest.importorskip("torch")
 
 from adamixture.model.als import ALS

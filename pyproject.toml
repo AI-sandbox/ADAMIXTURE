@@ -30,6 +30,7 @@ classifiers = [
     "Programming Language :: Python :: 3.14",
     "Operating System :: POSIX :: Linux",
     "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
 ]
 dependencies = [
     "configargparse>=1.5.3",
@@ -37,7 +38,7 @@ dependencies = [
     "numpy>=2.0.0",
     "matplotlib>=3.5.0",
     "torch>=2.6.0",
-    "pgenlib>=0.94.0",
+    "pgenlib>=0.94.0; sys_platform != 'win32'",
     "zstandard>=0.25.0",
     "ninja",
     "clumppling>=2.0.9",

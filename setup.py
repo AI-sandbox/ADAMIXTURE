@@ -6,6 +6,7 @@ import sys
 import numpy
 from Cython.Build import cythonize
 from setuptools import Extension, setup
+from setuptools.command.build_ext import build_ext
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
 log = logging.getLogger(__name__)
@@ -13,14 +14,18 @@ log = logging.getLogger(__name__)
 system = platform.system()
 common_macros = [('NPY_NO_DEPRECATED_API', 'NPY_1_7_API_VERSION')]
 
+compile_args = []
+link_args = []
+mac_include = []
+
 if system == "Linux":
-    compile_args = ['-fopenmp', '-O3', '-ffast-math', '-march=native', '-fno-wrapv']
-    link_args = ['-fopenmp', '-lm']
-    os.environ["CC"] = "gcc"
-    os.environ["CXX"] = "g++"
-    mac_include = []
+    compile_args = ['-O3', '-ffast-math', '-fno-wrapv']
+    link_args = ['-lm']
+    if "CC" not in os.environ:
+        os.environ["CC"] = "gcc"
+    if "CXX" not in os.environ:
+        os.environ["CXX"] = "g++"
 elif system == "Darwin":  # macOS
-    # Try to find Homebrew libomp
     omp_path = ""
     for p in ["/opt/homebrew/opt/libomp", "/usr/local/opt/libomp"]:
         if os.path.exists(p):
@@ -28,29 +33,77 @@ elif system == "Darwin":  # macOS
             break
 
     if omp_path:
-        compile_args = ['-Xpreprocessor', '-fopenmp', '-O3', '-ffast-math', '-fno-wrapv']
-        link_args = ['-lomp', '-lm', f'-L{omp_path}/lib']
+        compile_args = ['-O3', '-ffast-math', '-fno-wrapv']
+        link_args = ['-lm', f'-L{omp_path}/lib']
         common_macros.append(('HAVE_OPENMP', '1'))
         mac_include = [f'{omp_path}/include']
     else:
-        log.error("\n" + "="*80)
-        log.error("ERROR: OpenMP (libomp) not found! Installation WILL FAIL on macOS.")
-        log.error("Please install it via Homebrew: brew install libomp")
-        log.error("="*80 + "\n")
-        sys.exit(1)
+        log.warning("OpenMP (libomp) not found via Homebrew; will attempt fallback build.")
 
-    os.environ["CC"] = "clang"
-    os.environ["CXX"] = "clang++"
+    if "CC" not in os.environ:
+        os.environ["CC"] = "clang"
+    if "CXX" not in os.environ:
+        os.environ["CXX"] = "clang++"
 elif system == "Windows":
     if os.environ.get("CC", "").endswith("gcc"):
-        compile_args = ['-O3', '-fopenmp']
+        compile_args = ['-O3']
+        link_args = []
     else:
-        compile_args = ['/O2', '/openmp']
-    mac_include = []
+        compile_args = ['/O2']
+        link_args = []
 else:
     log.info(f"System not recognized: {system}")
-    sys.exit(1)
-    mac_include = []
+
+
+class build_ext_openmp(build_ext):
+    openmp_compile_args = {
+        "msvc": [["/openmp"]],
+        "intel": [["-qopenmp"]],
+        "*": [["-fopenmp"], ["-Xpreprocessor", "-fopenmp"]],
+    }
+    openmp_link_args = {
+        "msvc": [[]],
+        "intel": [["-qopenmp"]],
+        "*": [["-fopenmp"], ["-lomp"]],
+    }
+
+    def build_extension(self, ext):
+        compiler = self.compiler.compiler_type.lower()
+        if compiler.startswith("intel"):
+            compiler = "intel"
+        if compiler not in self.openmp_compile_args:
+            compiler = "*"
+
+        compile_original = getattr(self.compiler, "_compile", None)
+
+        if compile_original:
+            def compile_patched(obj, src, ext, cc_args, extra_postargs, pp_opts):
+                if src.lower().endswith(".c"):
+                    extra_postargs = [
+                        arg for arg in extra_postargs if not arg.lower().startswith("-std")
+                    ]
+                return compile_original(obj, src, ext, cc_args, extra_postargs, pp_opts)
+
+            self.compiler._compile = compile_patched
+
+        _extra_compile_args = list(ext.extra_compile_args)
+        _extra_link_args = list(ext.extra_link_args)
+
+        for c_args, l_args in zip(
+            self.openmp_compile_args[compiler], self.openmp_link_args[compiler]
+        ):
+            try:
+                ext.extra_compile_args = _extra_compile_args + c_args
+                ext.extra_link_args = _extra_link_args + l_args
+                print(">>> Attempting build with OpenMP support:", c_args, l_args)
+                return super().build_extension(ext)
+            except Exception as e:
+                print(f">>> Compiling with OpenMP flags '{' '.join(c_args)}' failed: {e}")
+
+        print(">>> Compiling with OpenMP support failed; re-trying without OpenMP.")
+        ext.extra_compile_args = _extra_compile_args
+        ext.extra_link_args = _extra_link_args
+        return super().build_extension(ext)
 
 
 extensions = [
@@ -106,6 +159,7 @@ extensions = [
 
 
 setup(
+    cmdclass={"build_ext": build_ext_openmp},
     ext_modules=cythonize(extensions),
     include_package_data=True,
     package_data={
@@ -128,3 +182,4 @@ setup(
         ],
     },
 )
+

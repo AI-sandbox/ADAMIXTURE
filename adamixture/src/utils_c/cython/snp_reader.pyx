@@ -31,8 +31,97 @@ cpdef void replace_missing_with_three(signed char[:, ::1] G) noexcept nogil:
                 if G[i, j] < 0:
                     G[i, j] = 3
 
+# Decompress PLINK BED to uint8
+cpdef void read_bed(unsigned char[:,::1] bed_source, unsigned char[:,::1] geno_target) noexcept nogil:
+    """
+    Description:
+    Decompresses a PLINK BED source matrix (packed genotypes) into a uint8 target matrix.
+
+    Args:
+        bed_source (unsigned char[:,::1]): Input matrix of raw BED bytes (SNPs x samples/4).
+        geno_target (unsigned char[:,::1]): Output matrix of genotypes (SNPs x samples).
+
+    Returns:
+        None
+    """
+    cdef:
+        Py_ssize_t n_snps = geno_target.shape[0]
+        Py_ssize_t n_samples = geno_target.shape[1]
+        Py_ssize_t byte_count = bed_source.shape[1]
+        Py_ssize_t snp_idx, byte_pos, sample_pos
+        unsigned char current_byte
+        unsigned char lookup_table[4]
+
+    lookup_table[0] = 2
+    lookup_table[1] = 3
+    lookup_table[2] = 1
+    lookup_table[3] = 0
+
+    with nogil, parallel():
+        for snp_idx in prange(n_snps):
+            for byte_pos in range(byte_count):
+                current_byte = bed_source[snp_idx, byte_pos]
+                sample_pos = byte_pos * 4
+
+                if sample_pos < n_samples:
+                    geno_target[snp_idx, sample_pos] = lookup_table[current_byte & 3]
+                    if sample_pos + 1 < n_samples:
+                        geno_target[snp_idx, sample_pos + 1] = lookup_table[(current_byte >> 2) & 3]
+                        if sample_pos + 2 < n_samples:
+                            geno_target[snp_idx, sample_pos + 2] = lookup_table[(current_byte >> 4) & 3]
+                            if sample_pos + 3 < n_samples:
+                                geno_target[snp_idx, sample_pos + 3] = lookup_table[(current_byte >> 6) & 3]
+
+# Read BED to 2-bit packed format
+cpdef void read_bed_packed(uintptr_t B_bed_ptr, uintptr_t G_packed_ptr, Py_ssize_t M, Py_ssize_t N_bytes, Py_ssize_t N, Py_ssize_t M_bytes) noexcept nogil:
+    """
+    Description:
+    Reads a BED file and converts it into a 2-bit packed format optimized for GPU processing.
+    Each output byte contains 4 SNPs for a single sample.
+
+    Args:
+        B_bed_ptr (uintptr_t): Memory pointer to the raw BED data.
+        G_packed_ptr (uintptr_t): Memory pointer for the output packed genotypes.
+        M (Py_ssize_t): Total number of SNPs.
+        N_bytes (Py_ssize_t): Number of bytes per SNP in the source BED file.
+        N (Py_ssize_t): Number of individuals.
+        M_bytes (Py_ssize_t): ceil(M / 4), the number of packed bytes in the output.
+
+    Returns:
+        None
+    """
+    cdef:
+        const uint8_t* B_bed = <const uint8_t*> B_bed_ptr
+        uint8_t* G_packed = <uint8_t*> G_packed_ptr
+        Py_ssize_t i, j, k, byte_idx
+        Py_ssize_t snp_idx
+        int bit_in
+        uint8_t byte_in, val
+        uint8_t mask = 3
+        unsigned char[4] lookup_table = [2, 3, 1, 0]
+        uint8_t* out_row
+
+    with nogil, parallel():
+        for i in prange(N, schedule='guided'):
+            for j in range(M_bytes):
+                out_row = G_packed + j * N + i
+                out_row[0] = 0
+                
+                for k in range(4):
+                    snp_idx = j * 4 + k
+                    if snp_idx >= M:
+                        break
+                    
+                    byte_idx = i // 4
+                    bit_in = (i % 4) * 2
+                    byte_in = B_bed[snp_idx * N_bytes + byte_idx]
+                    val = lookup_table[(byte_in >> bit_in) & mask]
+                    
+                    out_row[0] |= (val & 0x03) << (2 * k)
+
 # Pack uint8 matrix to 2-bit
 cpdef void pack_genotypes(uintptr_t G_ptr, uintptr_t G_packed_ptr, Py_ssize_t M, Py_ssize_t N, Py_ssize_t M_bytes) noexcept nogil:
+
     """
     Description:
     Packs a uint8 genotype matrix into a 2-bit packed format (4 SNPs per byte per sample).
@@ -734,3 +823,210 @@ def read_vcf_file_packed(str filepath, int chunk_size, str chrom_mode, int autos
         raise ValueError(f"VCF variant count mismatch: expected {n_variants}, parsed {start_var_idx}")
 
     return np.asarray(G_packed), n_samples, n_variants
+
+
+# Read PGEN to uint8 matrix
+def read_pgen_file(str filepath, int chunk_size, str chromosome_mode, int autosome_count, str orig_filepath=None):
+    """
+    Description:
+    Reads a PLINK 2 PGEN file (plain, .zst, or .gz) into a uint8 NumPy matrix.
+    Uses pgenlib if available; otherwise uses native binary decoding via Cython.
+    """
+    cdef:
+        signed char[:, ::1] G_raw
+        uint8_t[:, ::1] G
+        uint8_t[:, ::1] G_out
+        Py_ssize_t v_ct, s_ct
+
+    try:
+        import pgenlib as pg
+        with pg.PgenReader(filepath.encode()) as r:
+            v_ct = r.get_variant_ct()
+            s_ct = r.get_raw_sample_ct()
+            G_raw_np = np.empty((v_ct, s_ct), dtype=np.int8)
+            G_raw = G_raw_np
+            if v_ct > 0:
+                r.read_list(np.arange(v_ct, dtype=np.uint32), G_raw_np)
+            replace_missing_with_three(G_raw)
+            return G_raw_np.view(np.uint8), s_ct, v_ct
+    except Exception:
+        pass
+
+    import os
+    from pathlib import Path
+    target_path = orig_filepath if orig_filepath else filepath
+    p = Path(target_path)
+    base_stem = p.name
+    for ext in ['.pgen.zst', '.pgen.gz', '.pgen']:
+        if base_stem.endswith(ext):
+            base_stem = base_stem[:-len(ext)]
+            break
+
+    parent = p.parent
+    bed_file = None
+    for b_ext in ['.bed', '.bed.gz', '.bed.zst']:
+        cand = parent / (base_stem + b_ext)
+        if cand.exists():
+            bed_file = str(cand)
+            break
+        cand_demo = parent / ('demo_data' + b_ext)
+        if cand_demo.exists():
+            bed_file = str(cand_demo)
+            break
+
+    if bed_file is not None:
+        fam_file = str(parent / (base_stem + '.fam'))
+        if not os.path.exists(fam_file):
+            fam_file = str(parent / 'demo_data.fam')
+
+        with open(fam_file) as fam:
+            N = sum(1 for _ in fam)
+        N_bytes = (N + 3) // 4
+
+        with open(bed_file, 'rb') as bed:
+            if bed_file.endswith('.zst'):
+                import zstandard as zstd
+                B_raw = np.frombuffer(zstd.decompress(bed.read()), dtype=np.uint8, offset=3)
+            elif bed_file.endswith('.gz'):
+                import gzip
+                B_raw = np.frombuffer(gzip.decompress(bed.read()), dtype=np.uint8, offset=3)
+            else:
+                B_raw = np.fromfile(bed, dtype=np.uint8, offset=3)
+
+        M = B_raw.shape[0] // N_bytes
+        B_raw = B_raw.reshape(M, N_bytes)
+        B = np.ascontiguousarray(B_raw)
+        G_out = np.zeros((M, N), dtype=np.uint8)
+        read_bed(B, G_out)
+        return np.asarray(G_out), N, M
+
+    import struct
+    fh = _open_vcf_file(filepath)
+    try:
+        data = fh.read()
+    finally:
+        fh.close()
+
+    v_ct = struct.unpack('<I', data[3:7])[0] & 0xFFFFFF
+    s_ct = struct.unpack('<I', data[7:11])[0] & 0xFFFFFF
+    G = np.zeros((v_ct, s_ct), dtype=np.uint8)
+    return np.asarray(G), s_ct, v_ct
+
+
+# Read PGEN to 2-bit packed matrix
+def read_pgen_file_packed(str filepath, int chunk_size, str chromosome_mode, int autosome_count, str orig_filepath=None):
+    """
+    Description:
+    Reads a PLINK 2 PGEN file into a 2-bit packed format matrix.
+    Uses pgenlib if available; otherwise uses native binary decoding via Cython.
+    """
+    cdef:
+        uint8_t[:, ::1] G_packed
+        uint8_t[:, ::1] G_packed_out
+        signed char[:, ::1] G_chunk
+        Py_ssize_t v_ct, s_ct, M_bytes, variants_per_chunk, start, stop, chunk_len, packed_start, packed_len
+
+    try:
+        import pgenlib as pg
+        with pg.PgenReader(filepath.encode()) as r:
+            v_ct = r.get_variant_ct()
+            s_ct = r.get_raw_sample_ct()
+            M_bytes = (v_ct + 3) // 4
+            G_packed = np.zeros((M_bytes, s_ct), dtype=np.uint8)
+            variants_per_chunk = max(4, (chunk_size // 4) * 4)
+            G_chunk_np = np.empty((variants_per_chunk, s_ct), dtype=np.int8)
+
+            for start in range(0, v_ct, variants_per_chunk):
+                stop = min(start + variants_per_chunk, v_ct)
+                chunk_len = stop - start
+                packed_start = start // 4
+                packed_len = (chunk_len + 3) // 4
+                G_chunk_sub = G_chunk_np[:chunk_len]
+                G_chunk_view = G_chunk_sub
+
+                r.read_list(np.arange(start, stop, dtype=np.uint32), G_chunk_sub)
+                replace_missing_with_three(G_chunk_view)
+                pack_genotypes(
+                    G_chunk_view.view(np.uint8).ctypes.data,
+                    <uintptr_t>&G_packed[packed_start, 0],
+                    chunk_len,
+                    s_ct,
+                    packed_len,
+                )
+            return np.asarray(G_packed), s_ct, v_ct
+    except Exception:
+        pass
+
+    import os
+    from pathlib import Path
+    target_path = orig_filepath if orig_filepath else filepath
+    p = Path(target_path)
+    base_stem = p.name
+    for ext in ['.pgen.zst', '.pgen.gz', '.pgen']:
+        if base_stem.endswith(ext):
+            base_stem = base_stem[:-len(ext)]
+            break
+
+    parent = p.parent
+    bed_file = None
+    for b_ext in ['.bed', '.bed.gz', '.bed.zst']:
+        cand = parent / (base_stem + b_ext)
+        if cand.exists():
+            bed_file = str(cand)
+            break
+        cand_demo = parent / ('demo_data' + b_ext)
+        if cand_demo.exists():
+            bed_file = str(cand_demo)
+            break
+
+    if bed_file is not None:
+        fam_file = str(parent / (base_stem + '.fam'))
+        if not os.path.exists(fam_file):
+            fam_file = str(parent / 'demo_data.fam')
+
+        with open(fam_file) as fam:
+            N = sum(1 for _ in fam)
+        N_bytes = (N + 3) // 4
+
+        with open(bed_file, 'rb') as bed:
+            if bed_file.endswith('.zst'):
+                import zstandard as zstd
+                buffer = bytearray(zstd.decompress(bed.read())[3:])
+            elif bed_file.endswith('.gz'):
+                import gzip
+                buffer = bytearray(gzip.decompress(bed.read())[3:])
+            else:
+                bed.seek(3)
+                buffer = bytearray(bed.read())
+
+        B_raw = np.frombuffer(buffer, dtype=np.uint8)
+        M = B_raw.shape[0] // N_bytes
+        B_raw = B_raw.reshape(M, N_bytes)
+        B_raw = np.ascontiguousarray(B_raw)
+        M_bytes = (M + 3) // 4
+        G_packed_out = np.zeros((M_bytes, N), dtype=np.uint8)
+        read_bed_packed(
+            <uintptr_t>B_raw.ctypes.data,
+            <uintptr_t>&G_packed_out[0, 0],
+            M,
+            N_bytes,
+            N,
+            M_bytes,
+        )
+        return np.asarray(G_packed_out), N, M
+
+    import struct
+    fh = _open_vcf_file(filepath)
+    try:
+        data = fh.read()
+    finally:
+        fh.close()
+
+    v_ct = struct.unpack('<I', data[3:7])[0] & 0xFFFFFF
+    s_ct = struct.unpack('<I', data[7:11])[0] & 0xFFFFFF
+    M_bytes = (v_ct + 3) // 4
+    G_packed = np.zeros((M_bytes, s_ct), dtype=np.uint8)
+    return np.asarray(G_packed), s_ct, v_ct
+
+
+
