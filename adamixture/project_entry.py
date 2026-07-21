@@ -86,6 +86,7 @@ def parse_args(argv: list[str]) -> configargparse.Namespace:
     parser.add_argument("--device",        type=str,   default="cpu",  help="Computation device: cpu, cuda, or mps (default: cpu).")
     parser.add_argument("--chrom_mode", choices=["all", "autosomes"], default="autosomes", help="Chromosome filter for input variants: all or autosomes (default: autosomes).")
     parser.add_argument("--autosomes", type=int, default=22, help="Number of autosomes kept when --chrom_mode=autosomes (default: 22).")
+    parser.add_argument("--specific_chrom", nargs="+", help="List of specific chromosomes to analyze when --chrom_mode=autosomes (overrides --autosomes).")
 
     # ── Plotting ──────────────────────────────────────────────────────────────
     parser.add_argument("--plot",    nargs="*",  default=[], help="Generate a plot after projection. Optional: [format] [dpi].")
@@ -109,7 +110,7 @@ def parse_args(argv: list[str]) -> configargparse.Namespace:
                 parser.error(f"Invalid DPI value: {args.plot[1]}")
         assert args.plot_format in ["pdf", "png", "jpg"], "Plot format must be pdf, png or jpg."
         assert 50 <= args.plot_dpi <= 1200, "DPI must be between 50 and 1200."
-    if args.autosomes < 1:
+    if args.chrom_mode == "autosomes" and not args.specific_chrom and args.autosomes < 1:
         parser.error("--autosomes must be at least 1.")
 
     return args
@@ -147,7 +148,8 @@ def main() -> None:
     assert args.max_iter >= 1, "Maximum iterations (max_iter) must be at least 1."
     assert args.check >= 1, "Check frequency (check) must be at least 1."
     assert args.chunk_size >= 1, "Chunk size must be at least 1."
-    assert args.autosomes >= 1, "Autosome count (autosomes) must be at least 1."
+    if args.chrom_mode == "autosomes" and not args.specific_chrom:
+        assert args.autosomes >= 1, "Autosome count (autosomes) must be at least 1."
     assert args.tol > 0, "Tolerance (tol) must be positive."
     assert args.reg_adam >= 0, "Adam regularization (reg_adam) must be non-negative."
     assert args.plot_format in ['pdf', 'png', 'jpg'], "Plot format must be pdf, png or jpg."
@@ -213,6 +215,7 @@ def main() -> None:
         chunk_size=args.chunk_size,
         chrom_mode=args.chrom_mode,
         autosomes=args.autosomes,
+        specific_chrom=getattr(args, "specific_chrom", None),
     )
 
     if M != M_p:

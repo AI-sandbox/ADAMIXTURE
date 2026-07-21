@@ -178,7 +178,7 @@ $ adamixture --help
 
 Key arguments:
 
-| Argument &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Default | Description |
+| Argument &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Default | Description |
 |---|---|---|
 | `--init` | `als` | Initialization method: SVD+ALS (`als`) or random EM priming (`em`). |
 | `--tol` | `0.1` | Convergence tolerance for log-likelihood changes. |
@@ -189,7 +189,8 @@ Key arguments:
 | `--chunk_size` | `8192` | Number of SNPs in chunk operations. |
 | `--n_inits` | `5` | Number of independent initializations (keeps run with best log-likelihood). |
 | `--chrom_mode` | `autosomes` | Chromosome filter: `autosomes` keeps autosomes `1 to --autosomes`; `all` keeps every chromosome. |
-| `--autosomes` | `22` | Number of autosomes kept when `--chrom_mode autosomes`. |
+| `--autosomes` | `22` | Number of autosomes kept when `--chrom_mode autosomes` (equivalent to `--specific_chrom 1 2 ... 22`). |
+| `--specific_chrom` | `None` | List of specific chromosomes to analyze when `--chrom_mode autosomes` (overrides `--autosomes`). |
 | `--no_freqs` | `False` | Do not save the `.P` allele-frequency matrix. |
 
 ## Algorithm note

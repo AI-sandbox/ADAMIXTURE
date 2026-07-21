@@ -61,6 +61,7 @@ def parse_input() -> argparse.Namespace:
     cfg_group.add_argument("--inverse", action="store_true", help="Invert frequency coding (1-P)")
     cfg_group.add_argument("--chrom_mode", choices=["all", "autosomes"], default="autosomes", help="Chromosome filter for input variants")
     cfg_group.add_argument("--autosomes", type=int, default=22, help="Number of autosomes kept when --chrom_mode=autosomes")
+    cfg_group.add_argument("--specific_chrom", nargs="+", help="List of specific chromosomes to analyze when --chrom_mode=autosomes (overrides --autosomes)")
 
     # Metrics Group
     metric_group = parser.add_argument_group("Metrics")
@@ -76,7 +77,7 @@ def parse_input() -> argparse.Namespace:
         parser.error("Validation metrics (--rmse, --jsd) require ground truth file (--tfile).")
     if not is_validation and (not args.data_path or not args.pfile):
         parser.error("Log-likelihood requires input data (--data_path) and frequencies (--pfile).")
-    if args.autosomes < 1:
+    if args.chrom_mode == "autosomes" and not args.specific_chrom and args.autosomes < 1:
         parser.error("--autosomes must be at least 1.")
 
     return args
@@ -194,6 +195,7 @@ def run_fitting_eval(args: argparse.Namespace, est_props: np.ndarray) -> None:
         chunk_size=4096,
         chrom_mode=args.chrom_mode,
         autosomes=args.autosomes,
+        specific_chrom=getattr(args, "specific_chrom", None),
     )
     genotypes = genotypes_data[0]
     M = genotypes.shape[0]

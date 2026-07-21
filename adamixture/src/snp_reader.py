@@ -123,7 +123,83 @@ class SNPReader:
             return None
         return int(chrom)
 
-    def _keep_chromosome(self, chrom: str, chrom_mode: str, autosomes: int) -> bool:
+    @staticmethod
+    def _normalize_specific_chrom(
+        specific_chrom: list | tuple | str | int | set | None
+    ) -> list[int | str] | None:
+        """
+        Description:
+        Normalizes specific_chrom parameter into a cleaned list of chromosome identifiers.
+
+        Args:
+            specific_chrom: Input chromosomes specification.
+
+        Returns:
+            list[int | str] | None: Cleaned list of chromosome identifiers or None.
+        """
+        if specific_chrom is None:
+            return None
+
+        if isinstance(specific_chrom, (int, str)):
+            raw_items = [str(specific_chrom)]
+        elif isinstance(specific_chrom, (list, tuple, set)):
+            raw_items = [str(item) for item in specific_chrom]
+        else:
+            return None
+
+        cleaned_items = []
+        for item in raw_items:
+            parts = [p.strip() for p in item.replace(",", " ").split() if p.strip()]
+            for p in parts:
+                p_clean = p[3:] if p.lower().startswith("chr") and p[3:].isdigit() else p
+                if p_clean.isdigit():
+                    val = int(p_clean)
+                    if val not in cleaned_items:
+                        cleaned_items.append(val)
+                else:
+                    if p not in cleaned_items:
+                        cleaned_items.append(p)
+
+        return cleaned_items if len(cleaned_items) > 0 else None
+
+    @classmethod
+    def _prepare_specific_chrom(
+        cls, specific_chrom: list | tuple | str | int | set | None
+    ) -> tuple[set[int], set[str]] | None:
+        norm = cls._normalize_specific_chrom(specific_chrom)
+        if norm is None:
+            return None
+
+        allowed_nums: set[int] = set()
+        allowed_strs: set[str] = set()
+
+        for item in norm:
+            if isinstance(item, int):
+                allowed_nums.add(item)
+                allowed_strs.add(str(item))
+                allowed_strs.add(f"chr{item}")
+            else:
+                s_lower = str(item).strip().lower()
+                allowed_strs.add(s_lower)
+                if s_lower.startswith("chr"):
+                    bare = s_lower[3:]
+                    allowed_strs.add(bare)
+                    if bare.isdigit():
+                        allowed_nums.add(int(bare))
+                else:
+                    allowed_strs.add(f"chr{s_lower}")
+                    if s_lower.isdigit():
+                        allowed_nums.add(int(s_lower))
+
+        return allowed_nums, allowed_strs
+
+    def _keep_chromosome(
+        self,
+        chrom: str,
+        chrom_mode: str,
+        autosomes: int,
+        specific_chrom: list | tuple | str | int | set | None = None,
+    ) -> bool:
         """
         Description:
         Decides whether a variant should be kept under the configured chromosome filter.
@@ -132,6 +208,7 @@ class SNPReader:
             chrom (str): Chromosome label from the variant metadata.
             chrom_mode (str): Chromosome filter mode ("all" or "autosomes").
             autosomes (int): Number of autosomes kept when chrom_mode is "autosomes".
+            specific_chrom: Specific chromosomes to keep when chrom_mode is "autosomes".
 
         Returns:
             bool: True if the variant should be kept, otherwise False.
@@ -140,13 +217,31 @@ class SNPReader:
             return True
         if chrom_mode != "autosomes":
             raise ValueError("chrom_mode must be 'all' or 'autosomes'")
+
+        prepared = self._prepare_specific_chrom(specific_chrom)
+        if prepared is not None:
+            allowed_nums, allowed_strs = prepared
+            chrom_num = self._parse_chromosome_number(chrom)
+            if chrom_num is not None and chrom_num in allowed_nums:
+                return True
+            chrom_lower = chrom.strip().lower()
+            if chrom_lower in allowed_strs:
+                return True
+            return False
+
         if autosomes < 1:
             raise ValueError("autosomes must be at least 1")
 
         chrom_num = self._parse_chromosome_number(chrom)
         return chrom_num is not None and 1 <= chrom_num <= autosomes
 
-    def _log_chromosome_filter(self, skipped: int, chrom_mode: str, autosomes: int) -> None:
+    def _log_chromosome_filter(
+        self,
+        skipped: int,
+        chrom_mode: str,
+        autosomes: int,
+        specific_chrom: list | tuple | str | int | set | None = None,
+    ) -> None:
         """
         Description:
         Logs a warning when variants are skipped by the chromosome filter.
@@ -155,6 +250,7 @@ class SNPReader:
             skipped (int): Number of skipped variants.
             chrom_mode (str): Chromosome filter mode ("all" or "autosomes").
             autosomes (int): Number of autosomes kept when chrom_mode is "autosomes".
+            specific_chrom: Specific chromosomes filter list.
 
         Returns:
             None
@@ -162,9 +258,15 @@ class SNPReader:
         if skipped <= 0:
             return
         if chrom_mode == "autosomes":
-            log.warning(
-                f"        Warning: Skipped {skipped} SNPs outside autosomes 1..{autosomes}."
-            )
+            norm = self._normalize_specific_chrom(specific_chrom)
+            if norm is not None:
+                log.warning(
+                    f"        Warning: Skipped {skipped} SNPs outside specific chromosomes {norm}."
+                )
+            else:
+                log.warning(
+                    f"        Warning: Skipped {skipped} SNPs outside autosomes 1..{autosomes}."
+                )
         else:
             log.warning(f"        Warning: Skipped {skipped} SNPs excluded by chromosome filter.")
 
@@ -192,6 +294,7 @@ class SNPReader:
         chunk_size: int,
         chrom_mode: str,
         autosomes: int,
+        specific_chrom: list | tuple | str | int | set | None = None,
     ) -> tuple[torch.Tensor | np.ndarray, int, int]:
         """
         Description:
@@ -225,7 +328,9 @@ class SNPReader:
                 parts = line.strip().split()
                 if not parts:
                     continue
-                keep_mask.append(self._keep_chromosome(parts[0], chrom_mode, autosomes))
+                keep_mask.append(
+                    self._keep_chromosome(parts[0], chrom_mode, autosomes, specific_chrom)
+                )
         keep_mask = np.array(keep_mask, dtype=bool)
 
         with self._materialize_binary(bed_file) as readable_bed_file:
@@ -235,7 +340,7 @@ class SNPReader:
             assert len(keep_mask) == M_total, "bim file doesn't match!"
 
             skipped = len(keep_mask) - keep_mask.sum()
-            self._log_chromosome_filter(skipped, chrom_mode, autosomes)
+            self._log_chromosome_filter(skipped, chrom_mode, autosomes, specific_chrom)
 
             keep_idxs = np.flatnonzero(keep_mask).astype(np.uint32)
             M = keep_idxs.size
@@ -301,6 +406,7 @@ class SNPReader:
         chunk_size: int,
         chrom_mode: str,
         autosomes: int,
+        specific_chrom: list | tuple | str | int | set | None = None,
     ) -> tuple[torch.Tensor | np.ndarray, int, int]:
         """
         Description:
@@ -323,24 +429,36 @@ class SNPReader:
             log.error(f"    Error: VCF file not found for {base_path}")
             sys.exit(1)
 
-        if not packed:
-            G, N, M = read_vcf_file(
-                str(vcf_file),
-                chunk_size=chunk_size,
-                chrom_mode=chrom_mode,
-                autosomes=autosomes,
+        norm_spec = self._normalize_specific_chrom(specific_chrom)
+
+        try:
+            if not packed:
+                G, N, M = read_vcf_file(
+                    str(vcf_file),
+                    chunk_size=chunk_size,
+                    chrom_mode=chrom_mode,
+                    autosomes=autosomes,
+                    specific_chrom=norm_spec,
+                )
+                return np.ascontiguousarray(G), N, M
+            else:
+                log.info("        Reading VCF in packed 2-bit format for GPU use.")
+                G_packed_np, N, M = read_vcf_file_packed(
+                    str(vcf_file),
+                    chunk_size=chunk_size,
+                    chrom_mode=chrom_mode,
+                    autosomes=autosomes,
+                    specific_chrom=norm_spec,
+                )
+                G_packed = torch.from_numpy(G_packed_np)
+                return G_packed, N, M
+        except ValueError as err:
+            log.error(
+                f"    Error: {err}\n"
+                "    Please check if your chromosome filter (--chrom_mode, --specific_chrom, --autosomes) "
+                "excluded all variants, or if the input dataset has no variants."
             )
-            return np.ascontiguousarray(G), N, M
-        else:
-            log.info("        Reading VCF in packed 2-bit format for GPU use.")
-            G_packed_np, N, M = read_vcf_file_packed(
-                str(vcf_file),
-                chunk_size=chunk_size,
-                chrom_mode=chrom_mode,
-                autosomes=autosomes,
-            )
-            G_packed = torch.from_numpy(G_packed_np)
-            return G_packed, N, M
+            sys.exit(1)
 
     def _read_pgen(
         self,
@@ -349,6 +467,7 @@ class SNPReader:
         chunk_size: int,
         chrom_mode: str,
         autosomes: int,
+        specific_chrom: list | tuple | str | int | set | None = None,
     ) -> tuple[torch.Tensor | np.ndarray, int, int]:
         """
         Description:
@@ -382,7 +501,9 @@ class SNPReader:
                 parts = line.strip().split()
                 if not parts:
                     continue
-                keep_mask.append(self._keep_chromosome(parts[0], chrom_mode, autosomes))
+                keep_mask.append(
+                    self._keep_chromosome(parts[0], chrom_mode, autosomes, specific_chrom)
+                )
         keep_mask = np.array(keep_mask, dtype=bool)
 
         with self._materialize_binary(pgen_file) as readable_pgen_file:
@@ -395,7 +516,7 @@ class SNPReader:
             )
 
             skipped = len(keep_mask) - keep_mask.sum()
-            self._log_chromosome_filter(skipped, chrom_mode, autosomes)
+            self._log_chromosome_filter(skipped, chrom_mode, autosomes, specific_chrom)
 
             keep_idxs = np.flatnonzero(keep_mask).astype(np.uint32)
             M = keep_idxs.size
@@ -472,6 +593,7 @@ class SNPReader:
         chunk_size: int,
         chrom_mode: str,
         autosomes: int,
+        specific_chrom: list | tuple | str | int | set | None = None,
     ) -> tuple[torch.Tensor | np.ndarray, int, int]:
         """
         Description:
@@ -484,6 +606,7 @@ class SNPReader:
             chunk_size (int): Size of chunks to read for VCF files. Defaults to 4096.
             chrom_mode (str): "all" to keep all chromosomes or "autosomes" to keep 1..autosomes.
             autosomes (int): Number of autosomes when chrom_mode is "autosomes".
+            specific_chrom: List of specific chromosomes to analyze when chrom_mode is "autosomes".
 
         Returns:
             tuple[torch.Tensor | np.ndarray, int, int]: (genotype matrix, N individuals, M SNPs)
@@ -494,36 +617,59 @@ class SNPReader:
 
         if chrom_mode not in {"all", "autosomes"}:
             raise ValueError("chrom_mode must be 'all' or 'autosomes'")
-        if autosomes < 1:
-            raise ValueError("autosomes must be at least 1")
+
+        norm_spec = self._normalize_specific_chrom(specific_chrom)
+        if chrom_mode == "autosomes" and norm_spec is None:
+            if autosomes < 1:
+                raise ValueError("autosomes must be at least 1")
 
         if '.bed' in file_extensions:
             self._check_files_exist(file, ['.bed', '.fam', '.bim'])
-            G, N, M = self._read_bed(file, packed, chunk_size, chrom_mode, autosomes)
+            G, N, M = self._read_bed(
+                file, packed, chunk_size, chrom_mode, autosomes, specific_chrom=specific_chrom
+            )
         elif '.vcf' in file_extensions:
             self._check_files_exist(file, ['.vcf'], match_any=True)
-            G, N, M = self._read_vcf(file, packed, chunk_size, chrom_mode, autosomes)
+            G, N, M = self._read_vcf(
+                file, packed, chunk_size, chrom_mode, autosomes, specific_chrom=specific_chrom
+            )
         elif '.pgen' in file_extensions:
             self._check_files_exist(file, ['.pgen', '.psam'])
             self._check_files_exist(file, ['.pvar', '.bim'], match_any=True)
-            G, N, M = self._read_pgen(file, packed, chunk_size, chrom_mode, autosomes)
+            G, N, M = self._read_pgen(
+                file, packed, chunk_size, chrom_mode, autosomes, specific_chrom=specific_chrom
+            )
         else:
             log.error("    Invalid format. Unrecognized file format. Make sure file ends with .bed, .pgen or .vcf .")
             sys.exit(1)
 
         if not packed:
-            mean_val = get_mean_unpacked(G)
+            mean_val = get_mean_unpacked(G) if M > 0 else 0.0
             if mean_val >= 0.5:
                 log.info("    Flipping genotype encoding (unpacked).")
                 flip_unpacked(G)
         else:
             M_bytes = G.shape[0]
-            mean_val = get_mean_packed(G.data_ptr(), M, N, M_bytes)
+            mean_val = get_mean_packed(G.data_ptr(), M, N, M_bytes) if M > 0 else 0.0
             if mean_val >= 0.5:
                 log.info("    Flipping genotype encoding (packed).")
                 flip_packed(G.data_ptr(), M, N, M_bytes)
 
         end = time.time()
         log.info(f"        Total time for reading={end - start:.3f}s")
+
+        if M == 0:
+            log.error(
+                "    Error: Genotype data contains 0 SNPs after filtering.\n"
+                "    Please check if your chromosome filter (--chrom_mode, --specific_chrom, --autosomes) "
+                "excluded all variants, or if the input dataset has no variants."
+            )
+            sys.exit(1)
+        if N == 0:
+            log.error(
+                "    Error: Genotype data contains 0 samples.\n"
+                "    Please check if the input dataset is empty or corrupted."
+            )
+            sys.exit(1)
 
         return G, N, M

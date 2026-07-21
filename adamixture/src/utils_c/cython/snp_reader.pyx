@@ -406,12 +406,20 @@ cdef void _process_chunk_standard(
 
     free(c_lines)
 
-cdef inline bint _keep_chromosome_line(const char* line, bint keep_all, int autosomes) noexcept:
+cdef inline bint _keep_chromosome_line(
+    const char* line,
+    bint keep_all,
+    int autosomes,
+    bint has_specific,
+    set allowed_nums,
+    set allowed_strs,
+) noexcept:
     cdef:
         Py_ssize_t pos
         Py_ssize_t start = 0
         unsigned char c
         int chrom_num = 0
+        bint is_pure_digit = True
 
     if keep_all:
         return True
@@ -427,19 +435,34 @@ cdef inline bint _keep_chromosome_line(const char* line, bint keep_all, int auto
     pos = start
     while True:
         c = <unsigned char>line[pos]
-        if c == 9:
+        if c == 9 or c == 0 or c == 10 or c == 13:
             break
-        if c == 0 or c == 10 or c == 13:
-            return False
         if c < 48 or c > 57:
-            return False
-        chrom_num = chrom_num * 10 + (c - 48)
+            is_pure_digit = False
+        else:
+            chrom_num = chrom_num * 10 + (c - 48)
         pos += 1
+
+    if has_specific:
+        if is_pure_digit and chrom_num > 0 and chrom_num in allowed_nums:
+            return True
+        try:
+            chrom_token = line[:pos].decode('utf-8', errors='ignore').strip().lower()
+            if chrom_token in allowed_strs:
+                return True
+            if chrom_token.startswith("chr") and chrom_token[3:] in allowed_strs:
+                return True
+        except Exception:
+            pass
+        return False
+
+    if not is_pure_digit:
+        return False
 
     return 1 <= chrom_num <= autosomes
 
 # Read VCF to uint8 matrix
-def read_vcf_file(str filepath, int chunk_size, str chrom_mode, int autosomes):
+def read_vcf_file(str filepath, int chunk_size, str chrom_mode, int autosomes, specific_chrom=None):
     """
     Description:
     Reads a VCF file (plain, gzip, or zstd) into a uint8 NumPy matrix using a memory-efficient chunking strategy.
@@ -447,6 +470,9 @@ def read_vcf_file(str filepath, int chunk_size, str chrom_mode, int autosomes):
     Args:
         filepath (str): Path to the VCF file.
         chunk_size (int): Number of variants to process per chunk.
+        chrom_mode (str): Chromosome filter mode ("all" or "autosomes").
+        autosomes (int): Number of autosomes kept when chrom_mode is "autosomes".
+        specific_chrom (list): Specific chromosomes filter list.
 
     Returns:
         tuple (G, N, M): 
@@ -460,10 +486,33 @@ def read_vcf_file(str filepath, int chunk_size, str chrom_mode, int autosomes):
         Py_ssize_t start_var_idx = 0
         Py_ssize_t skipped_variants = 0
         bint keep_all = chrom_mode == "all"
+        bint has_specific = False
+        set allowed_nums = set()
+        set allowed_strs = set()
 
     if chrom_mode not in ("all", "autosomes"):
         raise ValueError("chrom_mode must be 'all' or 'autosomes'")
-    if autosomes < 1:
+
+    if chrom_mode == "autosomes" and specific_chrom:
+        has_specific = True
+        for item in specific_chrom:
+            if isinstance(item, int):
+                allowed_nums.add(item)
+                allowed_strs.add(str(item))
+                allowed_strs.add(f"chr{item}")
+            else:
+                s_lower = str(item).strip().lower()
+                allowed_strs.add(s_lower)
+                if s_lower.startswith("chr"):
+                    bare = s_lower[3:]
+                    allowed_strs.add(bare)
+                    if bare.isdigit():
+                        allowed_nums.add(int(bare))
+                else:
+                    allowed_strs.add(f"chr{s_lower}")
+                    if s_lower.isdigit():
+                        allowed_nums.add(int(s_lower))
+    elif chrom_mode == "autosomes" and autosomes < 1:
         raise ValueError("autosomes must be at least 1")
 
     fh = _open_vcf_file(filepath)
@@ -474,7 +523,7 @@ def read_vcf_file(str filepath, int chunk_size, str chrom_mode, int autosomes):
                     parts = line.rstrip(b'\n').split(b'\t')
                     n_samples = len(parts) - 9
                 continue
-            if not _keep_chromosome_line(line, keep_all, autosomes):
+            if not _keep_chromosome_line(line, keep_all, autosomes, has_specific, allowed_nums, allowed_strs):
                 skipped_variants += 1
                 continue
             n_variants += 1
@@ -486,19 +535,24 @@ def read_vcf_file(str filepath, int chunk_size, str chrom_mode, int autosomes):
 
     if skipped_variants > 0:
         import logging
-        logging.getLogger(__name__).warning(f"        Warning: Skipped {skipped_variants} SNPs outside autosomes 1..{autosomes}.")
+        if has_specific:
+            logging.getLogger(__name__).warning(f"        Warning: Skipped {skipped_variants} SNPs outside specific chromosomes {specific_chrom}.")
+        elif chrom_mode == "autosomes":
+            logging.getLogger(__name__).warning(f"        Warning: Skipped {skipped_variants} SNPs outside autosomes 1..{autosomes}.")
+        else:
+            logging.getLogger(__name__).warning(f"        Warning: Skipped {skipped_variants} SNPs excluded by chromosome filter.")
 
     cdef uint8_t[:, ::1] G = np.empty((n_variants, n_samples), dtype=np.uint8)
 
     fh = _open_vcf_file(filepath)
-    chunk_bytes = []
+    cdef list chunk_bytes = []
     
     try:
         for line in fh:
             if line.startswith(b'#'):
                 continue
                 
-            if not _keep_chromosome_line(line, keep_all, autosomes):
+            if not _keep_chromosome_line(line, keep_all, autosomes, has_specific, allowed_nums, allowed_strs):
                 continue
 
             chunk_bytes.append(line)
@@ -564,7 +618,7 @@ cdef void _process_chunk_packed(
     free(c_lines)
 
 # Read VCF to 2-bit packed matrix
-def read_vcf_file_packed(str filepath, int chunk_size, str chrom_mode, int autosomes):
+def read_vcf_file_packed(str filepath, int chunk_size, str chrom_mode, int autosomes, specific_chrom=None):
     """
     Description:
     Reads a VCF file directly into a 2-bit packed format optimized for GPU acceleration.
@@ -572,6 +626,9 @@ def read_vcf_file_packed(str filepath, int chunk_size, str chrom_mode, int autos
     Args:
         filepath (str): Path to the VCF file.
         chunk_size (int): Number of variants per chunk.
+        chrom_mode (str): Chromosome filter mode ("all" or "autosomes").
+        autosomes (int): Number of autosomes kept when chrom_mode is "autosomes".
+        specific_chrom (list): Specific chromosomes filter list.
 
     Returns:
         tuple (G_packed, N, M):
@@ -586,10 +643,33 @@ def read_vcf_file_packed(str filepath, int chunk_size, str chrom_mode, int autos
         Py_ssize_t start_var_idx = 0
         Py_ssize_t skipped_variants = 0
         bint keep_all = chrom_mode == "all"
+        bint has_specific = False
+        set allowed_nums = set()
+        set allowed_strs = set()
 
     if chrom_mode not in ("all", "autosomes"):
         raise ValueError("chrom_mode must be 'all' or 'autosomes'")
-    if autosomes < 1:
+
+    if chrom_mode == "autosomes" and specific_chrom:
+        has_specific = True
+        for item in specific_chrom:
+            if isinstance(item, int):
+                allowed_nums.add(item)
+                allowed_strs.add(str(item))
+                allowed_strs.add(f"chr{item}")
+            else:
+                s_lower = str(item).strip().lower()
+                allowed_strs.add(s_lower)
+                if s_lower.startswith("chr"):
+                    bare = s_lower[3:]
+                    allowed_strs.add(bare)
+                    if bare.isdigit():
+                        allowed_nums.add(int(bare))
+                else:
+                    allowed_strs.add(f"chr{s_lower}")
+                    if s_lower.isdigit():
+                        allowed_nums.add(int(s_lower))
+    elif chrom_mode == "autosomes" and autosomes < 1:
         raise ValueError("autosomes must be at least 1")
 
     fh = _open_vcf_file(filepath)
@@ -600,7 +680,7 @@ def read_vcf_file_packed(str filepath, int chunk_size, str chrom_mode, int autos
                     parts = line.rstrip(b'\n').split(b'\t')
                     n_samples = len(parts) - 9
                 continue
-            if not _keep_chromosome_line(line, keep_all, autosomes):
+            if not _keep_chromosome_line(line, keep_all, autosomes, has_specific, allowed_nums, allowed_strs):
                 skipped_variants += 1
                 continue
             n_variants += 1
@@ -612,7 +692,12 @@ def read_vcf_file_packed(str filepath, int chunk_size, str chrom_mode, int autos
 
     if skipped_variants > 0:
         import logging
-        logging.getLogger(__name__).warning(f"        Warning: Skipped {skipped_variants} SNPs outside autosomes 1..{autosomes}.")
+        if has_specific:
+            logging.getLogger(__name__).warning(f"        Warning: Skipped {skipped_variants} SNPs outside specific chromosomes {specific_chrom}.")
+        elif chrom_mode == "autosomes":
+            logging.getLogger(__name__).warning(f"        Warning: Skipped {skipped_variants} SNPs outside autosomes 1..{autosomes}.")
+        else:
+            logging.getLogger(__name__).warning(f"        Warning: Skipped {skipped_variants} SNPs excluded by chromosome filter.")
 
     M_bytes = (n_variants + 3) // 4
     cdef uint8_t[:, ::1] G_packed = np.zeros((M_bytes, n_samples), dtype=np.uint8)
@@ -621,14 +706,14 @@ def read_vcf_file_packed(str filepath, int chunk_size, str chrom_mode, int autos
         chunk_size += 4 - (chunk_size % 4)
 
     fh = _open_vcf_file(filepath)
-    chunk_bytes = []
+    cdef list chunk_bytes = []
     
     try:
         for line in fh:
             if line.startswith(b'#'):
                 continue
                 
-            if not _keep_chromosome_line(line, keep_all, autosomes):
+            if not _keep_chromosome_line(line, keep_all, autosomes, has_specific, allowed_nums, allowed_strs):
                 continue
 
             chunk_bytes.append(line)

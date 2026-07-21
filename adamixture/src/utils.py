@@ -160,6 +160,7 @@ def set_cuda_arch_list_if_needed(device: torch.device) -> None:
 
 def read_data(tr_file: str, packed: bool = False, chunk_size: int = 4096,
               chrom_mode: str = "autosomes", autosomes: int = 22,
+              specific_chrom: list | tuple | str | int | set | None = None,
               verbose: bool = True) -> tuple[torch.Tensor | np.ndarray, int, int]:
     """
     Description:
@@ -171,6 +172,7 @@ def read_data(tr_file: str, packed: bool = False, chunk_size: int = 4096,
         chunk_size (int): Size of chunks to read for VCF files.
         chrom_mode (str): "all" to keep all chromosomes or "autosomes" to keep 1..autosomes.
         autosomes (int): Number of autosomes when chrom_mode is "autosomes".
+        specific_chrom: List of specific chromosomes to analyze when chrom_mode is "autosomes".
         verbose (bool): If True, log the number of samples and SNPs.
 
     Returns:
@@ -188,6 +190,7 @@ def read_data(tr_file: str, packed: bool = False, chunk_size: int = 4096,
                 chunk_size=current_chunk_size,
                 chrom_mode=chrom_mode,
                 autosomes=autosomes,
+                specific_chrom=specific_chrom,
             )
             break
         except (MemoryError, RuntimeError) as exc:

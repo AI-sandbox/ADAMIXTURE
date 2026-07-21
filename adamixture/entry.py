@@ -58,6 +58,7 @@ def parse_args(argv: list[str]) -> configargparse.Namespace:
     parser.add_argument('--device', required=False, default='cpu', choices=['cpu', 'gpu', 'mps'], help='Device to use (cpu, gpu, mps) (default: cpu).')
     parser.add_argument('--chrom_mode', choices=['all', 'autosomes'], default='autosomes', help='Chromosome filter for input variants: all or autosomes (default: autosomes).')
     parser.add_argument('--autosomes', type=int, default=22, help='Number of autosomes kept when --chrom_mode=autosomes (default: 22).')
+    parser.add_argument('--specific_chrom', nargs='+', help='List of specific chromosomes to analyze when --chrom_mode=autosomes (overrides --autosomes).')
 
     parser.add_argument('--max_iter', type=int, default=10000, help='Maximum number of iterations for Adam EM (default: 10000).')
     parser.add_argument('--check', type=int, default=5, help='[only with --algorithm adamem] Frequency of log-likelihood checks (default: 5).')
@@ -121,7 +122,7 @@ def parse_args(argv: list[str]) -> configargparse.Namespace:
         parser.error("--tol must be greater than 0.")
     if args.Q_hist < 1:
         parser.error("--Q_hist must be at least 1.")
-    if args.autosomes < 1:
+    if args.chrom_mode == "autosomes" and not args.specific_chrom and args.autosomes < 1:
         parser.error("--autosomes must be at least 1.")
 
     return args

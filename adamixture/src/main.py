@@ -48,6 +48,7 @@ def main(args: argparse.Namespace, t0: float) -> int:
             chunk_size=args.chunk_size,
             chrom_mode=args.chrom_mode,
             autosomes=args.autosomes,
+            specific_chrom=getattr(args, "specific_chrom", None),
         )
 
         trained: dict[int, tuple] = {}
@@ -207,6 +208,7 @@ def main(args: argparse.Namespace, t0: float) -> int:
                         chunk_size=args.chunk_size,
                         chrom_mode=args.chrom_mode,
                         autosomes=args.autosomes,
+                        specific_chrom=getattr(args, "specific_chrom", None),
                         verbose=False,
                     )
                 finally:
