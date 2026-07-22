@@ -3,7 +3,7 @@ Cython>=3.0.0
 numpy>=2.0.0
 matplotlib>=3.8.0
 torch>=2.6.0
-pgenlib>=0.94.1
+pgenlib>=0.94.1; sys_platform != 'win32'
 zstandard>=0.25.0
 ninja
 clumppling>=2.0.10; python_version < '3.14'
