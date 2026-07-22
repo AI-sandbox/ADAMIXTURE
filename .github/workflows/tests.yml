@@ -41,15 +41,20 @@ jobs:
           echo "CFLAGS=-fopenmp" >> $GITHUB_ENV
           echo "LDFLAGS=-fopenmp" >> $GITHUB_ENV
 
-      - name: Install OpenMP (macOS)
+      - name: Install OpenMP and CVXOPT dependencies (macOS)
         if: runner.os == 'macOS'
         run: |
-          brew install libomp
+          brew install libomp suite-sparse openblas
           LIBOMP_PREFIX=$(brew --prefix libomp)
+          SUITESPARSE_PREFIX=$(brew --prefix suite-sparse)
+          OPENBLAS_PREFIX=$(brew --prefix openblas)
           echo "CC=/usr/bin/clang" >> $GITHUB_ENV
           echo "CFLAGS=-Xpreprocessor -fopenmp -I${LIBOMP_PREFIX}/include" >> $GITHUB_ENV
           echo "LDFLAGS=-L${LIBOMP_PREFIX}/lib -lomp -Wl,-rpath,${LIBOMP_PREFIX}/lib" >> $GITHUB_ENV
           echo "DYLD_LIBRARY_PATH=${LIBOMP_PREFIX}/lib" >> $GITHUB_ENV
+          echo "CVXOPT_SUITESPARSE_INC_DIR=${SUITESPARSE_PREFIX}/include" >> $GITHUB_ENV
+          echo "CVXOPT_SUITESPARSE_LIB_DIR=${SUITESPARSE_PREFIX}/lib" >> $GITHUB_ENV
+          echo "CVXOPT_BLAS_LIB_DIR=${OPENBLAS_PREFIX}/lib" >> $GITHUB_ENV
 
       - name: Configure OpenMP (Windows)
         if: runner.os == 'Windows'

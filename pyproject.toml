@@ -33,16 +33,16 @@ classifiers = [
     "Operating System :: Microsoft :: Windows",
 ]
 dependencies = [
-    "configargparse>=1.5.3",
+    "configargparse>=1.7.0",
     "Cython>=3.0.0",
     "numpy>=2.0.0",
-    "matplotlib>=3.5.0",
+    "matplotlib>=3.8.0",
     "torch>=2.6.0",
-    "pgenlib>=0.94.0; sys_platform != 'win32'",
+    "pgenlib>=0.94.1; sys_platform != 'win32'",
     "zstandard>=0.25.0",
     "ninja",
-    "clumppling>=2.0.9",
-    "pillow",
+    "clumppling>=2.0.10; python_version < '3.14'",
+    "pillow>=10.0.0",
 ]
 
 [project.urls]

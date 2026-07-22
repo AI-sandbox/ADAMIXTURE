@@ -158,21 +158,23 @@ def main() -> None:
     parser.add_argument('-n', '--name', default='adamixture_plots', help='Output base filename (default: adamixture_plots).')
     parser.add_argument('--resolution', '--dpi', type=int, default=300, dest='dpi', help='DPI/resolution for the output plot')
     parser.add_argument('--format', type=str, choices=['png', 'pdf', 'jpg'], default='png', help='Output format')
-    parser.add_argument('--clumppling', action='store_true', help='Use Clumppling mode graph and alignment visualization instead of standard plot')
-    parser.add_argument('--comm_min', type=float, default=1e-4, help='Clumppling minimum cost threshold for mode separation (default: 1e-4)')
-    parser.add_argument('--comm_max', type=float, default=1e-2, help='Clumppling maximum cost threshold for mode separation (default: 1e-2)')
-    parser.add_argument('--no_test_comm', action='store_true', help='Skip statistical test for community structure in Clumppling mode detection')
-    parser.add_argument('--cd_res', type=float, default=1.0, help='Resolution parameter for community detection (default: 1.0)')
-    parser.add_argument('--cd_method', choices=['louvain', 'leiden', 'custom'], default='louvain', help='Community detection method (default: louvain)')
+    if sys.version_info < (3, 14):
+        parser.add_argument('--clumppling', action='store_true', help='Use Clumppling mode graph and alignment visualization instead of standard plot')
+        parser.add_argument('--comm_min', type=float, default=1e-4, help='Clumppling minimum cost threshold for mode separation (default: 1e-4)')
+        parser.add_argument('--comm_max', type=float, default=1e-2, help='Clumppling maximum cost threshold for mode separation (default: 1e-2)')
+        parser.add_argument('--no_test_comm', action='store_true', help='Skip statistical test for community structure in Clumppling mode detection')
+        parser.add_argument('--cd_res', type=float, default=1.0, help='Resolution parameter for community detection (default: 1.0)')
+        parser.add_argument('--cd_method', choices=['louvain', 'leiden', 'custom'], default='louvain', help='Community detection method (default: louvain)')
 
     args = parser.parse_args()
 
     # VALIDATE PARAMETERS:
     assert args.format in ['pdf', 'png', 'jpg'], "Plot format must be pdf, png or jpg."
     assert 50 <= args.dpi <= 1200, "Plot resolution must be between 50 and 1200."
-    assert args.comm_min > 0, "comm_min must be greater than 0."
-    assert args.comm_max > args.comm_min, "comm_max must be greater than comm_min."
-    assert args.cd_res > 0, "cd_res must be greater than 0."
+    if sys.version_info < (3, 14):
+        assert args.comm_min > 0, "comm_min must be greater than 0."
+        assert args.comm_max > args.comm_min, "comm_max must be greater than comm_min."
+        assert args.cd_res > 0, "cd_res must be greater than 0."
 
     runs_info = parse_filemap(args.filemap)
     if not runs_info:
@@ -249,7 +251,7 @@ def main() -> None:
                 log.error(f"    Error: Provided colors file has {len(custom_colors)} colors, but highest K in filemap is {max_k}.")
                 sys.exit(1)
 
-    if args.clumppling:
+    if getattr(args, 'clumppling', False):
         log.info("    Using Clumppling mode graph and alignment visualization.")
         output_path = Path(args.save_dir) / f"{args.name}.{args.format}"
         plot_clumppling_mode_graph(

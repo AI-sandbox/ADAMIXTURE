@@ -554,11 +554,11 @@ def plot_combined(args: argparse.Namespace, k_values: list[int], trained_plot: d
     plt.close(fig)
 
 
-def align_clusters_clumppling(ref_Q: np.ndarray, query_Q: np.ndarray) -> np.ndarray:
+def align_clusters_greedy(ref_Q: np.ndarray, query_Q: np.ndarray) -> np.ndarray:
     """
     Description:
-    Aligns query cluster columns to reference cluster columns using Clumppling's
-    Integer Linear Programming (ILP) optimization method.
+    Aligns query cluster columns to reference cluster columns using a greedy
+    minimum-cost matching.
 
     Args:
         ref_Q (np.ndarray): Reference Q matrix.
@@ -567,55 +567,112 @@ def align_clusters_clumppling(ref_Q: np.ndarray, query_Q: np.ndarray) -> np.ndar
     Returns:
         np.ndarray: Permutation array for the query_Q columns.
     """
-    import contextlib
-    import io
+    K_ref = ref_Q.shape[1]
+    K_query = query_Q.shape[1]
 
-    with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
-        from clumppling.core import align_ILP
+    cost_matrix = np.zeros((K_ref, K_query))
+    for i in range(K_ref):
+        for j in range(K_query):
+            diff = ref_Q[:, i] - query_Q[:, j]
+            cost_matrix[i, j] = np.dot(diff, diff)
+
+    ref_indices = set()
+    query_indices = set()
+    matches = {} # maps ref_idx -> query_idx
+
+    sorted_costs = np.argsort(cost_matrix.flatten())
+    for idx in sorted_costs:
+        r, c = np.unravel_index(idx, (K_ref, K_query))
+        if r not in ref_indices and c not in query_indices:
+            ref_indices.add(r)
+            query_indices.add(c)
+            matches[r] = c
+        if len(ref_indices) == min(K_ref, K_query):
+            break
+
+    # Construct the permutation of query_Q columns:
+    perm = []
+    # 1. Add matched columns in order of ref_Q
+    for r in range(K_ref):
+        if r in matches:
+            perm.append(matches[r])
+
+    # 2. Add remaining unmatched query columns
+    unmatched_query = [c for c in range(K_query) if c not in query_indices]
+    perm.extend(unmatched_query)
+
+    return np.array(perm, dtype=int)
+
+
+def align_clusters_clumppling(ref_Q: np.ndarray, query_Q: np.ndarray) -> np.ndarray:
+    """
+    Description:
+    Aligns query cluster columns to reference cluster columns using Clumppling's
+    Integer Linear Programming (ILP) optimization method. If Clumppling is not
+    available or fails to import, it falls back to greedy matching.
+
+    Args:
+        ref_Q (np.ndarray): Reference Q matrix.
+        query_Q (np.ndarray): Query Q matrix to align.
+
+    Returns:
+        np.ndarray: Permutation array for the query_Q columns.
+    """
+    try:
+        import contextlib
+        import io
+
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            from clumppling.core import align_ILP
+    except Exception:
+        return align_clusters_greedy(ref_Q, query_Q)
 
     K_ref = ref_Q.shape[1]
     K_query = query_Q.shape[1]
 
-    if K_ref <= K_query:
-        opt_obj, idxQ2P = align_ILP(ref_Q, query_Q)
-        if idxQ2P is not None and len(idxQ2P) > 0:
-            perm_map: dict = {}
-            for q_col, r_col in enumerate(idxQ2P):
-                perm_map.setdefault(r_col, []).append(q_col)
+    try:
+        if K_ref <= K_query:
+            opt_obj, idxQ2P = align_ILP(ref_Q, query_Q)
+            if idxQ2P is not None and len(idxQ2P) > 0:
+                perm_map: dict = {}
+                for q_col, r_col in enumerate(idxQ2P):
+                    perm_map.setdefault(r_col, []).append(q_col)
 
-            perm = []
-            used_q = set()
-            for r in range(K_ref):
-                if r in perm_map:
-                    q_cols = perm_map[r]
-                    if len(q_cols) > 1:
-                        q_cols.sort(key=lambda j: float(np.dot(ref_Q[:, r] - query_Q[:, j], ref_Q[:, r] - query_Q[:, j])))
-                    perm.append(q_cols[0])
-                    used_q.add(q_cols[0])
+                perm = []
+                used_q = set()
+                for r in range(K_ref):
+                    if r in perm_map:
+                        q_cols = perm_map[r]
+                        if len(q_cols) > 1:
+                            q_cols.sort(key=lambda j: float(np.dot(ref_Q[:, r] - query_Q[:, j], ref_Q[:, r] - query_Q[:, j])))
+                        perm.append(q_cols[0])
+                        used_q.add(q_cols[0])
 
-            for j in range(K_query):
-                if j not in used_q:
-                    perm.append(j)
+                for j in range(K_query):
+                    if j not in used_q:
+                        perm.append(j)
 
-            return np.array(perm, dtype=int)
-    else:
-        opt_obj, idxP2Q = align_ILP(query_Q, ref_Q)
-        if idxP2Q is not None and len(idxP2Q) > 0:
-            perm = []
-            used_q = set()
-            for i in range(K_ref):
-                q_j = idxP2Q[i]
-                if q_j not in used_q:
-                    perm.append(q_j)
-                    used_q.add(q_j)
+                return np.array(perm, dtype=int)
+        else:
+            opt_obj, idxP2Q = align_ILP(query_Q, ref_Q)
+            if idxP2Q is not None and len(idxP2Q) > 0:
+                perm = []
+                used_q = set()
+                for i in range(K_ref):
+                    q_j = idxP2Q[i]
+                    if q_j not in used_q:
+                        perm.append(q_j)
+                        used_q.add(q_j)
 
-            for j in range(K_query):
-                if j not in used_q:
-                    perm.append(j)
+                for j in range(K_query):
+                    if j not in used_q:
+                        perm.append(j)
 
-            return np.array(perm, dtype=int)
+                return np.array(perm, dtype=int)
+    except Exception:
+        return align_clusters_greedy(ref_Q, query_Q)
 
-    return np.arange(K_query, dtype=int)
+    return align_clusters_greedy(ref_Q, query_Q)
 
 
 def plot_multirun_clumppling(

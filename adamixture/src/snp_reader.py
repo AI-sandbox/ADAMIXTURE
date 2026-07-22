@@ -499,6 +499,16 @@ class SNPReader:
                     autosomes,
                     orig_filepath=str(pgen_file),
                 )
+                if not np.all(keep_mask):
+                    G_packed = G_packed[keep_mask]
+                    M = G_packed.shape[0]
+                if M == 0:
+                    log.error(
+                        "    Error: No variants found in dataset matching chromosome filters.\n"
+                        "    Please check if your chromosome filter (--chrom_mode, --specific_chrom, --autosomes) "
+                        "excluded all variants, or if the input dataset has no variants."
+                    )
+                    sys.exit(1)
                 return torch.from_numpy(G_packed), N, M
 
             G_np, N, M = read_pgen_file(
@@ -508,6 +518,16 @@ class SNPReader:
                 autosomes,
                 orig_filepath=str(pgen_file),
             )
+            if not np.all(keep_mask):
+                G_np = G_np[keep_mask]
+                M = G_np.shape[0]
+            if M == 0:
+                log.error(
+                    "    Error: No variants found in dataset matching chromosome filters.\n"
+                    "    Please check if your chromosome filter (--chrom_mode, --specific_chrom, --autosomes) "
+                    "excluded all variants, or if the input dataset has no variants."
+                )
+                sys.exit(1)
             return G_np, N, M
 
     def _check_files_exist(self, file: str, extensions: list[str], match_any: bool = False):

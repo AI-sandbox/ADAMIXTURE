@@ -79,7 +79,8 @@ Here is an example of a multi-level plot of Oceania populations generated after 
 
 ### Clumppling Mode Graph (`--clumppling`)
 
-Due to the stochastic nature of optimization algorithms and the underlying complexity of genomic datasets, multiple distinct clustering solutions (*modes*) can equally well explain the data for a given $K$. Pass the **`--clumppling`** flag to identify these consensus modes across replicate runs and visualize their hierarchical alignment tree and membership graphs across $K$ values:
+> [!NOTE]
+> The **`--clumppling`** mode graph visualization and alignment features are available for Python versions up to **3.13** (`python_version < 3.14`).
 
 ```console
 $ adamixture-plot \

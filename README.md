@@ -20,8 +20,8 @@
 
 ## System requirements
 
-### Hardware requirements
-The successful usage of this package requires a computer with enough RAM to be able to handle the large datasets the network has been designed to work with. Due to this, we recommend using compute clusters whenever available to avoid memory issues.
+### Hardware & Platform compatibility
+ADAMIXTURE runs cross-platform on **Linux**, **macOS**, and **Windows**, supporting CPU computation as well as GPU acceleration on **NVIDIA GPUs** (CUDA) and **Apple Silicon** (MPS).
 
 ### Software requirements
 
