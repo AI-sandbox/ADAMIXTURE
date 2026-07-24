@@ -1,7 +1,7 @@
 # cython: language_level=3, boundscheck=False, wraparound=False, initializedcheck=False, cdivision=True
 from cython.parallel import parallel, prange
 from libc.stdlib cimport calloc, free, malloc, realloc, atoi
-from libc.stdint cimport uint8_t, uint32_t, uintptr_t, int32_t, uint64_t
+from libc.stdint cimport uint8_t, uint16_t, uint32_t, uintptr_t, int8_t, int16_t, int32_t, uint64_t
 
 import gzip
 import io
@@ -822,6 +822,287 @@ def read_vcf_file_packed(str filepath, int chunk_size, str chrom_mode, int autos
     if start_var_idx != n_variants:
         raise ValueError(f"VCF variant count mismatch: expected {n_variants}, parsed {start_var_idx}")
 
+    return np.asarray(G_packed), n_samples, n_variants
+
+
+# Read BCF to uint8 matrix
+cdef inline tuple _bcf_parse_typed_int(const uint8_t* data, Py_ssize_t pos) noexcept:
+    cdef uint8_t b = data[pos]
+    cdef uint8_t t = b & 0x0f
+    cdef int l = (b >> 4) & 0x0f
+    pos += 1
+    if l == 15:
+        l_val, pos = _bcf_parse_typed_int(data, pos)
+        l = l_val
+    cdef int val = 0
+    if t == 1:
+        val = <int8_t>data[pos]
+        pos += 1
+    elif t == 2:
+        val = <int16_t>(data[pos] | (data[pos+1] << 8))
+        pos += 2
+    elif t == 3:
+        val = <int32_t>(data[pos] | (data[pos+1] << 8) | (data[pos+2] << 16) | (data[pos+3] << 24))
+        pos += 4
+    return val, pos
+
+cdef inline tuple _bcf_parse_descriptor(const uint8_t* data, Py_ssize_t pos) noexcept:
+    cdef uint8_t b = data[pos]
+    cdef uint8_t t = b & 0x0f
+    cdef int l = (b >> 4) & 0x0f
+    pos += 1
+    if l == 15:
+        l, pos = _bcf_parse_typed_int(data, pos)
+    cdef int sz = 1 if (t == 1 or t == 7) else (2 if t == 2 else 4)
+    return l, t, sz, pos
+
+def read_bcf_file(bytes bcf_bytes, str chrom_mode, int autosomes, specific_chrom=None):
+    """
+    Description:
+    Reads a BCF binary dataset (decompressed bytes) into a uint8 matrix.
+
+    Args:
+        bcf_bytes (bytes): Raw BCF binary stream (decompressed BGZF/gzip).
+        chrom_mode (str): Chromosome filter mode ("all" or "autosomes").
+        autosomes (int): Number of autosomes kept when chrom_mode is "autosomes".
+        specific_chrom (list): Specific chromosomes filter list.
+
+    Returns:
+        tuple (G, N, M):
+            G: np.ndarray[uint8, 2] genotype matrix.
+            N: number of samples.
+            M: number of variants.
+    """
+    if not bcf_bytes or len(bcf_bytes) < 9:
+        raise ValueError("Invalid or empty BCF data")
+
+    if bcf_bytes[:5] != b"BCF\x02\x02" and bcf_bytes[:5] != b"BCF\x02\x01":
+        raise ValueError("Invalid BCF magic header")
+
+    import struct
+
+    cdef Py_ssize_t data_len = len(bcf_bytes)
+    cdef const uint8_t* c_data = <const uint8_t*>bcf_bytes
+    cdef uint32_t l_text = struct.unpack("<I", bcf_bytes[5:9])[0]
+
+    if 9 + l_text > data_len:
+        raise ValueError("Malformed BCF: header text truncated")
+
+    header_text = bcf_bytes[9 : 9 + l_text].decode("utf-8", errors="ignore")
+
+    contigs = {}
+    cdef int c_idx = 0
+    samples = []
+
+    for line in header_text.splitlines():
+        if line.startswith("##contig="):
+            if "ID=" in line:
+                id_str = line.split("ID=")[1].split(",")[0].split(">")[0]
+                contigs[c_idx] = id_str
+                c_idx += 1
+        elif line.startswith("#CHROM") or line.startswith("#chrom"):
+            parts = line.split("\t")
+            samples = parts[9:] if len(parts) > 9 else []
+
+    cdef Py_ssize_t n_samples = len(samples)
+    if n_samples <= 0:
+        raise ValueError("BCF header contains no samples")
+
+    cdef bint keep_all = chrom_mode == "all"
+    cdef bint has_specific = False
+    cdef set allowed_nums = set()
+    cdef set allowed_strs = set()
+
+    if chrom_mode not in ("all", "autosomes"):
+        raise ValueError("chrom_mode must be 'all' or 'autosomes'")
+
+    if chrom_mode == "autosomes" and specific_chrom:
+        has_specific = True
+        for item in specific_chrom:
+            if isinstance(item, int):
+                allowed_nums.add(item)
+                allowed_strs.add(str(item))
+                allowed_strs.add(f"chr{item}")
+            else:
+                s_lower = str(item).strip().lower()
+                allowed_strs.add(s_lower)
+                if s_lower.startswith("chr"):
+                    bare = s_lower[3:]
+                    allowed_strs.add(bare)
+                    if bare.isdigit():
+                        allowed_nums.add(int(bare))
+                else:
+                    allowed_strs.add(f"chr{s_lower}")
+                    if s_lower.isdigit():
+                        allowed_nums.add(int(s_lower))
+    elif chrom_mode == "autosomes" and autosomes < 1:
+        raise ValueError("autosomes must be at least 1")
+
+    # Pass 1: scan records and filter chromosomes
+    cdef Py_ssize_t offset = 9 + l_text
+    cdef Py_ssize_t l_shared, l_indiv, base
+    cdef int32_t chrom_id
+    cdef list kept_offsets = []
+    cdef Py_ssize_t skipped_variants = 0
+
+    while offset + 8 <= data_len:
+        l_shared = struct.unpack("<I", bcf_bytes[offset:offset+4])[0]
+        l_indiv = struct.unpack("<I", bcf_bytes[offset+4:offset+8])[0]
+        base = offset + 8
+
+        if base + 4 > data_len:
+            break
+
+        chrom_id = struct.unpack("<i", bcf_bytes[base:base+4])[0]
+        chrom_name = contigs.get(chrom_id, str(chrom_id))
+
+        chrom_bytes = chrom_name.encode("utf-8")
+        if _keep_chromosome_line(chrom_bytes, keep_all, autosomes, has_specific, allowed_nums, allowed_strs):
+            kept_offsets.append(offset)
+        else:
+            skipped_variants += 1
+
+        offset += 8 + l_shared + l_indiv
+
+    cdef Py_ssize_t n_variants = len(kept_offsets)
+    if n_variants <= 0:
+        raise ValueError("No variants found in BCF file after chromosome filtering")
+
+    if skipped_variants > 0:
+        import logging
+        if has_specific:
+            logging.getLogger(__name__).warning(f"        Warning: Skipped {skipped_variants} SNPs outside specific chromosomes {specific_chrom}.")
+        elif chrom_mode == "autosomes":
+            logging.getLogger(__name__).warning(f"        Warning: Skipped {skipped_variants} SNPs outside autosomes 1..{autosomes}.")
+        else:
+            logging.getLogger(__name__).warning(f"        Warning: Skipped {skipped_variants} SNPs excluded by chromosome filter.")
+
+    cdef int target_gt_idx = -1
+    for line in header_text.splitlines():
+        if line.startswith("##FORMAT=") and "ID=GT" in line:
+            if "IDX=" in line:
+                try:
+                    target_gt_idx = int(line.split("IDX=")[1].split(",")[0].split(">")[0])
+                except ValueError:
+                    pass
+            break
+
+    cdef uint8_t[:, ::1] G = np.empty((n_variants, n_samples), dtype=np.uint8)
+
+    # Pass 2: decode genotypes for kept variants
+    cdef Py_ssize_t var_idx, rec_offset, indiv_offset, fmt_pos, values_pos
+    cdef uint32_t n_fmt
+    cdef int fmt_idx, n_v, t_code, t_sz
+    cdef Py_ssize_t gt_offset
+    cdef int n_vals, type_sz
+    cdef Py_ssize_t s
+    cdef int a1, a2
+    cdef const int8_t* p8
+    cdef const int16_t* p16
+    cdef const int32_t* p32
+
+    for var_idx in range(n_variants):
+        rec_offset = kept_offsets[var_idx]
+        l_shared = struct.unpack("<I", bcf_bytes[rec_offset:rec_offset+4])[0]
+        base = rec_offset + 8
+        n_fmt = struct.unpack("<I", bcf_bytes[base+20:base+24])[0] >> 24
+        indiv_offset = base + l_shared
+        fmt_pos = indiv_offset
+
+        gt_offset = -1
+        n_vals = 2
+        type_sz = 1
+
+        for _ in range(n_fmt):
+            fmt_idx, fmt_pos = _bcf_parse_typed_int(c_data, fmt_pos)
+            n_v, t_code, t_sz, values_pos = _bcf_parse_descriptor(c_data, fmt_pos)
+            if fmt_idx == target_gt_idx or target_gt_idx < 0:  # GT field
+                gt_offset = values_pos
+                n_vals = n_v
+                type_sz = t_sz
+                break
+            fmt_pos = values_pos + n_samples * n_v * t_sz
+
+        if gt_offset < 0 or gt_offset + n_samples * n_vals * type_sz > data_len:
+            for s in range(n_samples):
+                G[var_idx, s] = 3
+            continue
+
+        if type_sz == 1:
+            p8 = <const int8_t*>(c_data + gt_offset)
+            for s in range(n_samples):
+                if n_vals >= 2:
+                    a1 = (p8[s * n_vals] >> 1) - 1
+                    a2 = (p8[s * n_vals + 1] >> 1) - 1
+                    if a1 < 0 or a2 < 0:
+                        G[var_idx, s] = 3
+                    else:
+                        G[var_idx, s] = <uint8_t>(a1 + a2)
+                else:
+                    a1 = (p8[s * n_vals] >> 1) - 1
+                    if a1 < 0:
+                        G[var_idx, s] = 3
+                    else:
+                        G[var_idx, s] = <uint8_t>a1
+        elif type_sz == 2:
+            p16 = <const int16_t*>(c_data + gt_offset)
+            for s in range(n_samples):
+                if n_vals >= 2:
+                    a1 = (p16[s * n_vals] >> 1) - 1
+                    a2 = (p16[s * n_vals + 1] >> 1) - 1
+                    if a1 < 0 or a2 < 0:
+                        G[var_idx, s] = 3
+                    else:
+                        G[var_idx, s] = <uint8_t>(a1 + a2)
+                else:
+                    a1 = (p16[s * n_vals] >> 1) - 1
+                    if a1 < 0:
+                        G[var_idx, s] = 3
+                    else:
+                        G[var_idx, s] = <uint8_t>a1
+        else:
+            p32 = <const int32_t*>(c_data + gt_offset)
+            for s in range(n_samples):
+                if n_vals >= 2:
+                    a1 = (p32[s * n_vals] >> 1) - 1
+                    a2 = (p32[s * n_vals + 1] >> 1) - 1
+                    if a1 < 0 or a2 < 0:
+                        G[var_idx, s] = 3
+                    else:
+                        G[var_idx, s] = <uint8_t>(a1 + a2)
+                else:
+                    a1 = (p32[s * n_vals] >> 1) - 1
+                    if a1 < 0:
+                        G[var_idx, s] = 3
+                    else:
+                        G[var_idx, s] = <uint8_t>a1
+
+    return np.asarray(G), n_samples, n_variants
+
+def read_bcf_file_packed(bytes bcf_bytes, str chrom_mode, int autosomes, specific_chrom=None):
+    """
+    Description:
+    Reads a BCF binary dataset directly into a 2-bit packed matrix for GPU processing.
+
+    Args:
+        bcf_bytes (bytes): Raw BCF binary stream (decompressed BGZF/gzip).
+        chrom_mode (str): Chromosome filter mode ("all" or "autosomes").
+        autosomes (int): Number of autosomes kept when chrom_mode is "autosomes".
+        specific_chrom (list): Specific chromosomes filter list.
+
+    Returns:
+        tuple (G_packed, N, M):
+            G_packed: np.ndarray[uint8, 2] (ceil(M/4) x N).
+            N: number of samples.
+            M: number of variants.
+    """
+    cdef uint8_t[:, ::1] G
+    cdef Py_ssize_t n_samples, n_variants, M_bytes
+    G_np, n_samples, n_variants = read_bcf_file(bcf_bytes, chrom_mode, autosomes, specific_chrom=specific_chrom)
+    G = G_np
+    M_bytes = (n_variants + 3) // 4
+    cdef uint8_t[:, ::1] G_packed = np.zeros((M_bytes, n_samples), dtype=np.uint8)
+    pack_genotypes(<uintptr_t>&G[0, 0], <uintptr_t>&G_packed[0, 0], n_variants, n_samples, M_bytes)
     return np.asarray(G_packed), n_samples, n_variants
 
 

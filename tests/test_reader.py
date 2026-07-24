@@ -20,6 +20,9 @@ READER_CASES = [
     ("demo_data.vcf", "vcf"),
     ("demo_data.vcf.gz", "vcf_gz"),
     ("demo_data.vcf.zst", "vcf_zst"),
+    ("demo_data.bcf", "bcf"),
+    ("demo_data.bcf.gz", "bcf_gz"),
+    ("demo_data.bcf.zst", "bcf_zst"),
 ]
 
 
@@ -72,7 +75,7 @@ def test_reader_packed_matches_expected(filename: str, label: str) -> None:
 
 @pytest.mark.parametrize(
     "filename",
-    ["demo_data.bed", "demo_data.vcf", "demo_data.pgen"],
+    ["demo_data.bed", "demo_data.vcf", "demo_data.pgen", "demo_data.bcf"],
 )
 def test_specific_chrom_overrides_autosomes(filename: str) -> None:
     # Single chromosome as int/str list
@@ -127,7 +130,7 @@ def test_specific_chrom_overrides_autosomes(filename: str) -> None:
 
 @pytest.mark.parametrize(
     "filename",
-    ["demo_data.bed", "demo_data.vcf", "demo_data.pgen"],
+    ["demo_data.bed", "demo_data.vcf", "demo_data.pgen", "demo_data.bcf"],
 )
 def test_zero_snps_exits_with_error(filename: str) -> None:
     with pytest.raises(SystemExit) as exc_info:

@@ -18,6 +18,8 @@ from .utils_c import (
     get_mean_packed,
     get_mean_unpacked,
     pack_genotypes,
+    read_bcf_file,
+    read_bcf_file_packed,
     read_bed,
     read_bed_packed,
     read_pgen_file,
@@ -36,7 +38,7 @@ class SNPReader:
     Wrapper to read genotype data from several formats.
     """
     _COMPRESSION_EXTENSIONS = (".gz", ".zst")
-    _GENOTYPE_EXTENSIONS = (".bed", ".vcf", ".pgen", ".psam", ".pvar", ".fam", ".bim")
+    _GENOTYPE_EXTENSIONS = (".bed", ".vcf", ".pgen", ".psam", ".pvar", ".fam", ".bim", ".bcf")
 
     def _open_zst(self, path: Path, mode: str):
         try:
@@ -46,6 +48,63 @@ class SNPReader:
                 "Reading .zst-compressed genotype files requires the 'zstandard' package."
             ) from exc
         return zstd.open(path, mode, encoding="utf-8" if "t" in mode else None)
+
+    def _read_bgzf_or_gzip(self, filename: str | Path) -> bytes:
+        """
+        Description:
+        Reads a BGZF-compressed file, falling back to generic gzip.
+
+        Args:
+            filename (str | Path): Input file path.
+
+        Returns:
+            bytes: Decompressed bytes stream.
+        """
+        import zlib
+        chunks = []
+        with open(filename, "rb") as handle:
+            while True:
+                header = handle.read(12)
+                if not header:
+                    return b"".join(chunks)
+                if len(header) < 12 or header[:3] != b"\x1f\x8b\x08" or not (header[3] & 4):
+                    break
+
+                xlen = int.from_bytes(header[10:12], "little")
+                extra = handle.read(xlen)
+                if len(extra) != xlen:
+                    raise EOFError("Unexpected end of BGZF extra header.")
+
+                extra_offset = 0
+                block_size = None
+                while extra_offset + 4 <= xlen:
+                    subfield_len = int.from_bytes(extra[extra_offset + 2:extra_offset + 4], "little")
+                    if extra_offset + 4 + subfield_len > xlen:
+                        raise ValueError("Malformed BGZF extra header: subfield length extends beyond XLEN.")
+                    if extra[extra_offset:extra_offset + 2] == b"BC" and subfield_len == 2:
+                        block_size = int.from_bytes(extra[extra_offset + 4:extra_offset + 6], "little") + 1
+                        break
+                    extra_offset += 4 + subfield_len
+
+                if block_size is None:
+                    break
+
+                remaining = block_size - 12 - xlen
+                if remaining < 8:
+                    raise ValueError("Malformed BGZF block: block size is too small.")
+
+                block_tail = handle.read(remaining)
+                if len(block_tail) != remaining:
+                    raise EOFError("Unexpected end of BGZF block.")
+
+                compressed = block_tail[:-8]
+                if compressed:
+                    chunk = zlib.decompress(compressed, -15)
+                    if chunk:
+                        chunks.append(chunk)
+
+        with gzip.open(filename, "rb") as handle:
+            return handle.read()
 
     def _open_text(self, path: Path):
         if path.suffix == ".gz":
@@ -530,6 +589,70 @@ class SNPReader:
                 sys.exit(1)
             return G_np, N, M
 
+    def _read_bcf(
+        self,
+        file: str,
+        packed: bool,
+        chunk_size: int,
+        chrom_mode: str,
+        autosomes: int,
+        specific_chrom: list | tuple | str | int | set | None = None,
+    ) -> tuple[torch.Tensor | np.ndarray, int, int]:
+        """
+        Description:
+        Internal reader for BCF files using Cython-based parser.
+        Handles both regular (uint8) and packed (2-bit) formats for GPU acceleration.
+
+        Args:
+            file (str): Path to the BCF file.
+            packed (bool): If True, returns a 2-bit packed torch.Tensor. Defaults to False.
+            chunk_size (int): Size of chunks to read.
+            chrom_mode (str): Chromosome filter mode ("all" or "autosomes").
+            autosomes (int): Number of autosomes kept when chrom_mode is "autosomes".
+            specific_chrom (list): Specific chromosomes filter list.
+
+        Returns:
+            tuple[torch.Tensor | np.ndarray, int, int]: (genotype matrix, N individuals, M SNPs)
+        """
+        log.info("    Input format is BCF.")
+
+        base_path = self._get_base_path(file)
+        bcf_file = self._resolve_existing(base_path, [".bcf"], requested_file=file)
+        if bcf_file is None:
+            log.error(f"    Error: BCF file not found for {base_path}")
+            sys.exit(1)
+
+        norm_spec = self._normalize_specific_chrom(specific_chrom)
+        with self._materialize_binary(bcf_file) as readable_bcf:
+            bcf_bytes = self._read_bgzf_or_gzip(readable_bcf)
+
+        try:
+            if not packed:
+                G, N, M = read_bcf_file(
+                    bcf_bytes,
+                    chrom_mode=chrom_mode,
+                    autosomes=autosomes,
+                    specific_chrom=norm_spec,
+                )
+                return np.ascontiguousarray(G), N, M
+            else:
+                log.info("        Reading BCF in packed 2-bit format for GPU use.")
+                G_packed_np, N, M = read_bcf_file_packed(
+                    bcf_bytes,
+                    chrom_mode=chrom_mode,
+                    autosomes=autosomes,
+                    specific_chrom=norm_spec,
+                )
+                G_packed = torch.from_numpy(G_packed_np)
+                return G_packed, N, M
+        except ValueError as err:
+            log.error(
+                f"    Error: {err}\n"
+                "    Please check if your chromosome filter (--chrom_mode, --specific_chrom, --autosomes) "
+                "excluded all variants, or if the input dataset has no variants."
+            )
+            sys.exit(1)
+
     def _check_files_exist(self, file: str, extensions: list[str], match_any: bool = False):
         """
         Description:
@@ -612,8 +735,13 @@ class SNPReader:
             G, N, M = self._read_pgen(
                 file, packed, chunk_size, chrom_mode, autosomes, specific_chrom=specific_chrom
             )
+        elif '.bcf' in file_extensions:
+            self._check_files_exist(file, ['.bcf'], match_any=True)
+            G, N, M = self._read_bcf(
+                file, packed, chunk_size, chrom_mode, autosomes, specific_chrom=specific_chrom
+            )
         else:
-            log.error("    Invalid format. Unrecognized file format. Make sure file ends with .bed, .pgen or .vcf .")
+            log.error("    Invalid format. Unrecognized file format. Make sure file ends with .bed, .pgen, .vcf or .bcf .")
             sys.exit(1)
 
         if not packed:
