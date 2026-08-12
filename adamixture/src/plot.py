@@ -5,13 +5,24 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
-from PIL import Image
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
 logging.getLogger("matplotlib").setLevel(logging.WARNING)
 log = logging.getLogger(__name__)
 
 _MAX_LABEL_LEN = 25
+
+
+def _require_pillow_image():
+    """Return PIL.Image with an actionable error if Pillow is unavailable."""
+    try:
+        from PIL import Image
+    except ImportError as exc:
+        raise RuntimeError(
+            "Pillow is required to compose Clumppling mode graphs and should "
+            "be installed transitively with matplotlib."
+        ) from exc
+    return Image
 
 
 def _draw_brackets(ax, items: list[dict], y_bracket: float, fontsize: int = 6) -> None:
@@ -608,8 +619,8 @@ def align_clusters_clumppling(ref_Q: np.ndarray, query_Q: np.ndarray) -> np.ndar
     """
     Description:
     Aligns query cluster columns to reference cluster columns using Clumppling's
-    Integer Linear Programming (ILP) optimization method. If Clumppling is not
-    available or fails to import, it falls back to greedy matching.
+    optimal cluster-matching formulation. If the alignment fails, it falls back
+    to greedy matching.
 
     Args:
         ref_Q (np.ndarray): Reference Q matrix.
@@ -618,14 +629,7 @@ def align_clusters_clumppling(ref_Q: np.ndarray, query_Q: np.ndarray) -> np.ndar
     Returns:
         np.ndarray: Permutation array for the query_Q columns.
     """
-    try:
-        import contextlib
-        import io
-
-        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
-            from clumppling.core import align_ILP
-    except Exception:
-        return align_clusters_greedy(ref_Q, query_Q)
+    from .clumppling import align_ILP
 
     K_ref = ref_Q.shape[1]
     K_query = query_Q.shape[1]
@@ -698,7 +702,7 @@ def plot_multirun_clumppling(
     Returns:
         None
     """
-    from clumppling.plot import load_default_cmap, parse_custom_cmap, plot_memberships_list
+    from .clumppling import load_default_cmap, parse_custom_cmap, plot_memberships_list
 
     max_k = max(run['K'] for run in all_qs)
     if custom_colors and len(custom_colors) >= max_k:
@@ -754,41 +758,29 @@ def plot_clumppling_mode_graph(
         comm_max (float): Maximum cost threshold for mode separation.
         test_comm (bool): Whether to perform statistical test for community structure.
         cd_res (float): Resolution parameter for Louvain community detection.
-        cd_method (str): Community detection method ('louvain', 'leiden', 'custom').
+        cd_method (str): Community detection method ('louvain').
 
     Returns:
         None
     """
-    import contextlib
-    import io
     import tempfile
 
-    # Suppress cdlib "Note: to be able to use all crisp methods..." warnings
-    with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
-        from clumppling.core import (
-            align_across_k,
-            align_within_k_all_K,
-            detect_modes_all_K,
-            extract_modes_all_K,
-            reorderQ_across_k,
-        )
-        from clumppling.parseInput import extract_meta_input
-        from clumppling.plot import (
-            load_default_cmap,
-            parse_custom_cmap,
-            plot_alignment_graph,
-            plot_graph,
-        )
-        from clumppling.utils import get_mode_prop, get_modes_all_K
+    from .clumppling import (
+        align_across_k,
+        align_within_k_all_K,
+        detect_modes_all_K,
+        extract_modes_all_K,
+        get_mode_prop,
+        get_modes_all_K,
+        load_default_cmap,
+        parse_custom_cmap,
+        plot_alignment_graph,
+        plot_graph,
+        reorderQ_across_k,
+    )
 
-    # Silence Clumppling loggers
-    for _name in list(logging.Logger.manager.loggerDict):
-        if _name.startswith("clumppling"):
-            logging.getLogger(_name).setLevel(logging.WARNING)
-
+    Image = _require_pillow_image()
     out_path_obj = Path(output_path)
-    out_dir = out_path_obj.parent
-    base_name = out_path_obj.stem
 
     if labels is not None and len(labels) > 0:
         label_order_map = {lbl: idx for idx, lbl in enumerate(dict.fromkeys(labels))}
@@ -797,70 +789,37 @@ def plot_clumppling_mode_graph(
         labels = [labels[i] for i in sort_idx]
         all_qs = [{'id': item['id'], 'K': item['K'], 'Q': item['Q'][sort_idx, :]} for item in all_qs]
 
+    grouped_by_k: dict[int, list[np.ndarray]] = {}
+    for item in all_qs:
+        grouped_by_k.setdefault(item['K'], []).append(item['Q'])
+
+    K_range = sorted(grouped_by_k.keys())
+    K_max = max(K_range)
+    n_runs_per_K = [len(grouped_by_k[K]) for K in K_range]
+
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_path = Path(tmp_dir)
-        processed_input_dir = tmp_path / "input"
-        processed_input_dir.mkdir(parents=True, exist_ok=True)
 
-        grouped_by_k: dict[int, list[np.ndarray]] = {}
-        for item in all_qs:
-            K = item['K']
-            grouped_by_k.setdefault(K, []).append(item['Q'])
-
-        K_range = sorted(grouped_by_k.keys())
-        K_max = max(K_range)
-
-        global_id = 1
-        metadata = []
-        for K in K_range:
-            q_list = grouped_by_k[K]
-            for rep_idx, Q in enumerate(q_list, 1):
-                q_filename = f"{global_id}_K{K}R{rep_idx}.Q"
-                out_q_path = processed_input_dir / q_filename
-                np.savetxt(out_q_path, Q, delimiter=' ')
-                metadata.append(f"{out_q_path},{out_q_path},{K}")
-                global_id += 1
-
-        meta_out_path = processed_input_dir / "input_meta.txt"
-        with open(meta_out_path, "w") as f:
-            f.write("\n".join(metadata))
-
-        Q_names, _, K2IDs = extract_meta_input(str(processed_input_dir))
-        n_runs_per_K = [len(K2IDs[K]) for K in K_range]
-
-        clump_out_dir = tmp_path / "clump_out"
-        clump_out_dir.mkdir(parents=True, exist_ok=True)
-
-        alignment_withinK_list, cost_withinK_list = align_within_k_all_K(
-            Q_names, K_range, K2IDs, qfile_dir=str(processed_input_dir), output_dir=str(clump_out_dir)
-        )
+        alignment_withinK_list, cost_withinK_list = align_within_k_all_K(K_range, grouped_by_k)
 
         modes_all_K_list, cost_matrices_list = detect_modes_all_K(
-            K_range, cost_withinK_list, Q_names, K2IDs,
+            K_range, cost_withinK_list, n_runs_per_K,
             comm_min=comm_min, comm_max=comm_max, test_comm=test_comm,
             res=cd_res, method=cd_method
         )
 
-        modes_dir = clump_out_dir / "modes"
-        extract_res = extract_modes_all_K(
-            K_range, K2IDs, Q_names, cost_matrices_list, modes_all_K_list,
-            alignment_withinK_list, str(processed_input_dir), str(modes_dir)
+        cd_res_list = extract_modes_all_K(
+            K_range, grouped_by_k, cost_matrices_list, modes_all_K_list, alignment_withinK_list
         )
 
-        if isinstance(extract_res, tuple):
-            cd_res_list = extract_res[0]
-        else:
-            cd_res_list = extract_res
-
-        mode_names_list, Q_rep_modes_list, Q_avg_modes_list = get_modes_all_K(K_range, cd_res_list)
+        mode_names_list, Q_rep_modes_list, _ = get_modes_all_K(K_range, cd_res_list)
         mode_sizes = get_mode_prop(cd_res_list, 'Size')
         mode_sims = get_mode_prop(cd_res_list, 'Performance')
 
-        alignment_acrossK, cost_acrossK, best_acrossK_out, major_acrossK_out = align_across_k(
+        alignment_acrossK, cost_acrossK, anchor_pairs = align_across_k(
             K_range, Q_rep_modes_list, mode_names_list, merge=True
         )
 
-        anchor_pairs = best_acrossK_out["Best Pair"].tolist()
         aligned_Qs_allK, all_modes_alignment = reorderQ_across_k(
             K_range, Q_rep_modes_list, mode_names_list, alignment_acrossK, anchor_pairs
         )
@@ -869,8 +828,6 @@ def plot_clumppling_mode_graph(
             cmap = parse_custom_cmap(custom_colors, K_max)
         else:
             cmap = load_default_cmap(K_max)
-
-
 
         y_aspect = 3 if K_max < 5 else 3 + K_max / 5
         wspace_padding = 1.3 if K_max < 8 else 1.15

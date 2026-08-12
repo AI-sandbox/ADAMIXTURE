@@ -1,4 +1,4 @@
-from .cython import br_qn, bvls, em, snp_reader, sqp, tools
+from .cython import br_qn, bvls, clumppling, em, snp_reader, sqp, tools
 from .cython.br_qn import (
     deviance_squared_sum,
     deviance_squared_sum_i32,
@@ -34,6 +34,7 @@ from .cython.tools import (
 __all__ = [
     "br_qn",
     "bvls",
+    "clumppling",
     "em",
     "snp_reader",
     "tools",

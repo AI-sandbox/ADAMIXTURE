@@ -129,7 +129,7 @@ $ adamixture -k 8 --cv --data_path data.bed --save_dir out/ --name test
 
 ## Plotting
 
-By default, ADAMIXTURE automatically generates a `png` plot at `300` DPI without needing any additional flags. Powered by [**Clumppling**](https://github.com/PopGenClustering/Clumppling), it automatically aligns clusters across runs and K values. → [Full documentation](docs/plotting.md)
+By default, ADAMIXTURE automatically generates a `png` plot at `300` DPI without needing any additional flags. Following the method of [**Clumppling**](https://github.com/PopGenClustering/Clumppling), it automatically aligns clusters across runs and K values. → [Full documentation](docs/plotting.md)
 
 Plots can include hierarchical population labels if you provide the arguments (`--labels`, `--labels2`, `--labels3`).
 
@@ -214,6 +214,8 @@ Common issues and platform notes:
 ## License
 
 This project is licensed under the BSD 3-Clause License - see the [LICENSE](LICENSE) file for details.
+
+The cluster alignment and mode detection used for plotting are a port of [Clumppling](https://github.com/PopGenClustering/Clumppling) (MIT License, Xiran Liu et al.), reimplemented on NumPy and Cython in `adamixture/src/clumppling.py`.
 
 ## Cite
 

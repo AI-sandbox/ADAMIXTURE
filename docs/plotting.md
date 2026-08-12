@@ -1,6 +1,6 @@
 # Plotting
 
-ADAMIXTURE includes native support for generating high-quality visualizations of ancestry proportions. Powered by [**Clumppling**](https://github.com/PopGenClustering/Clumppling), it automatically aligns clusters across runs and K values using Integer Linear Programming (ILP) optimization and mode detection, ensuring that same-colored bars represent the same ancestral components across different subplots.
+ADAMIXTURE includes native support for generating high-quality visualizations of ancestry proportions. Following the method of [**Clumppling**](https://github.com/PopGenClustering/Clumppling), it automatically aligns clusters across runs and K values through optimal cluster matching and mode detection, ensuring that same-colored bars represent the same ancestral components across different subplots. The alignment and mode-detection routines are built into ADAMIXTURE, so no extra package is required.
 
 ## Single-run Plotting
 
@@ -50,7 +50,7 @@ When training across a sweep of $K$ values using `--min_k` and `--max_k`, you ca
 For comparing multiple runs or different $K$ values using existing results, use the `adamixture-plot` command.
 
 > [!NOTE]
-> This command is a standalone post-processing tool. It **does not retrain** the models; it automatically aligns existing `.Q` matrices provided in a **filemap** using **Clumppling**'s Integer Linear Programming (ILP) optimization for color consistency across runs.
+> This command is a standalone post-processing tool. It **does not retrain** the models; it automatically aligns existing `.Q` matrices provided in a **filemap** using **Clumppling**'s optimal cluster matching for color consistency across runs.
 
 ### Standard Multi-Run Plot (Default)
 
@@ -79,9 +79,6 @@ Here is an example of a multi-level plot of Oceania populations generated after 
 
 ### Clumppling Mode Graph (`--clumppling`)
 
-> [!NOTE]
-> The **`--clumppling`** mode graph visualization and alignment features are available for Python versions up to **3.13** (`python_version < 3.14`).
-
 ```console
 $ adamixture-plot \
     --filemap project.filemap \
@@ -97,7 +94,7 @@ When **`--clumppling`** is enabled, you can fine-tune mode detection using the f
 | `--comm_min` | Minimum cost threshold for grouping runs into a single consensus mode (default: `1e-4`). |
 | `--comm_max` | Maximum cost threshold above which runs are separated into distinct modes (default: `1e-2`). |
 | `--cd_res` | Resolution parameter for Louvain community detection (default: `1.0`). Higher values ($\ge 1.5$) increase sensitivity to detect variant sub-modes. |
-| `--cd_method` | Community detection method (`louvain`, `leiden`, or `custom`, default: `louvain`). |
+| `--cd_method` | Community detection method (`louvain`, the only method available). |
 | `--no_test_comm` | Skip the statistical significance test for community structure, forcing direct community partitioning of replicates. |
 
 The `--clumppling` mode outputs a combined publication-ready figure containing:

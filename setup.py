@@ -132,6 +132,14 @@ extensions = [
         define_macros=common_macros
     ),
     Extension(
+        name="adamixture.src.utils_c.cython.clumppling",
+        sources=["adamixture/src/utils_c/cython/clumppling.pyx"],
+        extra_compile_args=compile_args,
+        extra_link_args=link_args,
+        include_dirs=[numpy.get_include()] + mac_include,
+        define_macros=common_macros
+    ),
+    Extension(
         name="adamixture.src.utils_c.cython.snp_reader",
         sources=["adamixture/src/utils_c/cython/snp_reader.pyx"],
         extra_compile_args=compile_args,
