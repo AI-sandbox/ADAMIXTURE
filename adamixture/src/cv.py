@@ -6,7 +6,7 @@ from argparse import Namespace
 import numpy as np
 import torch
 
-from ..model.br_qn import polish_br_qn
+from ..model.br_qn import polish_sqp_qn
 from .utils_c import (
     deviance_squared_sum,
     deviance_squared_sum_i32,
@@ -148,8 +148,8 @@ def _polish_fold(G: np.ndarray, P_init: np.ndarray, Q_init: np.ndarray,
                 M: int, N: int, K: int) -> tuple[np.ndarray, np.ndarray]:
     """
     Description:
-    Runs a fixed number of block-relaxation + ZAL quasi-Newton polishing
-    iterations on CPU, warm-started from the global P and Q estimates.
+    Runs three SQP + ZAL quasi-Newton polishing iterations on CPU,
+    warm-started from the global P and Q estimates.
 
     Args:
         G (np.ndarray): Genotype matrix with held-out entries masked as 3.
@@ -162,18 +162,10 @@ def _polish_fold(G: np.ndarray, P_init: np.ndarray, Q_init: np.ndarray,
     Returns:
         tuple[np.ndarray, np.ndarray]: Polished (P, Q) matrices after 3 BR-QN iterations.
     """
-    Q_hist = 3
-
-    # Preasignar los workspaces para la optimización Cython de ZAL QN
-    UtUmV_workspace = np.empty(Q_hist * (Q_hist + 1), dtype=np.float64)
-    coeff_workspace = np.empty(Q_hist, dtype=np.float64)
-
-    return polish_br_qn(
+    return polish_sqp_qn(
         G, P_init, Q_init, M, N, K,
         n_iters=3,
-        Q_hist=Q_hist,
-        UtUmV_workspace=UtUmV_workspace,
-        coeff_workspace=coeff_workspace
+        Q_hist=3,
     )
 
 def run_cross_validation(args: Namespace, G: np.ndarray, N: int, M: int, K: int,

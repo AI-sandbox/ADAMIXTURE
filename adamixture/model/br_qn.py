@@ -217,9 +217,32 @@ def polish_br_qn(G: np.ndarray, P_init: np.ndarray, Q_init: np.ndarray,
     return P, Q
 
 
+def polish_sqp_qn(G: np.ndarray, P_init: np.ndarray, Q_init: np.ndarray,
+                  M: int, N: int, K: int,
+                  n_iters: int = 3, Q_hist: int = 3) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Polishes a cross-validation fold with the same SQP + ZAL quasi-Newton
+    optimizer as the main BR-QN run. Early stopping is disabled so every fold
+    receives exactly ``n_iters`` iterations from its global-fit warm start.
+    """
+    P = np.array(P_init, dtype=np.float64, copy=True)
+    Q = np.array(Q_init, dtype=np.float64, copy=True)
+    return optimize_original(
+        G, P, Q,
+        max_iter=n_iters,
+        K=K,
+        M=M,
+        N=N,
+        tol=0.0,
+        Q_hist=Q_hist,
+        patience=n_iters + 1,
+        verbose=False,
+    )
+
+
 def optimize_original(G: np.ndarray, P: np.ndarray, Q: np.ndarray, max_iter: int,
                       K: int, M: int, N: int, tol: float, Q_hist: int,
-                      patience: int) -> tuple[np.ndarray, np.ndarray]:
+                      patience: int, verbose: bool = True) -> tuple[np.ndarray, np.ndarray]:
     """
     Description:
     Optimizes the P and Q matrices using the original ADMIXTURE algorithm on CPU:
@@ -236,6 +259,7 @@ def optimize_original(G: np.ndarray, P: np.ndarray, Q: np.ndarray, max_iter: int
         tol (float): Relative convergence tolerance.
         Q_hist (int): Depth of ZAL Quasi-Newton acceleration history.
         patience (int): Iterations without log-likelihood improvement before stopping.
+        verbose (bool): If True, log iteration progress and final likelihood.
 
     Returns:
         tuple[np.ndarray, np.ndarray]: Optimized (P, Q) matrices.
@@ -327,21 +351,25 @@ def optimize_original(G: np.ndarray, P: np.ndarray, Q: np.ndarray, max_iter: int
         else:
             wait = 0
 
-        log.info(
-            f"    Iteration {it}, "
-            f"Log-likelihood: {ll_new:.1f}, "
-            f"Time: {time.time() - it_start:.3f}s"
-        )
+        if verbose:
+            log.info(
+                f"    Iteration {it}, "
+                f"Log-likelihood: {ll_new:.1f}, "
+                f"Time: {time.time() - it_start:.3f}s"
+            )
 
         diff = ll_new - ll_prev_iter
         if abs(diff) < tol:
-            log.info(f"    Converged at iteration {it}.")
+            if verbose:
+                log.info(f"    Converged at iteration {it}.")
             break
         if wait >= patience:
-            log.info(f"    Converged at iteration {it} after {wait} iterations without improvement.")
+            if verbose:
+                log.info(f"    Converged at iteration {it} after {wait} iterations without improvement.")
             break
 
         ll_prev_iter = ll_new
 
-    log.info(f"\n    Final log-likelihood: {ll_best:.1f}")
+    if verbose:
+        log.info(f"\n    Final log-likelihood: {ll_best:.1f}")
     return P_best, Q_best
