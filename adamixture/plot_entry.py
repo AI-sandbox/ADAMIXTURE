@@ -163,7 +163,6 @@ def main() -> None:
     parser.add_argument('--comm_max', type=float, default=1e-2, help='Clumppling maximum cost threshold for mode separation (default: 1e-2)')
     parser.add_argument('--no_test_comm', action='store_true', help='Skip statistical test for community structure in Clumppling mode detection')
     parser.add_argument('--cd_res', type=float, default=1.0, help='Resolution parameter for community detection (default: 1.0)')
-    parser.add_argument('--cd_method', choices=['louvain'], default='louvain', help='Community detection method (default: louvain)')
 
     args = parser.parse_args()
 
@@ -263,7 +262,6 @@ def main() -> None:
             comm_max=args.comm_max,
             test_comm=not args.no_test_comm,
             cd_res=args.cd_res,
-            cd_method=args.cd_method,
         )
         return
 

@@ -180,7 +180,6 @@ def test_mode_graph_is_written_for_a_multi_k_filemap(tmp_path) -> None:
         comm_max=1e-2,
         test_comm=True,
         cd_res=1.0,
-        cd_method='louvain',
     )
 
     assert output_path.exists()

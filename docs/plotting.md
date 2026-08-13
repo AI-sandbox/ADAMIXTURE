@@ -94,7 +94,6 @@ When **`--clumppling`** is enabled, you can fine-tune mode detection using the f
 | `--comm_min` | Minimum cost threshold for grouping runs into a single consensus mode (default: `1e-4`). |
 | `--comm_max` | Maximum cost threshold above which runs are separated into distinct modes (default: `1e-2`). |
 | `--cd_res` | Resolution parameter for Louvain community detection (default: `1.0`). Higher values ($\ge 1.5$) increase sensitivity to detect variant sub-modes. |
-| `--cd_method` | Community detection method (`louvain`, the only method available). |
 | `--no_test_comm` | Skip the statistical significance test for community structure, forcing direct community partitioning of replicates. |
 
 The `--clumppling` mode outputs a combined publication-ready figure containing:

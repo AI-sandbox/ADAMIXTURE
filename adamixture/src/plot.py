@@ -739,7 +739,6 @@ def plot_clumppling_mode_graph(
     comm_max: float,
     test_comm: bool,
     cd_res: float,
-    cd_method: str,
 ) -> None:
     """
     Description:
@@ -758,7 +757,6 @@ def plot_clumppling_mode_graph(
         comm_max (float): Maximum cost threshold for mode separation.
         test_comm (bool): Whether to perform statistical test for community structure.
         cd_res (float): Resolution parameter for Louvain community detection.
-        cd_method (str): Community detection method ('louvain').
 
     Returns:
         None
@@ -805,7 +803,7 @@ def plot_clumppling_mode_graph(
         modes_all_K_list, cost_matrices_list = detect_modes_all_K(
             K_range, cost_withinK_list, n_runs_per_K,
             comm_min=comm_min, comm_max=comm_max, test_comm=test_comm,
-            res=cd_res, method=cd_method
+            res=cd_res
         )
 
         cd_res_list = extract_modes_all_K(

@@ -575,7 +575,7 @@ def louvain_communities(adj_mat: np.ndarray, resolution: float = 1.0, seed: int 
     return [int(c) for c in result]
 
 
-def detect_communities(cost_mat: np.ndarray, test_comm: bool = True, method: str = "louvain",
+def detect_communities(cost_mat: np.ndarray, test_comm: bool = True,
                        res: float = 1.0, min_threshold: float = 1e-4,
                        max_threshold: float = 1e-2) -> list[int]:
     """
@@ -586,7 +586,6 @@ def detect_communities(cost_mat: np.ndarray, test_comm: bool = True, method: str
     Args:
         cost_mat (np.ndarray): Square matrix of pairwise alignment costs.
         test_comm (bool): Whether to test for community structure before partitioning.
-        method (str): Community detection method; only 'louvain' is supported.
         res (float): Resolution parameter for community detection.
         min_threshold (float): Cost below which two runs are considered identical.
         max_threshold (float): Cost above which two runs are considered unrelated.
@@ -616,8 +615,6 @@ def detect_communities(cost_mat: np.ndarray, test_comm: bool = True, method: str
         log.debug("No significant community structure detected; returning a single mode.")
         return [0] * n_nodes
 
-    if method != "louvain":
-        raise ValueError(f"Unsupported community detection method '{method}'; only 'louvain' is available.")
     communities = louvain_communities(adj_mat, resolution=res)
     if not communities:
         return list(range(n_nodes))
@@ -646,7 +643,7 @@ def community_labels_to_modes(communities: list[int]) -> list[list[int]]:
 
 
 def detect_modes_all_K(K_range: list[int], cost_withinK_list: list[dict], n_runs_per_K: list[int],
-                       test_comm: bool = True, method: str = "louvain", res: float = 1.0,
+                       test_comm: bool = True, res: float = 1.0,
                        comm_min: float = 1e-4, comm_max: float = 1e-2) -> tuple[list, list]:
     """
     Description:
@@ -657,7 +654,6 @@ def detect_modes_all_K(K_range: list[int], cost_withinK_list: list[dict], n_runs
         cost_withinK_list (list[dict]): Per K, the cost of each unordered pair of runs.
         n_runs_per_K (list[int]): Number of runs available for each K.
         test_comm (bool): Whether to test for community structure before partitioning.
-        method (str): Community detection method.
         res (float): Resolution parameter for community detection.
         comm_min (float): Cost below which two runs are considered identical.
         comm_max (float): Cost above which two runs are considered unrelated.
@@ -671,7 +667,7 @@ def detect_modes_all_K(K_range: list[int], cost_withinK_list: list[dict], n_runs
     for i_K, K in enumerate(K_range):
         cost_mat = construct_cost_mat(cost_withinK_list[i_K], n_runs_per_K[i_K])
         cost_matrices.append(cost_mat)
-        communities = detect_communities(cost_mat, test_comm=test_comm, method=method, res=res,
+        communities = detect_communities(cost_mat, test_comm=test_comm, res=res,
                                          min_threshold=comm_min, max_threshold=comm_max)
         modes = community_labels_to_modes(communities)
         modes_all_K.append(modes)
