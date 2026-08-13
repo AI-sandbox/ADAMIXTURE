@@ -148,7 +148,7 @@ def _polish_fold(G: np.ndarray, P_init: np.ndarray, Q_init: np.ndarray,
                 M: int, N: int, K: int) -> tuple[np.ndarray, np.ndarray]:
     """
     Description:
-    Runs three SQP + ZAL quasi-Newton polishing iterations on CPU,
+    Runs five SQP + ZAL quasi-Newton polishing iterations on CPU,
     warm-started from the global P and Q estimates.
 
     Args:
@@ -160,11 +160,11 @@ def _polish_fold(G: np.ndarray, P_init: np.ndarray, Q_init: np.ndarray,
         K (int): Number of ancestral populations.
 
     Returns:
-        tuple[np.ndarray, np.ndarray]: Polished (P, Q) matrices after 3 BR-QN iterations.
+        tuple[np.ndarray, np.ndarray]: Polished (P, Q) matrices after 5 BR-QN iterations.
     """
     return polish_sqp_qn(
         G, P_init, Q_init, M, N, K,
-        n_iters=3,
+        n_iters=5,
         Q_hist=3,
     )
 

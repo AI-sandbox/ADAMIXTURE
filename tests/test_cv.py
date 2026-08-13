@@ -42,7 +42,7 @@ def test_sqp_polish_reuses_main_optimizer_without_early_stopping(monkeypatch) ->
     np.testing.assert_array_equal(Q_out, Q_init)
 
 
-def test_cv_fold_runs_three_sqp_qn_iterations(monkeypatch) -> None:
+def test_cv_fold_runs_five_sqp_qn_iterations(monkeypatch) -> None:
     G = np.array([[0, 1], [2, 3]], dtype=np.uint8)
     P_init = np.array([[0.2, 0.8], [0.6, 0.4]], dtype=np.float64)
     Q_init = np.array([[0.7, 0.3], [0.1, 0.9]], dtype=np.float64)
@@ -71,7 +71,7 @@ def test_cv_fold_runs_three_sqp_qn_iterations(monkeypatch) -> None:
     assert captured["M"] == 2
     assert captured["N"] == 2
     assert captured["K"] == 2
-    assert captured["n_iters"] == 3
+    assert captured["n_iters"] == 5
     assert captured["Q_hist"] == 3
     assert P_out is P_init
     assert Q_out is Q_init

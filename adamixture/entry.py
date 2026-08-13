@@ -69,7 +69,7 @@ def parse_args(argv: list[str]) -> configargparse.Namespace:
     parser.add_argument('--power', type=int, default=5, help='Number of power iterations for SVD (default: 5).')
     parser.add_argument('--tol_svd', type=float, default=1e-1, help='Convergence tolerance for SVD (default: 1e-1).')
     parser.add_argument('--chunk_size', type=int, default=8192, help='Number of SNPs in chunk operations for SVD (default: 8192).')
-    parser.add_argument('--n_inits', type=int, default=5, help='Number of independent initializations; the run with the best log-likelihood is kept (default: 5).')
+    parser.add_argument('--n_inits', type=int, default=1, help='Number of independent initializations; the run with the best log-likelihood is kept (default: 1).')
     parser.add_argument('--cv', nargs='?', const=5, default=0, type=int, help='Enable v-fold cross-validation on genotype entries (default: 5).')
     parser.add_argument('--plot', nargs='*', help='Generate plot (single plot for -k, or combined sweep plot for multi-K) (Optional: [format] [resolution]) (default: png 300).')
     parser.add_argument('--plot_single', nargs='*', help='[Multi-K mode only] Generate individual plots for each K in the sweep (Optional: [format] [resolution]) (default: png 300).')
