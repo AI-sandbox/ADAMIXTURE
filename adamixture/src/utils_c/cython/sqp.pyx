@@ -263,6 +263,7 @@ cpdef void compute_grad_hess_Q(const uint8_t[:,::1] G, const double[:,::1] Q, co
         double oneT = 1.0
         double twoT = 2.0
         double term1_z, term2_z, term1, term2
+        double pk, t1pk, t2pk
         
     for i in prange(N, schedule='static'):
         for k in range(K):
@@ -285,10 +286,18 @@ cpdef void compute_grad_hess_Q(const uint8_t[:,::1] G, const double[:,::1] Q, co
             term1 = term1_z / qp
             term2 = term2_z / (oneT - qp)
             
+            # XtX_q is symmetric; accumulate its upper triangle only.
             for k in range(K):
-                Xtz_q[i, k] += term1_z * P[j, k] + term2_z * (oneT - P[j, k])
-                for k2 in range(K):
-                    XtX_q[i, k, k2] += term1 * P[j, k] * P[j, k2] + term2 * (oneT - P[j, k]) * (oneT - P[j, k2])
+                pk = P[j, k]
+                Xtz_q[i, k] += term1_z * pk + term2_z * (oneT - pk)
+                t1pk = term1 * pk
+                t2pk = term2 * (oneT - pk)
+                for k2 in range(k, K):
+                    XtX_q[i, k, k2] += t1pk * P[j, k2] + t2pk * (oneT - P[j, k2])
+
+        for k in range(K):
+            for k2 in range(k):
+                XtX_q[i, k, k2] = XtX_q[i, k2, k]
 
 cpdef void compute_grad_hess_P(const uint8_t[:,::1] G, const double[:,::1] Q, const double[:,::1] P,
                                double[:,:,::1] XtX_p, double[:,::1] Xtz_p, int M, int N, int K) noexcept nogil:
@@ -298,6 +307,7 @@ cpdef void compute_grad_hess_P(const uint8_t[:,::1] G, const double[:,::1] Q, co
         double oneT = 1.0
         double twoT = 2.0
         double term1_z, term2_z, term1, term2, term_z_diff, term_sum
+        double tqk
         
     for j in prange(M, schedule='static'):
         for k in range(K):
@@ -322,10 +332,16 @@ cpdef void compute_grad_hess_P(const uint8_t[:,::1] G, const double[:,::1] Q, co
             term_z_diff = term1_z - term2_z
             term_sum = term1 + term2
             
+            # XtX_p is symmetric; accumulate its upper triangle only.
             for k in range(K):
                 Xtz_p[j, k] += term_z_diff * Q[i, k]
-                for k2 in range(K):
-                    XtX_p[j, k, k2] += term_sum * Q[i, k] * Q[i, k2]
+                tqk = term_sum * Q[i, k]
+                for k2 in range(k, K):
+                    XtX_p[j, k, k2] += tqk * Q[i, k2]
+
+        for k in range(K):
+            for k2 in range(k):
+                XtX_p[j, k, k2] = XtX_p[j, k2, k]
 
 cpdef void project_q_simplex(double[:,::1] Q, int N, int K) noexcept nogil:
     cdef int i
