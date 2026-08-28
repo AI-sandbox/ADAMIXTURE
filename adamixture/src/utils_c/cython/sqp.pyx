@@ -255,8 +255,9 @@ cdef void update_single_p(int j, const double[:,::1] P, double[:,::1] P_next,
         P_next[j, k] = P[j, k] + delta[k]
     project_p_box_row(&P_next[j, 0], K, 1e-5)
 
-cpdef void compute_grad_hess_Q(const uint8_t[:,::1] G, const double[:,::1] Q, const double[:,::1] P,
-                               double[:,:,::1] XtX_q, double[:,::1] Xtz_q, int M, int N, int K) noexcept nogil:
+cdef void compute_grad_hess_Q_unblocked(const uint8_t[:,::1] G, const double[:,::1] Q, const double[:,::1] P,
+                                        double[:,:,::1] XtX_q, double[:,::1] Xtz_q,
+                                        int M, int N, int K) noexcept nogil:
     cdef:
         int i, j, k, k2
         double qp, g
@@ -264,14 +265,13 @@ cpdef void compute_grad_hess_Q(const uint8_t[:,::1] G, const double[:,::1] Q, co
         double twoT = 2.0
         double term1_z, term2_z, term1, term2
         double pk, t1pk, t2pk
-        
+
     for i in prange(N, schedule='static'):
         for k in range(K):
             Xtz_q[i, k] = 0.0
-            for k2 in range(K):
+            for k2 in range(k, K):
                 XtX_q[i, k, k2] = 0.0
 
-    for i in prange(N, schedule='static'):
         for j in range(M):
             g = <double>G[j, i]
             if g == 3.0:
@@ -286,7 +286,6 @@ cpdef void compute_grad_hess_Q(const uint8_t[:,::1] G, const double[:,::1] Q, co
             term1 = term1_z / qp
             term2 = term2_z / (oneT - qp)
             
-            # XtX_q is symmetric; accumulate its upper triangle only.
             for k in range(K):
                 pk = P[j, k]
                 Xtz_q[i, k] += term1_z * pk + term2_z * (oneT - pk)
@@ -299,6 +298,62 @@ cpdef void compute_grad_hess_Q(const uint8_t[:,::1] G, const double[:,::1] Q, co
             for k2 in range(k):
                 XtX_q[i, k, k2] = XtX_q[i, k2, k]
 
+cpdef void compute_grad_hess_Q(const uint8_t[:,::1] G, const double[:,::1] Q, const double[:,::1] P,
+                               double[:,:,::1] XtX_q, double[:,::1] Xtz_q,
+                               int M, int N, int K) noexcept nogil:
+    cdef:
+        int ib, i, i_end, j, k, k2
+        double qp, g
+        double term1_z, term2_z, term1, term2
+        double pk, t1pk, t2pk
+
+    if K <= 8:
+        compute_grad_hess_Q_unblocked(G, Q, P, XtX_q, Xtz_q, M, N, K)
+        return
+
+    # Process nearby individuals together. G is row-major, so this changes the
+    # strided G[:, i] reads into short contiguous runs and reuses each P row.
+    for ib in prange(0, N, 8, schedule='static'):
+        i_end = ib + 8
+        if i_end > N:
+            i_end = N
+
+        for i in range(ib, i_end):
+            for k in range(K):
+                Xtz_q[i, k] = 0.0
+                for k2 in range(k, K):
+                    XtX_q[i, k, k2] = 0.0
+
+        for j in range(M):
+            for i in range(ib, i_end):
+                g = <double>G[j, i]
+                if g == 3.0:
+                    continue
+                qp = 0.0
+                for k in range(K):
+                    qp += Q[i, k] * P[j, k]
+                qp = fmax(fmin(qp, 1.0 - 1e-10), 1e-10)
+
+                term1_z = g / qp
+                term2_z = (2.0 - g) / (1.0 - qp)
+                term1 = term1_z / qp
+                term2 = term2_z / (1.0 - qp)
+
+                for k in range(K):
+                    pk = P[j, k]
+                    Xtz_q[i, k] += term1_z * pk + term2_z * (1.0 - pk)
+                    t1pk = term1 * pk
+                    t2pk = term2 * (1.0 - pk)
+                    for k2 in range(k, K):
+                        XtX_q[i, k, k2] += (
+                            t1pk * P[j, k2] + t2pk * (1.0 - P[j, k2])
+                        )
+
+        for i in range(ib, i_end):
+            for k in range(K):
+                for k2 in range(k):
+                    XtX_q[i, k, k2] = XtX_q[i, k2, k]
+
 cpdef void compute_grad_hess_P(const uint8_t[:,::1] G, const double[:,::1] Q, const double[:,::1] P,
                                double[:,:,::1] XtX_p, double[:,::1] Xtz_p, int M, int N, int K) noexcept nogil:
     cdef:
@@ -308,14 +363,13 @@ cpdef void compute_grad_hess_P(const uint8_t[:,::1] G, const double[:,::1] Q, co
         double twoT = 2.0
         double term1_z, term2_z, term1, term2, term_z_diff, term_sum
         double tqk
-        
+
     for j in prange(M, schedule='static'):
         for k in range(K):
             Xtz_p[j, k] = 0.0
-            for k2 in range(K):
+            for k2 in range(k, K):
                 XtX_p[j, k, k2] = 0.0
 
-    for j in prange(M, schedule='static'):
         for i in range(N):
             g = <double>G[j, i]
             if g == 3.0:
@@ -332,7 +386,6 @@ cpdef void compute_grad_hess_P(const uint8_t[:,::1] G, const double[:,::1] Q, co
             term_z_diff = term1_z - term2_z
             term_sum = term1 + term2
             
-            # XtX_p is symmetric; accumulate its upper triangle only.
             for k in range(K):
                 Xtz_p[j, k] += term_z_diff * Q[i, k]
                 tqk = term_sum * Q[i, k]
