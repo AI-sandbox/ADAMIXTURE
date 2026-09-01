@@ -8,16 +8,18 @@ $ adamixture -k 8 --cv 5 --data_path data.bed --save_dir out/ --name test
 
 When enabled, a fraction of the genotype entries is masked during training, and the prediction error (cross-validation error) for these masked entries is calculated. The $K$ with the lowest CV error, or the one where the error curve starts to flatten (the "elbow" point), is typically considered the most optimal.
 
+$K=1$ is supported and is the no-structure null model, so it is the natural baseline when comparing CV error across $K$.
+
 ## Usage with a K sweep
 
 Cross-validation is most informative when combined with a multi-K sweep:
 
 ```console
-$ adamixture --min_k 2 --max_k 12 --cv 5 \
+$ adamixture --min_k 1 --max_k 12 --cv 5 \
     --data_path data.bed --save_dir out/ --name sweep
 ```
 
-This trains models for K = 2 to 12, reporting the CV error at each K so you can identify the optimal number of populations.
+This trains models for K = 1 to 12, reporting the CV error at each K so you can identify the optimal number of populations.
 
 ## Argument
 

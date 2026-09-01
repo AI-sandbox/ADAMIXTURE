@@ -47,8 +47,8 @@ def parse_args(argv: list[str]) -> configargparse.Namespace:
     parser.add_argument('--tol', type=float, default=0.1, help='Convergence tolerance (default: 0.1).')
 
     parser.add_argument('-s', '--seed', required=False, type=int, default=42, help='Seed (default: 42).')
-    parser.add_argument('-k', '--k', required=False, type=int, help='Number of populations/clusters (single run).')
-    parser.add_argument('--min_k', required=False, type=int, help='Minimum K for multi-K sweep (inclusive).')
+    parser.add_argument('-k', '--k', required=False, type=int, help='Number of populations/clusters (single run). K=1 is the no-structure null model.')
+    parser.add_argument('--min_k', required=False, type=int, help='Minimum K for multi-K sweep (inclusive). K=1 is the no-structure null model.')
     parser.add_argument('--max_k', required=False, type=int, help='Maximum K for multi-K sweep (inclusive).')
 
     parser.add_argument('--save_dir', required=True, type=str, help='Save model in this directory.')
@@ -87,6 +87,12 @@ def parse_args(argv: list[str]) -> configargparse.Namespace:
         parser.error("Must specify either --k or both --min_k and --max_k.")
     if has_range and args.min_k > args.max_k:
         parser.error("--min_k must be <= --max_k.")
+    if args.k is not None and args.k < 1:
+        parser.error("Number of clusters (k) must be at least 1.")
+    if args.min_k is not None and args.min_k < 1:
+        parser.error("Minimum K (min_k) must be at least 1.")
+    if args.max_k is not None and args.max_k < 1:
+        parser.error("Maximum K (max_k) must be at least 1.")
 
     # Configure Plotting Arguments:
     if has_single:
@@ -246,9 +252,11 @@ def main() -> None:
     assert args.patience >= 1, "Patience must be at least 1."
     assert args.seed >= 0, "Seed must be non-negative."
     if args.k is not None:
-        assert args.k >= 2, "Number of clusters (k) must be at least 2."
+        assert args.k >= 1, "Number of clusters (k) must be at least 1."
     if args.min_k is not None:
-        assert args.min_k >= 2, "Minimum K (min_k) must be at least 2."
+        assert args.min_k >= 1, "Minimum K (min_k) must be at least 1."
+    if args.max_k is not None:
+        assert args.max_k >= 1, "Maximum K (max_k) must be at least 1."
     if args.max_k is not None and args.min_k is not None:
         assert args.max_k >= args.min_k, "Maximum K (max_k) must be >= minimum K (min_k)."
     assert args.max_iter >= 1, "Maximum iterations (max_iter) must be at least 1."

@@ -113,10 +113,10 @@ For a step-by-step guide on how to run a complete analysis workflow, see the [10
 
 ## Multi-K Sweep
 
-Instead of running ADAMIXTURE for a single K, you can automatically sweep over a range of K values using `--min_k` and `--max_k`. The data is loaded once, and each K is trained sequentially:
+Instead of running ADAMIXTURE for a single K, you can automatically sweep over a range of K values using `--min_k` and `--max_k`. The data is loaded once, and each K is trained sequentially. `K=1` is the no-structure null model and is a valid start for a sweep or a CV baseline:
 
 ```console
-$ adamixture --min_k 2 --max_k 10 --data_path snps_data.bed --save_dir SAVE_PATH --name snps_sweep
+$ adamixture --min_k 1 --max_k 10 --data_path snps_data.bed --save_dir SAVE_PATH --name snps_sweep
 ```
 
 ## Cross-validation
