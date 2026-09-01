@@ -255,66 +255,26 @@ cdef void update_single_p(int j, const double[:,::1] P, double[:,::1] P_next,
         P_next[j, k] = P[j, k] + delta[k]
     project_p_box_row(&P_next[j, 0], K, 1e-5)
 
-cdef void compute_grad_hess_Q_unblocked(const uint8_t[:,::1] G, const double[:,::1] Q, const double[:,::1] P,
-                                        double[:,:,::1] XtX_q, double[:,::1] Xtz_q,
-                                        int M, int N, int K) noexcept nogil:
-    cdef:
-        int i, j, k, k2
-        double qp, g
-        double oneT = 1.0
-        double twoT = 2.0
-        double term1_z, term2_z, term1, term2
-        double pk, t1pk, t2pk
-
-    for i in prange(N, schedule='static'):
-        for k in range(K):
-            Xtz_q[i, k] = 0.0
-            for k2 in range(k, K):
-                XtX_q[i, k, k2] = 0.0
-
-        for j in range(M):
-            g = <double>G[j, i]
-            if g == 3.0:
-                continue
-            qp = 0.0
-            for k in range(K):
-                qp += Q[i, k] * P[j, k]
-            qp = fmax(fmin(qp, 1.0 - 1e-10), 1e-10)
-            
-            term1_z = g / qp
-            term2_z = (twoT - g) / (oneT - qp)
-            term1 = term1_z / qp
-            term2 = term2_z / (oneT - qp)
-            
-            for k in range(K):
-                pk = P[j, k]
-                Xtz_q[i, k] += term1_z * pk + term2_z * (oneT - pk)
-                t1pk = term1 * pk
-                t2pk = term2 * (oneT - pk)
-                for k2 in range(k, K):
-                    XtX_q[i, k, k2] += t1pk * P[j, k2] + t2pk * (oneT - P[j, k2])
-
-        for k in range(K):
-            for k2 in range(k):
-                XtX_q[i, k, k2] = XtX_q[i, k2, k]
-
 cpdef void compute_grad_hess_Q(const uint8_t[:,::1] G, const double[:,::1] Q, const double[:,::1] P,
                                double[:,:,::1] XtX_q, double[:,::1] Xtz_q,
                                int M, int N, int K) noexcept nogil:
     cdef:
-        int ib, i, i_end, j, k, k2
+        int B, ib, i, i_end, j, k, k2
         double qp, g
         double term1_z, term2_z, term1, term2
         double pk, t1pk, t2pk
 
-    if K <= 8:
-        compute_grad_hess_Q_unblocked(G, Q, P, XtX_q, Xtz_q, M, N, K)
-        return
+    # Keep the XtX tile around 32 KB: B * K^2 * 8 ≈ 32 KB → B ≈ 4096 / K^2.
+    B = 4096 / (K * K)
+    if B < 8:
+        B = 8
+    elif B > 64:
+        B = 64
 
-    # Process nearby individuals together. G is row-major, so this changes the
-    # strided G[:, i] reads into short contiguous runs and reuses each P row.
-    for ib in prange(0, N, 8, schedule='static'):
-        i_end = ib + 8
+    # Nearby individuals: G is row-major, so G[j, i:i+B] is contiguous and each
+    # P row is reused across the block.
+    for ib in prange(0, N, B, schedule='static'):
+        i_end = ib + B
         if i_end > N:
             i_end = N
 
