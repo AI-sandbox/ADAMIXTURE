@@ -11,6 +11,7 @@ import torch
 
 from . import utils
 from .adamixture import setup, train_k, initialize_k
+from ..model.br_qn import q_hessian_block_size
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
 log = logging.getLogger(__name__)
@@ -53,6 +54,7 @@ def main(args: argparse.Namespace, t0: float) -> int:
 
         trained: dict[int, tuple] = {}
         trained_plot: dict[int, tuple] = {}
+        q_blocks: dict[int, int] = {}
         previous_Q = None
 
         if n_inits == 1:
@@ -67,6 +69,8 @@ def main(args: argparse.Namespace, t0: float) -> int:
             for K in k_values:
                 log.info(f"\n    Running on K = {K}.\n")
                 t_k = time.time()
+                q_block = q_hessian_block_size(K)
+                q_blocks[K] = q_block
 
                 P, Q = train_k(
                     G, N, M, K, U, S, V, f,
@@ -79,6 +83,7 @@ def main(args: argparse.Namespace, t0: float) -> int:
                     original=(args.algorithm == 'brqn'), rtol=float(args.tol), Q_hist=args.Q_hist,
                     init_original=args.init,
                     em_init_steps=int(args.em_init_steps),
+                    q_block=q_block,
                 )
 
                 P_np = P.cpu().numpy() if isinstance(P, torch.Tensor) else P
@@ -121,6 +126,8 @@ def main(args: argparse.Namespace, t0: float) -> int:
             for K in k_values:
                 log.info(f"\n    Running on K = {K} with {n_inits} initialization(s).\n")
                 t_k = time.time()
+                q_block = q_hessian_block_size(K)
+                q_blocks[K] = q_block
 
                 best_P, best_Q, best_logl = None, None, -np.inf
                 for init_idx in range(n_inits):
@@ -154,6 +161,7 @@ def main(args: argparse.Namespace, t0: float) -> int:
                     init_original=args.init,
                     em_init_steps=int(args.em_init_steps),
                     P_init=best_P, Q_init=best_Q,
+                    q_block=q_block,
                 )
 
                 P_np = P.cpu().numpy() if isinstance(P, torch.Tensor) else P
@@ -223,7 +231,9 @@ def main(args: argparse.Namespace, t0: float) -> int:
 
             for K, (P, Q) in sorted(trained.items()):
                 log.info(f"\n    Running {int(args.cv)}-fold CV on genotype entries for K={K}...")
-                cv_results[K] = run_cross_validation(args, G_cv, N, M, K, P, Q)
+                cv_results[K] = run_cross_validation(
+                    args, G_cv, N, M, K, P, Q, q_block=q_blocks[K],
+                )
             del G_cv
             gc.collect()
 

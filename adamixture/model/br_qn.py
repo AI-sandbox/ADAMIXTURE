@@ -10,6 +10,11 @@ from ..src.utils_c.cython.br_qn import qn_extrapolate_ZAL, update_UV_ZAL
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
 log = logging.getLogger(__name__)
 
+
+def q_hessian_block_size(K: int) -> int:
+    """Individuals per Q-Hessian tile so B * K^2 * 8 stays near 32 KB."""
+    return min(64, max(8, 4096 // (K * K)))
+
 def _flatten_PQ_inplace(P: np.ndarray, Q: np.ndarray, out: np.ndarray) -> None:
     """
     Description:
@@ -49,7 +54,8 @@ def _unflatten_PQ(x: np.ndarray, P_out: np.ndarray, Q_out: np.ndarray,
 
 def polish_sqp_qn(G: np.ndarray, P_init: np.ndarray, Q_init: np.ndarray,
                   M: int, N: int, K: int,
-                  n_iters: int = 3, Q_hist: int = 3) -> tuple[np.ndarray, np.ndarray]:
+                  n_iters: int = 3, Q_hist: int = 3,
+                  q_block: int | None = None) -> tuple[np.ndarray, np.ndarray]:
     """
     Polishes a cross-validation fold with the same SQP + ZAL quasi-Newton
     optimizer as the main BR-QN run. Early stopping is disabled so every fold
@@ -67,12 +73,14 @@ def polish_sqp_qn(G: np.ndarray, P_init: np.ndarray, Q_init: np.ndarray,
         Q_hist=Q_hist,
         patience=n_iters + 1,
         verbose=False,
+        q_block=q_block,
     )
 
 
 def optimize_original(G: np.ndarray, P: np.ndarray, Q: np.ndarray, max_iter: int,
                       K: int, M: int, N: int, tol: float, Q_hist: int,
-                      patience: int, verbose: bool = True) -> tuple[np.ndarray, np.ndarray]:
+                      patience: int, verbose: bool = True,
+                      q_block: int | None = None) -> tuple[np.ndarray, np.ndarray]:
     """
     Description:
     Optimizes the P and Q matrices using the original ADMIXTURE algorithm on CPU:
@@ -90,6 +98,7 @@ def optimize_original(G: np.ndarray, P: np.ndarray, Q: np.ndarray, max_iter: int
         Q_hist (int): Depth of ZAL Quasi-Newton acceleration history.
         patience (int): Iterations without log-likelihood improvement before stopping.
         verbose (bool): If True, log iteration progress and final likelihood.
+        q_block (int | None): Q-Hessian tile size from the outer K run. If None, derived from K.
 
     Returns:
         tuple[np.ndarray, np.ndarray]: Optimized (P, Q) matrices.
@@ -97,6 +106,8 @@ def optimize_original(G: np.ndarray, P: np.ndarray, Q: np.ndarray, max_iter: int
     # 1. Precompute Vt matrix from SVD of ones(1, K)
     _, _, vt = np.linalg.svd(np.ones((1, K)), full_matrices=True)
     v_kk = np.ascontiguousarray(vt.T, dtype=np.float64)
+    if q_block is None:
+        q_block = q_hessian_block_size(K)
 
     # 2. Allocate buffers
     XtX_q = np.empty((N, K, K), dtype=np.float64)
@@ -137,11 +148,11 @@ def optimize_original(G: np.ndarray, P: np.ndarray, Q: np.ndarray, max_iter: int
         it_start = time.time()
 
         # --- SQP Update 1: (P, Q) -> (P_next, Q_next) ---
-        sqp.update_q_sqp(G, Q, Q_next, P, XtX_q, Xtz_q, v_kk, M, N, K)
+        sqp.update_q_sqp(G, Q, Q_next, P, XtX_q, Xtz_q, v_kk, M, N, K, q_block)
         sqp.update_p_sqp(G, Q_next, P, P_next, XtX_p, Xtz_p, M, N, K)
 
         # --- SQP Update 2: (P_next, Q_next) -> (P_next2, Q_next2) ---
-        sqp.update_q_sqp(G, Q_next, Q_next2, P_next, XtX_q, Xtz_q, v_kk, M, N, K)
+        sqp.update_q_sqp(G, Q_next, Q_next2, P_next, XtX_q, Xtz_q, v_kk, M, N, K, q_block)
         sqp.update_p_sqp(G, Q_next2, P_next, P_next2, XtX_p, Xtz_p, M, N, K)
 
         # --- ZAL QN acceleration ---

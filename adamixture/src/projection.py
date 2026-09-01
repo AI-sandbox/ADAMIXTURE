@@ -376,11 +376,13 @@ def optimize_projection_original(G: np.ndarray, P: np.ndarray, Q: np.ndarray,
     Returns:
         np.ndarray: Optimised Q matrix.
     """
+    from ..model.br_qn import q_hessian_block_size
     from .utils_c.cython.br_qn import qn_extrapolate_ZAL, update_UV_ZAL
 
     # 1. Precompute Vt matrix from SVD of ones(1, K)
     _, _, vt = np.linalg.svd(np.ones((1, K)), full_matrices=True)
     v_kk = np.ascontiguousarray(vt.T, dtype=np.float64)
+    q_block = q_hessian_block_size(K)
 
     # 2. Allocate buffers
     XtX_q = np.empty((N, K, K), dtype=np.float64)
@@ -415,10 +417,10 @@ def optimize_projection_original(G: np.ndarray, P: np.ndarray, Q: np.ndarray,
         it_start = time.time()
 
         # --- SQP Update 1: Q -> Q_next ---
-        sqp.update_q_sqp(G, Q, Q_next, P, XtX_q, Xtz_q, v_kk, M, N, K)
+        sqp.update_q_sqp(G, Q, Q_next, P, XtX_q, Xtz_q, v_kk, M, N, K, q_block)
 
         # --- SQP Update 2: Q_next -> Q_next2 ---
-        sqp.update_q_sqp(G, Q_next, Q_next2, P, XtX_q, Xtz_q, v_kk, M, N, K)
+        sqp.update_q_sqp(G, Q_next, Q_next2, P, XtX_q, Xtz_q, v_kk, M, N, K, q_block)
 
         # --- ZAL QN acceleration ---
         _flatten_Q_inplace(Q, x_buf)

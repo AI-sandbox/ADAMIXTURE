@@ -256,7 +256,8 @@ def train_k(G: torch.Tensor | np.ndarray, N: int, M: int, K: int, U_max: np.ndar
         device_obj: torch.device, threads_per_block: int, original: bool = False, rtol: float = 1e-7, Q_hist: int = 3,
         init_original: str = 'em', em_init_steps: int = 5,
         P_init: np.ndarray | torch.Tensor | None = None,
-        Q_init: np.ndarray | torch.Tensor | None = None) -> tuple[np.ndarray, np.ndarray] | tuple[torch.Tensor, torch.Tensor]:
+        Q_init: np.ndarray | torch.Tensor | None = None,
+        q_block: int | None = None) -> tuple[np.ndarray, np.ndarray] | tuple[torch.Tensor, torch.Tensor]:
     """
     Description:
     Trains ADAMIXTURE for a single K value, using pre-computed SVD results.
@@ -295,6 +296,8 @@ def train_k(G: torch.Tensor | np.ndarray, N: int, M: int, K: int, U_max: np.ndar
             provided with Q_init, skip the initialization phase. Defaults to None.
         Q_init (np.ndarray | torch.Tensor | None): Pre-initialized Q matrix. If
             provided with P_init, skip the initialization phase. Defaults to None.
+        q_block (int | None): Q-Hessian tile size. Computed once per K in the
+            outer run and reused by CV folds. If None, derived from K.
 
     Returns:
         tuple: (P, Q) — numpy arrays on CPU, GPU tensors on CUDA/MPS.
@@ -334,7 +337,8 @@ def train_k(G: torch.Tensor | np.ndarray, N: int, M: int, K: int, U_max: np.ndar
     if device_obj.type == 'cpu':
         if original:
             log.info("    SQP + ZAL QN running on CPU...\n")
-            P, Q = optimize_original(G, P, Q, max_iter, K, M, N, rtol, Q_hist, patience)
+            P, Q = optimize_original(G, P, Q, max_iter, K, M, N, rtol, Q_hist, patience,
+                                     q_block=q_block)
         else:
             log.info("    Adam-EM running on CPU...\n")
             P, Q = optimize_parameters(G, P, Q, lr, beta1, beta2, reg_adam, max_iter,

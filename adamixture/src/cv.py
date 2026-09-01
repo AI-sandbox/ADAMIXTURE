@@ -145,7 +145,8 @@ def _build_hashed_fold_entries(G: np.ndarray, N: int, n_folds: int, fold: int, s
     return held_out_entries
 
 def _polish_fold(G: np.ndarray, P_init: np.ndarray, Q_init: np.ndarray,
-                M: int, N: int, K: int) -> tuple[np.ndarray, np.ndarray]:
+                M: int, N: int, K: int,
+                q_block: int | None = None) -> tuple[np.ndarray, np.ndarray]:
     """
     Description:
     Runs five SQP + ZAL quasi-Newton polishing iterations on CPU,
@@ -158,6 +159,7 @@ def _polish_fold(G: np.ndarray, P_init: np.ndarray, Q_init: np.ndarray,
         M (int): Number of SNPs.
         N (int): Number of individuals.
         K (int): Number of ancestral populations.
+        q_block (int | None): Q-Hessian tile size from the outer K run.
 
     Returns:
         tuple[np.ndarray, np.ndarray]: Polished (P, Q) matrices after 5 BR-QN iterations.
@@ -166,10 +168,12 @@ def _polish_fold(G: np.ndarray, P_init: np.ndarray, Q_init: np.ndarray,
         G, P_init, Q_init, M, N, K,
         n_iters=5,
         Q_hist=3,
+        q_block=q_block,
     )
 
 def run_cross_validation(args: Namespace, G: np.ndarray, N: int, M: int, K: int,
-                        P_global: np.ndarray | torch.Tensor, Q_global: np.ndarray | torch.Tensor) -> float:
+                        P_global: np.ndarray | torch.Tensor, Q_global: np.ndarray | torch.Tensor,
+                        q_block: int | None = None) -> float:
     """
     Description:
     Performs v-fold cross-validation on genotype entries. Each fold masks a random
@@ -187,6 +191,7 @@ def run_cross_validation(args: Namespace, G: np.ndarray, N: int, M: int, K: int,
         K (int): Number of ancestral populations.
         P_global (ndarray | Tensor): Global P matrix (M x K) from the main fit.
         Q_global (ndarray | Tensor): Global Q matrix (N x K) from the main fit.
+        q_block (int | None): Q-Hessian tile size computed once for this K.
 
     Returns:
         float: CV index (average squared deviance residual across all held-out entries).
@@ -229,7 +234,7 @@ def run_cross_validation(args: Namespace, G: np.ndarray, N: int, M: int, K: int,
             saved_values = np.empty(held_out_entries.size, dtype=np.uint8)
             mask_entries_i32(G, held_out_entries, saved_values, N)
             try:
-                P_cv, Q_cv = _polish_fold(G, P_global, Q_global, M, N, K)
+                P_cv, Q_cv = _polish_fold(G, P_global, Q_global, M, N, K, q_block=q_block)
             finally:
                 restore_entries_i32(G, held_out_entries, saved_values, N)
 
@@ -246,7 +251,7 @@ def run_cross_validation(args: Namespace, G: np.ndarray, N: int, M: int, K: int,
             saved_values = np.empty(held_out_entries.size, dtype=np.uint8)
             mask_entries_i64(G, held_out_entries, saved_values, N)
             try:
-                P_cv, Q_cv = _polish_fold(G, P_global, Q_global, M, N, K)
+                P_cv, Q_cv = _polish_fold(G, P_global, Q_global, M, N, K, q_block=q_block)
             finally:
                 restore_entries_i64(G, held_out_entries, saved_values, N)
 

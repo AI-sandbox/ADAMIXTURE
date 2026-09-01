@@ -10,7 +10,7 @@ def test_sqp_polish_reuses_main_optimizer_without_early_stopping(monkeypatch) ->
     Q_init = np.array([[0.7, 0.3], [0.1, 0.9]], dtype=np.float64)
     captured = {}
 
-    def fake_optimize(G_arg, P, Q, max_iter, K, M, N, tol, Q_hist, patience, verbose):
+    def fake_optimize(G_arg, P, Q, max_iter, K, M, N, tol, Q_hist, patience, verbose, q_block=None):
         captured.update(
             G=G_arg,
             P=P,
@@ -48,7 +48,7 @@ def test_cv_fold_runs_five_sqp_qn_iterations(monkeypatch) -> None:
     Q_init = np.array([[0.7, 0.3], [0.1, 0.9]], dtype=np.float64)
     captured = {}
 
-    def fake_polish(G_arg, P_arg, Q_arg, M, N, K, n_iters, Q_hist):
+    def fake_polish(G_arg, P_arg, Q_arg, M, N, K, n_iters, Q_hist, q_block=None):
         captured.update(
             G=G_arg,
             P=P_arg,

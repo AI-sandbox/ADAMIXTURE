@@ -257,19 +257,12 @@ cdef void update_single_p(int j, const double[:,::1] P, double[:,::1] P_next,
 
 cpdef void compute_grad_hess_Q(const uint8_t[:,::1] G, const double[:,::1] Q, const double[:,::1] P,
                                double[:,:,::1] XtX_q, double[:,::1] Xtz_q,
-                               int M, int N, int K) noexcept nogil:
+                               int M, int N, int K, int B) noexcept nogil:
     cdef:
-        int B, ib, i, i_end, j, k, k2
+        int ib, i, i_end, j, k, k2
         double qp, g
         double term1_z, term2_z, term1, term2
         double pk, t1pk, t2pk
-
-    # Keep the XtX tile around 32 KB: B * K^2 * 8 ≈ 32 KB → B ≈ 4096 / K^2.
-    B = 4096 / (K * K)
-    if B < 8:
-        B = 8
-    elif B > 64:
-        B = 64
 
     # Nearby individuals: G is row-major, so G[j, i:i+B] is contiguous and each
     # P row is reused across the block.
@@ -368,10 +361,10 @@ cpdef void project_p_box(double[:,::1] P, int M, int K) noexcept nogil:
 
 cpdef void update_q_sqp(const uint8_t[:,::1] G, const double[:,::1] Q, double[:,::1] Q_next, 
                         const double[:,::1] P, double[:,:,::1] XtX_q, double[:,::1] Xtz_q, 
-                        const double[:,::1] v_kk, int M, int N, int K) noexcept nogil:
+                        const double[:,::1] v_kk, int M, int N, int K, int B) noexcept nogil:
     cdef int i
     
-    compute_grad_hess_Q(G, Q, P, XtX_q, Xtz_q, M, N, K)
+    compute_grad_hess_Q(G, Q, P, XtX_q, Xtz_q, M, N, K, B)
     
 
     for i in prange(N, schedule='static'):

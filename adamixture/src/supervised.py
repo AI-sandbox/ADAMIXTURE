@@ -486,12 +486,13 @@ def optimize_supervised_original(G: np.ndarray, P: np.ndarray, Q: np.ndarray, y:
     Returns:
         tuple[np.ndarray, np.ndarray]: Optimised (P, Q) matrices.
     """
-    from ..model.br_qn import _flatten_PQ_inplace, _unflatten_PQ
+    from ..model.br_qn import _flatten_PQ_inplace, _unflatten_PQ, q_hessian_block_size
     from .utils_c.cython.br_qn import qn_extrapolate_ZAL, update_UV_ZAL
 
     # 1. Precompute Vt matrix from SVD of ones(1, K)
     _, _, vt = np.linalg.svd(np.ones((1, K)), full_matrices=True)
     v_kk = np.ascontiguousarray(vt.T, dtype=np.float64)
+    q_block = q_hessian_block_size(K)
 
     # 2. Allocate buffers
     XtX_q = np.empty((N, K, K), dtype=np.float64)
@@ -532,12 +533,12 @@ def optimize_supervised_original(G: np.ndarray, P: np.ndarray, Q: np.ndarray, y:
         it_start = time.time()
 
         # --- SQP Update 1: (P, Q) -> (P_next, Q_next) ---
-        sqp.update_q_sqp(G, Q, Q_next, P, XtX_q, Xtz_q, v_kk, M, N, K)
+        sqp.update_q_sqp(G, Q, Q_next, P, XtX_q, Xtz_q, v_kk, M, N, K, q_block)
         _snap_q_cpu(Q_next, y, K)
         sqp.update_p_sqp(G, Q_next, P, P_next, XtX_p, Xtz_p, M, N, K)
 
         # --- SQP Update 2: (P_next, Q_next) -> (P_next2, Q_next2) ---
-        sqp.update_q_sqp(G, Q_next, Q_next2, P_next, XtX_q, Xtz_q, v_kk, M, N, K)
+        sqp.update_q_sqp(G, Q_next, Q_next2, P_next, XtX_q, Xtz_q, v_kk, M, N, K, q_block)
         _snap_q_cpu(Q_next2, y, K)
         sqp.update_p_sqp(G, Q_next2, P_next, P_next2, XtX_p, Xtz_p, M, N, K)
 
