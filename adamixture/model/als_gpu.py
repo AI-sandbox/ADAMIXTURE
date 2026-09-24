@@ -37,7 +37,7 @@ def mapQ(Q_in: torch.Tensor) -> None:
 
 
 def _cov_inverse(A: torch.Tensor, device: torch.device) -> torch.Tensor:
-    if device.type == "mps":
+    if device.type == "mps" and not utils.supports_mps_linalg():
         return torch.linalg.inv(A)
     return torch.linalg.pinv(A)
 

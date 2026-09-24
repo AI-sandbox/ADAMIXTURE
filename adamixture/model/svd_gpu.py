@@ -23,8 +23,8 @@ def eigSVD_gpu(C: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tenso
     device = C.device
     cov = C @ C.transpose(-2, -1)
 
-    # Fallback to CPU for eigh if device is MPS (operation not yet implemented)
-    if device.type == 'mps':
+    # Use native MPS eigh if supported (PyTorch >= 2.14); fallback to CPU otherwise
+    if device.type == 'mps' and not utils.supports_mps_linalg():
         D, V = torch.linalg.eigh(cov.cpu())
         D, V = D.to(device), V.to(device)
     else:

@@ -1,4 +1,5 @@
 import logging
+import os
 import random
 import sys
 from collections.abc import Callable
@@ -87,6 +88,40 @@ def reduce_gpu_chunk_or_raise(chunk_size: int, exc: BaseException, context: str)
 
     log.warning(f"    GPU out of memory while {context}: retrying with chunk_size={new_chunk_size}.")
     return new_chunk_size
+
+
+_SUPPORTS_MPS_LINALG = None
+
+
+def supports_mps_linalg() -> bool:
+    """
+    Description:
+    Returns True if the current PyTorch installation supports native
+    linear algebra operations (eigh, pinv, svd) on MPS (PyTorch >= 2.14).
+    The probe is evaluated once on a tiny 2x2 test tensor and cached.
+
+    Returns:
+        bool: True if MPS linear algebra operations are supported.
+    """
+    global _SUPPORTS_MPS_LINALG
+    if os.environ.get("ADAMIXTURE_FORCE_OLD_MPS") == "1":
+        return False
+    if _SUPPORTS_MPS_LINALG is not None:
+        return _SUPPORTS_MPS_LINALG
+
+    if not (hasattr(torch.backends, "mps") and torch.backends.mps.is_available()):
+        _SUPPORTS_MPS_LINALG = False
+        return False
+
+    try:
+        dummy = torch.eye(2, device="mps", dtype=torch.float32)
+        torch.linalg.eigh(dummy)
+        torch.linalg.pinv(dummy)
+        _SUPPORTS_MPS_LINALG = True
+    except (NotImplementedError, RuntimeError):
+        _SUPPORTS_MPS_LINALG = False
+
+    return _SUPPORTS_MPS_LINALG
 
 
 def is_cpu_memory_error(exc: BaseException) -> bool:

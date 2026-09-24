@@ -27,14 +27,14 @@ if system == "Linux":
         os.environ["CXX"] = "g++"
 elif system == "Darwin":  # macOS
     omp_path = ""
-    for p in ["/opt/homebrew/opt/libomp", "/usr/local/opt/libomp"]:
+    for p in ["/opt/homebrew/opt/libomp", "/usr/local/opt/libomp", os.path.expanduser("~/.local/libomp")]:
         if os.path.exists(p):
             omp_path = p
             break
 
     if omp_path:
         compile_args = ['-O3', '-ffast-math', '-fno-wrapv']
-        link_args = ['-lm', f'-L{omp_path}/lib']
+        link_args = ['-lm', f'-L{omp_path}/lib', f'-Wl,-rpath,{omp_path}/lib']
         common_macros.append(('HAVE_OPENMP', '1'))
         mac_include = [f'{omp_path}/include']
     else:
