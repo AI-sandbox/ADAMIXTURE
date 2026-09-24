@@ -378,8 +378,9 @@ class SNPReader:
         bed_file = self._resolve_existing(base_path, [".bed"], requested_file=file)
         bim_file = self._resolve_existing(base_path, [".bim"])
         if fam_file is None or bed_file is None or bim_file is None:
-            log.error(f"    Error: Required BED files missing for {base_path}")
-            sys.exit(1)
+            missing = [ext for ext, f in [(".fam", fam_file), (".bed", bed_file), (".bim", bim_file)] if f is None]
+            log.error(f"    Error: Required BED files missing for {base_path}: {', '.join(missing)}")
+            raise FileNotFoundError(f"Required BED files missing for {base_path}: {', '.join(missing)}")
 
         with self._open_text(fam_file) as fam:
             N = sum(1 for _ in fam)
@@ -470,7 +471,7 @@ class SNPReader:
         vcf_file = self._resolve_existing(base_path, [".vcf"], requested_file=file)
         if vcf_file is None:
             log.error(f"    Error: VCF file not found for {base_path}")
-            sys.exit(1)
+            raise FileNotFoundError(f"VCF file not found for {base_path}")
 
         norm_spec = self._normalize_specific_chrom(specific_chrom)
 
@@ -501,7 +502,7 @@ class SNPReader:
                 "    Please check if your chromosome filter (--chrom_mode, --specific_chrom, --autosomes) "
                 "excluded all variants, or if the input dataset has no variants."
             )
-            sys.exit(1)
+            raise
 
     def _read_pgen(
         self,
@@ -530,10 +531,10 @@ class SNPReader:
         var_file = self._resolve_existing(base_path, [".pvar", ".bim"])
         if pgen_file is None:
             log.error(f"    Error: PGEN file not found for {base_path}")
-            sys.exit(1)
+            raise FileNotFoundError(f"PGEN file not found for {base_path}")
         if var_file is None:
             log.error(f"    Error: Variant file (.pvar or .bim) not found for {base_path}")
-            sys.exit(1)
+            raise FileNotFoundError(f"Variant file (.pvar or .bim) not found for {base_path}")
 
         keep_mask = []
         with self._open_text(var_file) as vf:
@@ -567,7 +568,7 @@ class SNPReader:
                         "    Please check if your chromosome filter (--chrom_mode, --specific_chrom, --autosomes) "
                         "excluded all variants, or if the input dataset has no variants."
                     )
-                    sys.exit(1)
+                    raise ValueError("No variants found in dataset matching chromosome filters.")
                 return torch.from_numpy(G_packed), N, M
 
             G_np, N, M = read_pgen_file(
@@ -586,7 +587,7 @@ class SNPReader:
                     "    Please check if your chromosome filter (--chrom_mode, --specific_chrom, --autosomes) "
                     "excluded all variants, or if the input dataset has no variants."
                 )
-                sys.exit(1)
+                raise ValueError("No variants found in dataset matching chromosome filters.")
             return G_np, N, M
 
     def _read_bcf(
@@ -620,7 +621,7 @@ class SNPReader:
         bcf_file = self._resolve_existing(base_path, [".bcf"], requested_file=file)
         if bcf_file is None:
             log.error(f"    Error: BCF file not found for {base_path}")
-            sys.exit(1)
+            raise FileNotFoundError(f"BCF file not found for {base_path}")
 
         norm_spec = self._normalize_specific_chrom(specific_chrom)
         with self._materialize_binary(bcf_file) as readable_bcf:
@@ -651,7 +652,7 @@ class SNPReader:
                 "    Please check if your chromosome filter (--chrom_mode, --specific_chrom, --autosomes) "
                 "excluded all variants, or if the input dataset has no variants."
             )
-            sys.exit(1)
+            raise
 
     def _check_files_exist(self, file: str, extensions: list[str], match_any: bool = False):
         """
@@ -671,7 +672,7 @@ class SNPReader:
         if match_any:
             if self._resolve_existing(base_path, extensions, requested_file=file) is None:
                 log.error(f"    Error: Could not find any of these files: {extensions} for {base_path}")
-                sys.exit(1)
+                raise FileNotFoundError(f"Could not find any of these files: {extensions} for {base_path}")
         else:
             missing = [
                 base_path + ext
@@ -680,7 +681,7 @@ class SNPReader:
             ]
             if missing:
                 log.error(f"    Error: Required files missing: {', '.join(missing)}")
-                sys.exit(1)
+                raise FileNotFoundError(f"Required files missing: {', '.join(missing)}")
 
     def read_data(
         self,
@@ -709,6 +710,16 @@ class SNPReader:
         """
         file_path = Path(file)
         file_extensions = file_path.suffixes
+
+        if not file_extensions:
+            for ext in ('.bed', '.pgen', '.vcf', '.bcf', '.vcf.gz'):
+                cand = Path(str(file) + ext)
+                if cand.exists():
+                    file = str(cand)
+                    file_path = cand
+                    file_extensions = file_path.suffixes
+                    break
+
         start = time.time()
 
         if chrom_mode not in {"all", "autosomes"}:
@@ -741,8 +752,8 @@ class SNPReader:
                 file, packed, chunk_size, chrom_mode, autosomes, specific_chrom=specific_chrom
             )
         else:
-            log.error("    Invalid format. Unrecognized file format. Make sure file ends with .bed, .pgen, .vcf or .bcf .")
-            sys.exit(1)
+            log.error(f"    Invalid format for '{file}'. Unrecognized file format. Make sure file ends with .bed, .pgen, .vcf or .bcf .")
+            raise ValueError(f"Invalid format for '{file}'. Unrecognized file format. Make sure file ends with .bed, .pgen, .vcf or .bcf.")
 
         if not packed:
             mean_val = get_mean_unpacked(G) if M > 0 else 0.0
@@ -765,12 +776,12 @@ class SNPReader:
                 "    Please check if your chromosome filter (--chrom_mode, --specific_chrom, --autosomes) "
                 "excluded all variants, or if the input dataset has no variants."
             )
-            sys.exit(1)
+            raise ValueError("Genotype data contains 0 SNPs after filtering.")
         if N == 0:
             log.error(
                 "    Error: Genotype data contains 0 samples.\n"
                 "    Please check if the input dataset is empty or corrupted."
             )
-            sys.exit(1)
+            raise ValueError("Genotype data contains 0 samples.")
 
         return G, N, M

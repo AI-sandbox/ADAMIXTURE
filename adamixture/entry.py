@@ -167,26 +167,20 @@ def _fix_macos_libomp() -> None:
     """
     Description:
     On macOS, PyTorch ships its own libomp.dylib. If the package was built
-    as a wheel, it vendors its own libomp.dylib (typically under
-    adamixture/.dylibs/libomp.dylib). Two different OpenMP runtimes loaded
-    simultaneously cause segfaults with multiple threads.
+    as a wheel or with a local libomp (e.g. ~/.local/libomp/lib/libomp.dylib),
+    loading two different OpenMP runtimes simultaneously causes segfaults
+    with multiple threads.
 
-    Fix: point the package's vendored libomp to PyTorch's libomp via a symlink,
+    Fix: point any separate libomp to PyTorch's libomp via a symlink,
     ensuring only a single OpenMP runtime is loaded.
-
-    Args:
-        None.
-
-    Returns:
-        None
     """
     if platform.system() != "Darwin":
         return
 
-    pkg_omp = os.path.join(os.path.dirname(__file__), ".dylibs", "libomp.dylib")
-    # If the vendored libomp does not exist or is already a symlink, nothing to do.
-    if not os.path.exists(pkg_omp) or os.path.islink(pkg_omp):
-        return
+    candidate_paths = [
+        os.path.join(os.path.dirname(__file__), ".dylibs", "libomp.dylib"),
+        os.path.expanduser("~/.local/libomp/lib/libomp.dylib"),
+    ]
 
     try:
         import torch as _torch
@@ -197,20 +191,26 @@ def _fix_macos_libomp() -> None:
     if not os.path.exists(torch_omp):
         return
 
-    # Check if they already resolve to the same file.
-    if os.path.realpath(pkg_omp) == os.path.realpath(torch_omp):
-        return
+    torch_omp_real = os.path.realpath(torch_omp)
 
-    try:
-        backup = pkg_omp + ".bak"
-        if not os.path.exists(backup):
-            os.rename(pkg_omp, backup)
-        else:
-            os.remove(pkg_omp)
-        os.symlink(os.path.realpath(torch_omp), pkg_omp)
-        log.info("    Fixed OpenMP conflict: linked vendored libomp → torch's libomp")
-    except OSError as e:
-        log.warning(f"    Could not fix OpenMP conflict: {e}")
+    for omp_path in candidate_paths:
+        if not os.path.exists(omp_path):
+            continue
+        if os.path.islink(omp_path) and os.path.realpath(omp_path) == torch_omp_real:
+            continue
+        if os.path.realpath(omp_path) == torch_omp_real:
+            continue
+
+        try:
+            backup = omp_path + ".bak"
+            if not os.path.exists(backup):
+                os.rename(omp_path, backup)
+            else:
+                os.remove(omp_path)
+            os.symlink(torch_omp_real, omp_path)
+            log.info(f"    Fixed OpenMP conflict: linked {omp_path} → torch's libomp")
+        except OSError as e:
+            log.warning(f"    Could not fix OpenMP conflict for {omp_path}: {e}")
 
 def main() -> None:
     """

@@ -193,26 +193,85 @@ def set_cuda_arch_list_if_needed(device: torch.device) -> None:
     os.environ["TORCH_CUDA_ARCH_LIST"] = f"{major}.{minor}"
 
 
-def read_data(tr_file: str, packed: bool = False, chunk_size: int = 4096,
+def read_data(tr_file: str | Path | np.ndarray, packed: bool = False, chunk_size: int = 4096,
               chrom_mode: str = "autosomes", autosomes: int = 22,
               specific_chrom: list | tuple | str | int | set | None = None,
-              verbose: bool = True) -> tuple[torch.Tensor | np.ndarray, int, int]:
+              verbose: bool = True, plink: bool = True,
+              n_indiv: int | None = None,
+              n_loci: int | None = None) -> tuple[torch.Tensor | np.ndarray, int, int]:
     """
     Description:
-    Reads SNP data from a file (BED, VCF, etc.) and returns the genotype matrix and dimensions.
+    Reads SNP data from a file (BED, VCF, raw binary from tidypopgen) or directly from
+    an in-memory NumPy array and returns the genotype matrix and dimensions.
 
     Args:
-        tr_file (str): Path to the SNP data file.
+        tr_file (str | Path | np.ndarray): Path to the SNP data file or in-memory array (M x N).
         packed (bool): If True, return a 2-bit packed torch.Tensor.
         chunk_size (int): Size of chunks to read for VCF files.
         chrom_mode (str): "all" to keep all chromosomes or "autosomes" to keep 1..autosomes.
         autosomes (int): Number of autosomes when chrom_mode is "autosomes".
         specific_chrom: List of specific chromosomes to analyze when chrom_mode is "autosomes".
         verbose (bool): If True, log the number of samples and SNPs.
+        plink (bool): If True, read standard formats (BED/VCF/PGEN). If False, read raw
+                      uint8 binary genotype dump from tidypopgen using n_indiv and n_loci.
+        n_indiv (int | None): Number of individuals (required when plink=False).
+        n_loci (int | None): Number of SNPs/loci (required when plink=False).
 
     Returns:
         tuple[torch.Tensor | np.ndarray, int, int]: (genotype matrix, N samples, M SNPs)
     """
+    from .utils_c import flip_unpacked, get_mean_unpacked
+
+    # Case 1: In-memory NumPy array
+    if isinstance(tr_file, np.ndarray):
+        G = np.ascontiguousarray(tr_file, dtype=np.uint8)
+        M, N = G.shape[0], G.shape[1]
+        G[G >= 3] = 3
+        non_missing = np.sum(G != 3, axis=0)
+        if np.any(non_missing == 0):
+            raise ValueError("Sample(s) with zero information (all genotypes missing)!")
+        if not packed:
+            mean_val = get_mean_unpacked(G) if M > 0 else 0.0
+            if mean_val >= 0.5:
+                if verbose:
+                    log.info("    Flipping genotype encoding (unpacked).")
+                flip_unpacked(G)
+        if verbose:
+            log.info(f"    Data contains {N} samples and {M} SNPs.")
+        return G, N, M
+
+    # Case 2: Raw uint8 binary file from tidypopgen (plink=False)
+    if not plink:
+        if n_indiv is None or n_loci is None:
+            raise ValueError("n_indiv and n_loci must be provided when plink=False")
+        N = int(n_indiv)
+        M = int(n_loci)
+        file_path = str(tr_file)
+        if not os.path.isfile(file_path):
+            raise FileNotFoundError(f"Genotype binary file '{file_path}' does not exist!")
+        G = np.fromfile(file_path, dtype=np.uint8)
+        if G.size != M * N:
+            raise ValueError(
+                f"Binary file size mismatch: expected {M * N} bytes ({M} loci x {N} individuals), "
+                f"got {G.size} bytes."
+            )
+        G = G.reshape(M, N)
+        G = np.ascontiguousarray(G, dtype=np.uint8)
+        G[G >= 3] = 3
+        non_missing = np.sum(G != 3, axis=0)
+        if np.any(non_missing == 0):
+            raise ValueError("Sample(s) with zero information (all genotypes missing)!")
+        if not packed:
+            mean_val = get_mean_unpacked(G) if M > 0 else 0.0
+            if mean_val >= 0.5:
+                if verbose:
+                    log.info("    Flipping genotype encoding (unpacked).")
+                flip_unpacked(G)
+        if verbose:
+            log.info(f"    Data contains {N} samples and {M} SNPs.")
+        return G, N, M
+
+    # Case 3: Standard file formats (PLINK BED, VCF, PGEN, BCF)
     current_chunk_size = chunk_size
     while True:
         try:
@@ -220,7 +279,7 @@ def read_data(tr_file: str, packed: bool = False, chunk_size: int = 4096,
                 log.warning(f"    Retrying data read with chunk_size={current_chunk_size}.")
             snp_reader = SNPReader()
             G, N, M = snp_reader.read_data(
-                tr_file,
+                str(tr_file),
                 packed=packed,
                 chunk_size=current_chunk_size,
                 chrom_mode=chrom_mode,
