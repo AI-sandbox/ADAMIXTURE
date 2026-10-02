@@ -25,5 +25,7 @@ $ adamixture-project \
 | `--save_dir` | Output directory. |
 | `--name` | Run name prefix for output files. |
 | `--device` | Computation device: `cpu`, `cuda`, or `mps` (default: `cpu`). |
+| `--max_iter` | Maximum Newton iterations (default: 15). |
+| `--tol` | Convergence tolerance on mean change in Q (default: `1e-4`). |
 
 The output is a single `.Q` file (one row per sample, K columns). All `--plot`, `--labels`, `--labels2`, `--labels3`, and `--colors` flags work identically to the main `adamixture` command.

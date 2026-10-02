@@ -65,19 +65,9 @@ def parse_args(argv: list[str]) -> configargparse.Namespace:
         help="Experiment/run name used as prefix for output files.",
     )
 
-    # ── Adam-EM hyperparameters ────────────────────────────────────────────────
-    parser.add_argument("--lr",            type=float, default=0.005,  help="[only with --algorithm adamem] Learning rate (default: 0.005).")
-    parser.add_argument("--beta1",         type=float, default=0.80,   help="[only with --algorithm adamem] Adam beta1 (default: 0.80).")
-    parser.add_argument("--beta2",         type=float, default=0.88,   help="[only with --algorithm adamem] Adam beta2 (default: 0.88).")
-    parser.add_argument("--reg_adam",      type=float, default=1e-8,   help="[only with --algorithm adamem] Adam epsilon (default: 1e-8).")
-    parser.add_argument("--lr_decay",      type=float, default=0.5,    help="[only with --algorithm adamem] Learning rate decay factor (default: 0.5).")
-    parser.add_argument("--min_lr",        type=float, default=1e-4,   help="[only with --algorithm adamem] Minimum learning rate (default: 1e-4).")
-    parser.add_argument("--patience",      type=int,   default=3,      help="Patience for lr reduction (default: 3).")
-    parser.add_argument("--tol",           type=float, default=0.1,    help="Convergence tolerance (default: 0.1).")
-    parser.add_argument("--max_iter",      type=int,   default=10000,  help="Maximum Adam-EM iterations (default: 10000).")
-    parser.add_argument("--check",         type=int,   default=5,      help="[only with --algorithm adamem] Log-likelihood check frequency (default: 5).")
-    parser.add_argument('--algorithm', choices=['brqn', 'adamem'], default='brqn', help='Algorithm to use (brqn for SQP+ZAL QN, adamem for Adam-EM) (default: brqn).')
-    parser.add_argument('--Q_hist', type=int, default=3, help=argparse.SUPPRESS)
+    # ── Projection hyperparameters ────────────────────────────────────────────
+    parser.add_argument("--max_iter",      type=int,   default=15,     help="Maximum Newton iterations (default: 15).")
+    parser.add_argument("--tol",           type=float, default=1e-4,   help="Convergence tolerance on mean change in Q (default: 1e-4).")
 
     # ── Misc ──────────────────────────────────────────────────────────────────
     parser.add_argument("-s", "--seed",    type=int,   default=42,     help="Random seed (default: 42).")
@@ -122,7 +112,7 @@ def main() -> None:
     Entry point for the ``adamixture-project`` command.
 
     Loads a pre-trained P matrix and a target genotype dataset, then runs
-    the Adam-EM projection loop (Q-only updates) to estimate ancestry
+    the Exact Newton-SQP projection loop (Q-only updates) to estimate ancestry
     proportions for the target samples.
 
     Args:
@@ -132,29 +122,20 @@ def main() -> None:
         None
     """
     print_adamixture_banner(__version__)
-    log.info("    Projection Mode\n")
+    log.info("    Projection Mode (Exact Newton-SQP)\n")
     arg_list = tuple(sys.argv)
     args = parse_args(arg_list[1:])
 
     # VALIDATE PARAMETERS:
     assert args.threads >= 1, "Threads (threads) must be at least 1."
-    assert args.lr > 0, "Learning rate (lr) must be positive."
-    assert 0 <= args.beta1 < 1, "Adam beta1 must be in [0, 1)."
-    assert 0 <= args.beta2 < 1, "Adam beta2 must be in [0, 1)."
-    assert 0 < args.lr_decay <= 1, "Learning rate decay (lr_decay) must be in (0, 1]."
-    assert args.min_lr > 0, "Minimum learning rate (min_lr) must be positive."
-    assert args.patience >= 1, "Patience must be at least 1."
     assert args.seed >= 0, "Seed must be non-negative."
     assert args.max_iter >= 1, "Maximum iterations (max_iter) must be at least 1."
-    assert args.check >= 1, "Check frequency (check) must be at least 1."
     assert args.chunk_size >= 1, "Chunk size must be at least 1."
     if args.chrom_mode == "autosomes" and not args.specific_chrom:
         assert args.autosomes >= 1, "Autosome count (autosomes) must be at least 1."
     assert args.tol > 0, "Tolerance (tol) must be positive."
-    assert args.reg_adam >= 0, "Adam regularization (reg_adam) must be non-negative."
-    assert args.plot_format in ['pdf', 'png', 'jpg'], "Plot format must be pdf, png or jpg."
+    assert args.plot_format in ["pdf", "png", "jpg"], "Plot format must be pdf, png or jpg."
     assert 50 <= args.plot_dpi <= 1200, "Plot resolution must be between 50 and 1200."
-    assert args.Q_hist >= 1, "Q_hist must be at least 1."
 
     # Thread control
     th = str(args.threads)
@@ -178,10 +159,8 @@ def main() -> None:
 
     from .src import utils
     from .src.projection import (
-        optimize_projection,
+        optimize_projection_cpu,
         optimize_projection_gpu,
-        optimize_projection_original,
-        optimize_projection_original_gpu,
     )
 
     device_str = args.device
@@ -204,8 +183,8 @@ def main() -> None:
     P = P.clip(1e-5, 1.0 - 1e-5)
     log.info(f"    P matrix loaded: {M_p} SNPs, K={K} populations.\n")
 
-    if args.algorithm == 'brqn' and device_str == 'mps' and K > 32:
-        log.error(f"    Error: K={K} exceeds the current MPS BR-QN limit (MAX_K=32).")
+    if device_str == 'mps' and K > 32:
+        log.error(f"    Error: K={K} exceeds the current MPS limit (MAX_K=32).")
         sys.exit(1)
 
     # ── Load target genotype data ─────────────────────────────────────────────
@@ -232,10 +211,7 @@ def main() -> None:
     Q = rng.random(size=(N, K)).astype(np.float64)
     Q /= Q.sum(axis=1, keepdims=True)
 
-    if args.algorithm == 'brqn':
-        log.info("    Running SQP + ZAL QN projection (P fixed)...\n")
-    else:
-        log.info("    Running Adam-EM projection (P fixed)...\n")
+    log.info("    Running Exact Newton-SQP projection (P fixed)...\n")
 
     # ── Run projection ────────────────────────────────────────────────────────
     if use_gpu:
@@ -253,42 +229,20 @@ def main() -> None:
             N,
             K,
             args.chunk_size,
-            args.algorithm,
-            args.Q_hist,
+            "brqn",
             include_initialization=False,
         )
-        if args.algorithm == 'brqn':
-            Q_gpu = optimize_projection_original_gpu(
-                G=G_t, P=P_t, Q=Q_t,
-                max_iter=args.max_iter, K=K, M=M, N=N, tol=args.tol, Q_hist=args.Q_hist,
-                patience=args.patience,
-                device=device_obj, chunk_size=args.chunk_size, threads_per_block=threads_per_block,
-            )
-        else:
-            Q_gpu = optimize_projection_gpu(
-                G=G_t, P=P_t, Q=Q_t,
-                lr=args.lr, beta1=args.beta1, beta2=args.beta2, reg_adam=args.reg_adam,
-                max_iter=args.max_iter, check=args.check, M=M,
-                lr_decay=args.lr_decay, min_lr=args.min_lr,
-                patience=args.patience, tol_adam=args.tol,
-                device=device_obj, chunk_size=args.chunk_size, threads_per_block=threads_per_block,
-            )
+        Q_gpu = optimize_projection_gpu(
+            G=G_t, P=P_t, Q=Q_t,
+            max_iter=args.max_iter, K=K, M=M, N=N, tol=args.tol,
+            device=device_obj, chunk_size=args.chunk_size, threads_per_block=threads_per_block,
+        )
         Q_opt = Q_gpu.cpu().numpy()
     else:
-        if args.algorithm == 'brqn':
-            Q_opt = optimize_projection_original(
-                G=G, P=P, Q=Q,
-                max_iter=args.max_iter, K=K, M=M, N=N, tol=args.tol, Q_hist=args.Q_hist,
-                patience=args.patience,
-            )
-        else:
-            Q_opt = optimize_projection(
-                G=G, P=P, Q=Q,
-                lr=args.lr, beta1=args.beta1, beta2=args.beta2, reg_adam=args.reg_adam,
-                max_iter=args.max_iter, check=args.check, K=K, M=M, N=N,
-                lr_decay=args.lr_decay, min_lr=args.min_lr,
-                patience=args.patience, tol_adam=args.tol,
-            )
+        Q_opt = optimize_projection_cpu(
+            G=G, P=P, Q=Q,
+            max_iter=args.max_iter, K=K, M=M, N=N, tol=args.tol,
+        )
 
     # ── Save output ───────────────────────────────────────────────────────────
     out_path = Path(args.save_dir)
