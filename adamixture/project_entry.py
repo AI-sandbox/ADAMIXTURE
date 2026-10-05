@@ -65,9 +65,6 @@ def parse_args(argv: list[str]) -> configargparse.Namespace:
         help="Experiment/run name used as prefix for output files.",
     )
 
-    # ── Projection hyperparameters ────────────────────────────────────────────
-    parser.add_argument("--max_iter",      type=int,   default=15,     help="Maximum Newton iterations (default: 15).")
-    parser.add_argument("--tol",           type=float, default=1e-4,   help="Convergence tolerance on mean change in Q (default: 1e-4).")
 
     # ── Misc ──────────────────────────────────────────────────────────────────
     parser.add_argument("-s", "--seed",    type=int,   default=42,     help="Random seed (default: 42).")
@@ -122,18 +119,16 @@ def main() -> None:
         None
     """
     print_adamixture_banner(__version__)
-    log.info("    Projection Mode (Exact Newton-SQP)\n")
+    log.info("    Projection Mode (Fast ALS)\n")
     arg_list = tuple(sys.argv)
     args = parse_args(arg_list[1:])
 
     # VALIDATE PARAMETERS:
     assert args.threads >= 1, "Threads (threads) must be at least 1."
     assert args.seed >= 0, "Seed must be non-negative."
-    assert args.max_iter >= 1, "Maximum iterations (max_iter) must be at least 1."
     assert args.chunk_size >= 1, "Chunk size must be at least 1."
     if args.chrom_mode == "autosomes" and not args.specific_chrom:
         assert args.autosomes >= 1, "Autosome count (autosomes) must be at least 1."
-    assert args.tol > 0, "Tolerance (tol) must be positive."
     assert args.plot_format in ["pdf", "png", "jpg"], "Plot format must be pdf, png or jpg."
     assert 50 <= args.plot_dpi <= 1200, "Plot resolution must be between 50 and 1200."
 
@@ -211,12 +206,14 @@ def main() -> None:
     Q = rng.random(size=(N, K)).astype(np.float64)
     Q /= Q.sum(axis=1, keepdims=True)
 
-    log.info("    Running Exact Newton-SQP projection (P fixed)...\n")
+    log.info("    Running fast chunked ALS projection (P fixed)...\n")
 
     # ── Run projection ────────────────────────────────────────────────────────
     if use_gpu:
         import torch
         device_obj = torch.device(device_str)
+        if device_obj.type == "cuda" and device_obj.index is None:
+            device_obj = torch.device(f"cuda:{torch.cuda.current_device()}")
         threads_per_block = utils.get_tuning_params(device_obj)
         utils.load_extensions(device_obj)
         G_t = torch.from_numpy(G) if not isinstance(G, torch.Tensor) else G
@@ -233,15 +230,15 @@ def main() -> None:
             include_initialization=False,
         )
         Q_gpu = optimize_projection_gpu(
-            G=G_t, P=P_t, Q=Q_t,
-            max_iter=args.max_iter, K=K, M=M, N=N, tol=args.tol,
-            device=device_obj, chunk_size=args.chunk_size, threads_per_block=threads_per_block,
+            G=G_t, P=P_t, chunk_size=args.chunk_size, Q=Q_t,
+            K=K, M=M, N=N,
+            device=device_obj, threads_per_block=threads_per_block,
         )
         Q_opt = Q_gpu.cpu().numpy()
     else:
         Q_opt = optimize_projection_cpu(
-            G=G, P=P, Q=Q,
-            max_iter=args.max_iter, K=K, M=M, N=N, tol=args.tol,
+            G=G, P=P, chunk_size=args.chunk_size, Q=Q,
+            K=K, M=M, N=N,
         )
 
     # ── Save output ───────────────────────────────────────────────────────────

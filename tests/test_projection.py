@@ -17,14 +17,17 @@ def test_projection_parse_args() -> None:
     args = parse_args(PROJ_MIN_ARGS)
     assert args.data_path == "data.bed"
     assert args.p_path == "model.P"
-    assert args.max_iter == 15
-    assert args.tol == 1e-4
+    assert args.chunk_size == 4096
     assert args.device == "cpu"
 
 
 def test_projection_parse_args_rejects_obsolete_flags() -> None:
     with pytest.raises(SystemExit):
         parse_args([*PROJ_MIN_ARGS, "--algorithm", "adamem"])
+    with pytest.raises(SystemExit):
+        parse_args([*PROJ_MIN_ARGS, "--max_iter", "10"])
+    with pytest.raises(SystemExit):
+        parse_args([*PROJ_MIN_ARGS, "--tol", "1e-5"])
 
 
 def test_optimize_projection_cpu_synthetic() -> None:
@@ -39,7 +42,7 @@ def test_optimize_projection_cpu_synthetic() -> None:
     Q = rng.random(size=(N, K)).astype(np.float64)
     Q /= Q.sum(axis=1, keepdims=True)
 
-    Q_opt = optimize_projection_cpu(G, P, Q, max_iter=5, K=K, M=M, N=N, tol=1e-4)
+    Q_opt = optimize_projection_cpu(G, P, chunk_size=16, Q=Q, K=K, M=M, N=N)
 
     assert Q_opt.shape == (N, K)
     assert np.all(Q_opt >= 0.0)
