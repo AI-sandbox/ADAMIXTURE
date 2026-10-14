@@ -16,9 +16,9 @@ def require_torch():
     Raises an informative ImportError if PyTorch is not installed.
     """
     global _torch
+    if "torch" in sys.modules and sys.modules["torch"] is None:
+        raise ImportError(_TORCH_INSTALL_MESSAGE)
     if _torch is None:
-        if "torch" in sys.modules and sys.modules["torch"] is None:
-            raise ImportError(_TORCH_INSTALL_MESSAGE)
         try:
             import torch
             if torch is None:
@@ -32,13 +32,13 @@ def require_torch():
 def is_torch_available() -> bool:
     """Check if PyTorch is installed and available without eagerly importing it."""
     global _torch
+    if "torch" in sys.modules and sys.modules["torch"] is None:
+        return False
     if _torch is not None:
         return True
     if sys.modules.get("torch") is not None:
         _torch = sys.modules["torch"]
         return True
-    if "torch" in sys.modules and sys.modules["torch"] is None:
-        return False
     try:
         spec = importlib.util.find_spec("torch")
         return spec is not None

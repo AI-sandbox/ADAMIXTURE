@@ -1,5 +1,6 @@
 import pytest
 
+from adamixture.compat import is_torch_available
 from adamixture.src import utils
 
 from tests.config import CHUNK_SIZE, DATA_DIR, READER_EXPECTED_DIR
@@ -52,6 +53,10 @@ def test_reader_unpacked_matches_expected(filename: str, label: str) -> None:
 @pytest.mark.parametrize(
     ("filename", "label"),
     READER_CASES,
+)
+@pytest.mark.skipif(
+    not is_torch_available(),
+    reason="Packed reader tests require the optional torch dependency.",
 )
 def test_reader_packed_matches_expected(filename: str, label: str) -> None:
     del label

@@ -17,7 +17,6 @@ os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
 import pytest
 
 np = pytest.importorskip("numpy")
-pytest.importorskip("torch")
 
 from adamixture.model.als import ALS
 from adamixture.model.svd import RSVD
