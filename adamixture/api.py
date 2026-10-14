@@ -5,8 +5,8 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-import torch
 
+from .compat import is_torch_loaded, require_torch
 from .entry import _fix_macos_libomp
 from .model.br_qn import q_hessian_block_size
 from .src import utils
@@ -29,6 +29,7 @@ def run(
     n_loci: int | None = None,
     chrom_mode: str = "all",
     verbose: bool = True,
+    device: str = "cpu",
     **extra_kwargs: Any,
 ) -> Any:
     """
@@ -102,7 +103,8 @@ def run(
     if platform.system() == "Darwin":
         os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
-    torch.set_num_threads(int(threads))
+    if is_torch_loaded():
+        require_torch().set_num_threads(int(threads))
 
     # Set random seed
     utils.set_seed(int(seed))
@@ -121,7 +123,7 @@ def run(
         n_loci=n_loci,
     )
 
-    # Setup: frequencies and SVD on CPU (default: brqn + als)
+    # Setup: frequencies and SVD (default: brqn + als)
     device_obj, threads_per_block, f, U, S, V, G = setup(
         G,
         N,
@@ -131,7 +133,7 @@ def run(
         power,
         tol_svd,
         chunk_size,
-        "cpu",
+        device,
         original=True,
         init_original="als",
         q_hist=3,
@@ -177,8 +179,8 @@ def run(
             q_block=q_block,
         )
 
-        P_np = P.cpu().numpy() if isinstance(P, torch.Tensor) else np.asarray(P)
-        Q_np = Q.cpu().numpy() if isinstance(Q, torch.Tensor) else np.asarray(Q)
+        P_np = P.cpu().numpy() if hasattr(P, "cpu") else np.asarray(P)
+        Q_np = Q.cpu().numpy() if hasattr(Q, "cpu") else np.asarray(Q)
         P_np = np.ascontiguousarray(P_np, dtype=np.float64)
         Q_np = np.ascontiguousarray(Q_np, dtype=np.float64)
 

@@ -152,14 +152,18 @@ def main() -> None:
 
     from pathlib import Path
 
+    from .compat import Device, require_torch
     from .src import utils
     from .src.projection import (
         optimize_projection_cpu,
         optimize_projection_gpu,
     )
 
-    device_str = args.device
-    use_gpu = device_str in ("cuda", "mps")
+    device_obj = Device(args.device)
+    device_str = device_obj.type
+    use_gpu = device_obj.type != "cpu"
+    if use_gpu:
+        require_torch()
     utils.set_seed(args.seed)
 
     t0 = time.time()
@@ -210,18 +214,16 @@ def main() -> None:
 
     # ── Run projection ────────────────────────────────────────────────────────
     if use_gpu:
-        import torch
-        device_obj = torch.device(device_str)
-        if device_obj.type == "cuda" and device_obj.index is None:
-            device_obj = torch.device(f"cuda:{torch.cuda.current_device()}")
-        threads_per_block = utils.get_tuning_params(device_obj)
-        utils.load_extensions(device_obj)
-        G_t = torch.from_numpy(G) if not isinstance(G, torch.Tensor) else G
-        P_t = torch.tensor(P, dtype=utils.get_dtype(device_obj), device=device_obj)
-        Q_t = torch.tensor(Q, dtype=utils.get_dtype(device_obj), device=device_obj)
+        torch = require_torch()
+        torch_dev = device_obj.torch_device
+        threads_per_block = utils.get_tuning_params(torch_dev)
+        utils.load_extensions(torch_dev)
+        G_t = torch.from_numpy(G) if not hasattr(G, "cpu") else G
+        P_t = torch.tensor(P, dtype=utils.get_dtype(torch_dev), device=torch_dev)
+        Q_t = torch.tensor(Q, dtype=utils.get_dtype(torch_dev), device=torch_dev)
         G_t = utils.manage_gpu_memory(
             G_t,
-            device_obj,
+            torch_dev,
             M,
             N,
             K,
@@ -232,7 +234,7 @@ def main() -> None:
         Q_gpu = optimize_projection_gpu(
             G=G_t, P=P_t, chunk_size=args.chunk_size, Q=Q_t,
             K=K, M=M, N=N,
-            device=device_obj, threads_per_block=threads_per_block,
+            device=torch_dev, threads_per_block=threads_per_block,
         )
         Q_opt = Q_gpu.cpu().numpy()
     else:

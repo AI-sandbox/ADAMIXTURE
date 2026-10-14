@@ -1,26 +1,25 @@
+from __future__ import annotations
+
 import logging
 import sys
 import time
+from typing import Any
 
 import numpy as np
-import torch
 
 from ..model.als import ALS
-from ..model.als_gpu import ALS_gpu
 from ..model.br_qn import optimize_original
-from ..model.br_qn_gpu import optimize_original_gpu
 from ..model.em_adam import emStep, optimize_parameters
-from ..model.em_adam_gpu import EMAdamOptimizer, optimize_parameters_gpu
 from ..model.svd import RSVD
-from ..model.svd_gpu import SVD_gpu
 from . import utils
+from .compat import Device, is_torch_available, require_torch
 from .utils_c import tools
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
 log = logging.getLogger(__name__)
 
-def setup(G: torch.Tensor | np.ndarray, N: int, M: int, K_max: int, seed: int, power: int,
-          tol_svd: float, chunk_size: int, device: str, original: bool = False,
+def setup(G: Any, N: int, M: int, K_max: int, seed: int, power: int,
+          tol_svd: float, chunk_size: int, device: str | Any, original: bool = False,
           init_original: str = 'em', q_hist: int = 3, compute_svd: bool = True) -> tuple:
     """
     Description:
@@ -48,7 +47,9 @@ def setup(G: torch.Tensor | np.ndarray, N: int, M: int, K_max: int, seed: int, p
         tuple: (device_obj, threads_per_block, f, U, S, V, G) where G may
                have been moved to GPU.
     """
-    device_obj = torch.device(device)
+    device_obj = Device(device)
+    if device_obj.type != 'cpu':
+        require_torch()
     if device_obj.type == 'mps':
         try:
             import torch._inductor.config as inductor_config
@@ -92,8 +93,9 @@ def setup(G: torch.Tensor | np.ndarray, N: int, M: int, K_max: int, seed: int, p
         log.info("    Frequencies calculated.\n")
         if compute_svd:
             log.info("    Running SVD on GPU...\n")
+            from ..model.svd_gpu import SVD_gpu
             U, S, V = SVD_gpu(G, N, M, f, K_max, seed, power, tol_svd,
-                              chunk_size, device_obj, threads_per_block)
+                              chunk_size, device_obj.torch_device, threads_per_block)
         else:
             U, S, V = None, None, None
 
@@ -137,27 +139,16 @@ def initialize_em_cpu(G: np.ndarray, seed: int, M: int, N: int, K: int,
     return P, Q
 
 
-def initialize_em_gpu(G: torch.Tensor, seed: int, M: int, N: int, K: int,
-                      device_obj: torch.device, chunk_size: int, threads_per_block: int,
-                      n_steps: int = 5) -> tuple[torch.Tensor, torch.Tensor]:
+def initialize_em_gpu(G: Any, seed: int, M: int, N: int, K: int,
+                      device_obj: Any, chunk_size: int, threads_per_block: int,
+                      n_steps: int = 5) -> tuple[Any, Any]:
     """
     Description:
     Initializes P and Q randomly on GPU and runs a few EM priming steps.
-
-    Args:
-        G (torch.Tensor): Packed genotype tensor.
-        seed (int): Random seed.
-        M (int): Number of SNPs.
-        N (int): Number of individuals.
-        K (int): Number of ancestral populations.
-        device_obj (torch.device): Computation device.
-        chunk_size (int): SNP chunk size for batched GPU work.
-        threads_per_block (int): CUDA tuning parameter.
-        n_steps (int): Number of EM priming steps. Defaults to 5.
-
-    Returns:
-        tuple[torch.Tensor, torch.Tensor]: Initialized (P, Q) tensors.
     """
+    torch = require_torch()
+    from ..model.em_adam_gpu import EMAdamOptimizer
+
     t0 = time.time()
     dtype = utils.get_dtype(device_obj)
     rng = np.random.default_rng(seed)
@@ -166,10 +157,10 @@ def initialize_em_gpu(G: torch.Tensor, seed: int, M: int, N: int, K: int,
     np.clip(P_np, 1e-5, 1.0 - 1e-5, out=P_np)
     np.clip(Q_np, 1e-5, 1.0 - 1e-5, out=Q_np)
     Q_np /= Q_np.sum(axis=1, keepdims=True)
-    P = torch.from_numpy(P_np).to(device=device_obj, dtype=dtype)
-    Q = torch.from_numpy(Q_np).to(device=device_obj, dtype=dtype)
+    P = torch.from_numpy(P_np).to(device=device_obj.torch_device if hasattr(device_obj, 'torch_device') else device_obj, dtype=dtype)
+    Q = torch.from_numpy(Q_np).to(device=device_obj.torch_device if hasattr(device_obj, 'torch_device') else device_obj, dtype=dtype)
 
-    optimizer = EMAdamOptimizer(P.shape, Q.shape, 0.0, 0.0, 0.0, 0.0, device_obj)
+    optimizer = EMAdamOptimizer(P.shape, Q.shape, 0.0, 0.0, 0.0, 0.0, device_obj.torch_device if hasattr(device_obj, 'torch_device') else device_obj)
     unpacker = utils.get_unpacker(device_obj, threads_per_block)
 
     log.info(f"    Random initialization + {n_steps} EM initial steps...")
@@ -221,8 +212,7 @@ def initialize_k(G: torch.Tensor | np.ndarray, N: int, M: int, K: int,
         else:
             P, Q = initialize_em_gpu(G, seed, M, N, K, device_obj, chunk_size,
                                      threads_per_block, em_init_steps)
-            if device_obj.type == 'cuda':
-                torch.cuda.empty_cache()
+            utils.clear_device_cache(device_obj)
             logl_calc = utils.get_logl_calculator(device_obj)
             logl = logl_calc(G, P, Q, M, N, chunk_size, threads_per_block)
         log.info(f"    Initial log-likelihood for K={K}: {logl:.1f}.")
@@ -235,14 +225,16 @@ def initialize_k(G: torch.Tensor | np.ndarray, N: int, M: int, K: int,
         P, Q = ALS(U, S, V, f, seed, M, N, K, max_als, tol_als)
         logl = tools.loglikelihood(G, P, Q)
     else:
+        from ..model.svd_gpu import SVD_gpu
+        from ..model.als_gpu import ALS_gpu
+        dev_target = device_obj.torch_device if hasattr(device_obj, 'torch_device') else device_obj
         log.info(f"    Running SVD on GPU ({device_obj})...\n")
         U, S, V = SVD_gpu(G, N, M, f, K, seed, power, tol_svd,
-                          chunk_size, device_obj, threads_per_block)
+                          chunk_size, dev_target, threads_per_block)
         log.info(f"    Running ALS on GPU ({device_obj})...")
         P, Q = ALS_gpu(U.contiguous(), S.contiguous(), V.contiguous(),
-                       f, seed, M, K, max_als, tol_als, device_obj)
-        if device_obj.type == 'cuda':
-            torch.cuda.empty_cache()
+                       f, seed, M, K, max_als, tol_als, dev_target)
+        utils.clear_device_cache(device_obj)
         logl_calc = utils.get_logl_calculator(device_obj)
         logl = logl_calc(G, P, Q, M, N, chunk_size, threads_per_block)
 
@@ -321,14 +313,15 @@ def train_k(G: torch.Tensor | np.ndarray, N: int, M: int, K: int, U_max: np.ndar
             if original and init_original == 'em':
                 P, Q = initialize_em_gpu(G, seed, M, N, K, device_obj, chunk_size, threads_per_block, em_init_steps)
             else:
+                from ..model.als_gpu import ALS_gpu
                 log.info(f"    Running ALS on GPU ({device_obj})...")
                 U_k = U.contiguous()
                 S_k = S.contiguous()
                 V_k = V.contiguous()
-                P, Q = ALS_gpu(U_k, S_k, V_k, f, seed, M, K, max_als, tol_als, device_obj)
+                dev_target = device_obj.torch_device if hasattr(device_obj, 'torch_device') else device_obj
+                P, Q = ALS_gpu(U_k, S_k, V_k, f, seed, M, K, max_als, tol_als, dev_target)
 
-            if device_obj.type == 'cuda':
-                torch.cuda.empty_cache()
+            utils.clear_device_cache(device_obj)
 
             logl_calc = utils.get_logl_calculator(device_obj)
             logl = logl_calc(G, P, Q, M, N, chunk_size, threads_per_block)
@@ -344,13 +337,16 @@ def train_k(G: torch.Tensor | np.ndarray, N: int, M: int, K: int, U_max: np.ndar
             P, Q = optimize_parameters(G, P, Q, lr, beta1, beta2, reg_adam, max_iter,
                                        check, K, M, N, lr_decay, min_lr, patience, tol_adam)
     else:
+        dev_target = device_obj.torch_device if hasattr(device_obj, 'torch_device') else device_obj
         if original:
+            from ..model.br_qn_gpu import optimize_original_gpu
             log.info(f"    SQP + ZAL QN running on GPU ({device_obj})...\n")
             P, Q = optimize_original_gpu(G, P, Q, max_iter, K, M, N, rtol, Q_hist,
-                                         patience, device_obj, chunk_size, threads_per_block)
+                                         patience, dev_target, chunk_size, threads_per_block)
         else:
+            from ..model.em_adam_gpu import optimize_parameters_gpu
             log.info(f"    Adam-EM running on GPU ({device_obj})...\n")
             P, Q = optimize_parameters_gpu(G, P, Q, lr, beta1, beta2, reg_adam, max_iter,
                                            check, K, M, N, lr_decay, min_lr, patience, tol_adam,
-                                           device_obj, chunk_size, threads_per_block)
+                                           dev_target, chunk_size, threads_per_block)
     return P, Q

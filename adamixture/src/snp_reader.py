@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import gzip
 import logging
 import shutil
@@ -10,7 +12,8 @@ from pathlib import Path
 from typing import Iterator
 
 import numpy as np
-import torch
+
+from .compat import require_torch
 
 from .utils_c import (
     flip_packed,
@@ -435,6 +438,7 @@ class SNPReader:
                 B_raw = np.ascontiguousarray(B_raw[keep_mask])
                 M = B_raw.shape[0]
 
+                torch = require_torch()
                 B = torch.from_numpy(B_raw)
                 M_bytes = (M + 3) // 4
                 G = torch.zeros((M_bytes, N), dtype=torch.uint8)
@@ -494,6 +498,7 @@ class SNPReader:
                     autosomes=autosomes,
                     specific_chrom=norm_spec,
                 )
+                torch = require_torch()
                 G_packed = torch.from_numpy(G_packed_np)
                 return G_packed, N, M
         except ValueError as err:
@@ -569,6 +574,7 @@ class SNPReader:
                         "excluded all variants, or if the input dataset has no variants."
                     )
                     raise ValueError("No variants found in dataset matching chromosome filters.")
+                torch = require_torch()
                 return torch.from_numpy(G_packed), N, M
 
             G_np, N, M = read_pgen_file(
@@ -644,6 +650,7 @@ class SNPReader:
                     autosomes=autosomes,
                     specific_chrom=norm_spec,
                 )
+                torch = require_torch()
                 G_packed = torch.from_numpy(G_packed_np)
                 return G_packed, N, M
         except ValueError as err:

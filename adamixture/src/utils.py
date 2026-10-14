@@ -1,13 +1,16 @@
+from __future__ import annotations
+
 import logging
 import os
 import random
 import sys
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 import numpy as np
-import torch
 
+from .compat import Device, is_torch_available, require_torch
 from .snp_reader import SNPReader
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
@@ -15,6 +18,19 @@ log = logging.getLogger(__name__)
 
 MIN_GPU_CHUNK_SIZE = 2
 MIN_CPU_CHUNK_SIZE = 2
+
+
+def clear_device_cache(device_obj: Any = None) -> None:
+    """Clear device memory cache for CUDA or MPS."""
+    if is_torch_available():
+        torch = require_torch()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        if hasattr(torch.backends, "mps") and torch.backends.mps.is_available() and hasattr(torch.mps, "empty_cache"):
+            try:
+                torch.mps.empty_cache()
+            except Exception:
+                pass
 
 
 def is_gpu_oom(exc: BaseException) -> bool:
@@ -29,7 +45,11 @@ def is_gpu_oom(exc: BaseException) -> bool:
         bool: True if the exception is a GPU out-of-memory error.
     """
     message = str(exc).lower()
-    return isinstance(exc, torch.cuda.OutOfMemoryError) or any(
+    if is_torch_available():
+        torch = require_torch()
+        if isinstance(exc, torch.cuda.OutOfMemoryError):
+            return True
+    return any(
         phrase in message
         for phrase in (
             "cuda out of memory",
@@ -78,13 +98,7 @@ def reduce_gpu_chunk_or_raise(chunk_size: int, exc: BaseException, context: str)
     exc.__traceback__ = None
     import gc
     gc.collect()
-    if torch.cuda.is_available():
-        torch.cuda.empty_cache()
-    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available() and hasattr(torch.mps, "empty_cache"):
-        try:
-            torch.mps.empty_cache()
-        except RuntimeError:
-            pass
+    clear_device_cache()
 
     log.warning(f"    GPU out of memory while {context}: retrying with chunk_size={new_chunk_size}.")
     return new_chunk_size
@@ -109,6 +123,11 @@ def supports_mps_linalg() -> bool:
     if _SUPPORTS_MPS_LINALG is not None:
         return _SUPPORTS_MPS_LINALG
 
+    if not is_torch_available():
+        _SUPPORTS_MPS_LINALG = False
+        return False
+
+    torch = require_torch()
     if not (hasattr(torch.backends, "mps") and torch.backends.mps.is_available()):
         _SUPPORTS_MPS_LINALG = False
         return False
@@ -184,6 +203,8 @@ def set_cuda_arch_list_if_needed(device: torch.device) -> None:
         None
     """
     import os
+    torch = require_torch()
+    device = device.torch_device if hasattr(device, "torch_device") else device
 
     if "TORCH_CUDA_ARCH_LIST" in os.environ or device.type != "cuda":
         return
@@ -298,35 +319,37 @@ def read_data(tr_file: str | Path | np.ndarray, packed: bool = False, chunk_size
 
     return G, N, M
 
-def get_tuning_params(device: torch.device) -> int:
+def get_tuning_params(device: Any) -> int:
     """
     Description:
     Returns optimal CUDA kernel parameters (threads_per_block) based on the device properties.
 
     Args:
-        device (torch.device): The target computation device.
+        device (Any): The target computation device.
 
     Returns:
         int: Number of threads per block for CUDA operations.
     """
-    if device.type == "cpu":
-        threads_per_block = 1
-    elif device.type == "cuda":
-        major = torch.cuda.get_device_properties(device.index).major
+    dev_type = getattr(device, "type", str(device)).lower()
+    if dev_type == "cpu":
+        return 1
+    elif dev_type == "cuda":
+        torch = require_torch()
+        dev_index = getattr(device, "index", None)
+        major = torch.cuda.get_device_properties(dev_index).major
         if major >= 8:  # Ampere or newer
-            threads_per_block = 512
+            return 512
         elif major >= 7:  # Volta / Turing
-            threads_per_block = 256
+            return 256
         else:
-            threads_per_block = 128
-    elif device.type == "mps":
-        threads_per_block = 64
+            return 128
+    elif dev_type == "mps":
+        return 64
     else:
-        threads_per_block = 128
+        return 128
 
-    return threads_per_block
 
-def get_dtype(device: torch.device) -> torch.dtype:
+def get_dtype(device: Any) -> Any:
     """
     Description:
     Returns the recommended floating point precision for the given device.
@@ -334,14 +357,19 @@ def get_dtype(device: torch.device) -> torch.dtype:
     float64 is preferred for precision.
 
     Args:
-        device (torch.device): Target computation device.
+        device (Any): Target computation device.
 
     Returns:
-        torch.dtype: Recommended dtype (float32 or float64).
+        torch.dtype | type: Recommended dtype (float32 or float64).
     """
-    if device.type == "mps":
+    dev_type = getattr(device, "type", str(device)).lower()
+    if dev_type == "cpu":
+        return np.float64
+    torch = require_torch()
+    if dev_type == "mps":
         return torch.float32
     return torch.float64
+
 
 def write_outputs(Q: np.ndarray, run_name: str, K: int, out_path: str | Path, P: np.ndarray = None) -> None:
     """
@@ -366,6 +394,7 @@ def write_outputs(Q: np.ndarray, run_name: str, K: int, out_path: str | Path, P:
     else:
         log.info("    Q matrix saved.")
 
+
 def set_seed(seed: int) -> None:
     """
     Description:
@@ -379,32 +408,38 @@ def set_seed(seed: int) -> None:
     """
     np.random.seed(seed)
     random.seed(seed)
-    torch.manual_seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(seed)
+    if is_torch_available():
+        torch = require_torch()
+        torch.manual_seed(seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(seed)
 
-def get_free_gpu_memory(device: torch.device) -> float:
+
+def get_free_gpu_memory(device: Any) -> float:
     """
     Description:
     Calculates the currently available free GPU memory for tensor allocation.
 
     Args:
-        device (torch.device): The target GPU device.
+        device (Any): The target GPU device.
 
     Returns:
         float: Free memory in megabytes (MB).
     """
-    device = torch.device(device)
-    torch.cuda.synchronize(device)
-    free_cuda, _ = torch.cuda.mem_get_info(device)
-    allocated = torch.cuda.memory_allocated(device)
-    reserved = torch.cuda.memory_reserved(device)
+    torch = require_torch()
+    dev_target = device.torch_device if hasattr(device, "torch_device") else device
+    dev_target = torch.device(dev_target)
+    torch.cuda.synchronize(dev_target)
+    free_cuda, _ = torch.cuda.mem_get_info(dev_target)
+    allocated = torch.cuda.memory_allocated(dev_target)
+    reserved = torch.cuda.memory_reserved(dev_target)
     free_for_tensors = free_cuda + (reserved - allocated)
     return round(free_for_tensors/(1024 ** 2), 2)
 
+
 def manage_gpu_memory(
-    G: torch.Tensor | np.ndarray,
-    device: torch.device,
+    G: Any,
+    device: Any,
     M: int,
     N: int,
     K: int,
@@ -412,7 +447,7 @@ def manage_gpu_memory(
     algorithm: str,
     q_hist: int = 3,
     include_initialization: bool = True,
-) -> torch.Tensor:
+) -> Any:
     """
     Description:
     Determines if the genotype matrix fits in GPU memory and moves it if possible.
@@ -420,8 +455,8 @@ def manage_gpu_memory(
     selected optimizer because Adam-EM and SQP + ZAL-QN have different peak buffers.
 
     Args:
-        G (torch.Tensor | np.ndarray): Packed or unpacked genotype matrix.
-        device (torch.device): Target computation device.
+        G (Any): Packed or unpacked genotype matrix.
+        device (Any): Target computation device.
         M (int): Number of SNPs.
         N (int): Number of individuals.
         K (int): Number of ancestral populations.
@@ -431,15 +466,21 @@ def manage_gpu_memory(
         include_initialization (bool): Whether to include SVD/ALS initialization buffers.
 
     Returns:
-        torch.Tensor | np.ndarray: Genotype tensor on the selected device.
+        Any: Genotype tensor on the selected device.
     """
-    if device.type == 'mps':
+    dev_type = getattr(device, "type", str(device)).lower()
+    if dev_type == 'cpu':
+        return G
+
+    torch = require_torch()
+
+    if dev_type == 'mps':
         # Always keep on CPU if MPS, but convert to torch tensor if it's numpy
         if isinstance(G, np.ndarray):
             return torch.from_numpy(G)
         return G
 
-    if device.type != 'cuda':
+    if dev_type != 'cuda':
         return G
 
     if isinstance(G, np.ndarray):
@@ -522,21 +563,23 @@ def manage_gpu_memory(
 
     return G
 
-def load_extensions(device: torch.device) -> None:
+def load_extensions(device: Any) -> None:
     """
     Description:
     Dynamically compiles and loads CUDA extensions using Ninja.
 
     Args:
-        device (torch.device): The computation device. Triggered only if 'cuda'.
+        device (Any): The computation device. Triggered only if 'cuda'.
 
     Returns:
         None
     """
-    if device.type != "cuda":
+    dev_type = getattr(device, "type", str(device)).lower()
+    if dev_type != "cuda":
         return
 
     import os
+    torch = require_torch()
     from torch.utils.cpp_extension import load
 
     set_cuda_arch_list_if_needed(device)
@@ -557,7 +600,8 @@ def load_extensions(device: torch.device) -> None:
 
     log.info("    Loading CUDA extensions...")
 
-    device_index = device.index if device.index is not None else torch.cuda.current_device()
+    dev_index = getattr(device, "index", None)
+    device_index = dev_index if dev_index is not None else torch.cuda.current_device()
     major, minor = torch.cuda.get_device_capability(device_index)
     arch_tag = f"sm{major}{minor}"
 
@@ -573,80 +617,65 @@ def load_extensions(device: torch.device) -> None:
             extra_cflags=cpp_flags,
         )
 
-def is_packed_genotype_tensor(G: torch.Tensor, M: int) -> bool:
+
+def is_packed_genotype_tensor(G: Any, M: int) -> bool:
     """
     Description:
     Returns True when G is a 2-bit packed genotype matrix with ceil(M / 4) rows.
 
     Args:
-        G (torch.Tensor): Genotype tensor to check.
+        G (Any): Genotype tensor to check.
         M (int): Total number of SNPs.
 
     Returns:
         bool: True if tensor is 2-bit packed.
     """
+    if not is_torch_available():
+        return False
+    torch = require_torch()
     return isinstance(G, torch.Tensor) and G.ndim == 2 and G.size(0) != M
 
 
-def get_unpacker(device: torch.device, threads_per_block: int) -> Callable[[torch.Tensor, int, int, int], torch.Tensor]:
+def get_unpacker(device: Any, threads_per_block: int) -> Callable:
     """
     Description:
     Returns a specialized function for unpacking genotype chunks based on the device.
     CUDA inputs are expected to be packed 2-bit matrices.
 
     Args:
-        device (torch.device): Target computation device.
+        device (Any): Target computation device.
         threads_per_block (int): Threads per block for CUDA operations.
 
     Returns:
-        Callable: A function with signature (G, start_idx, actual_chunk_size, M) -> torch.Tensor.
+        Callable: A function with signature (G, start_idx, actual_chunk_size, M) -> tensor/array.
     """
-    if device.type == 'mps':
+    dev_type = getattr(device, "type", str(device)).lower()
+    if dev_type == 'cpu':
+        return lambda G, start_idx, actual_chunk_size, M: G[start_idx:start_idx + actual_chunk_size]
+
+    if dev_type == 'mps':
         from .utils_c import metal
 
-        def unpack_mps(G: torch.Tensor, start_idx: int, actual_chunk_size: int, M: int) -> torch.Tensor:
-            """
-            Description:
-            Slices an unpacked genotype chunk or unpacks a 2-bit packed chunk
-            with a Metal kernel, returning a uint8 tensor on MPS.
-
-            Args:
-                G (torch.Tensor): Unpacked genotype tensor.
-                start_idx (int): First SNP row in the chunk.
-                actual_chunk_size (int): Number of SNP rows to slice.
-                M (int): Total number of SNPs.
-
-            Returns:
-                torch.Tensor: Genotype chunk on the MPS device.
-            """
+        def unpack_mps(G: Any, start_idx: int, actual_chunk_size: int, M: int) -> Any:
+            dev_target = device.torch_device if hasattr(device, "torch_device") else device
             if is_packed_genotype_tensor(G, M):
                 byte_start = start_idx // 4
                 byte_end = (start_idx + actual_chunk_size + 3) // 4
-                G_sub = G[byte_start:byte_end, :].to(device, non_blocking=True)
+                G_sub = G[byte_start:byte_end, :].to(dev_target, non_blocking=True)
                 return metal.unpack2bit_gpu_chunk_uint8_mps(
                     G_sub, start_idx, actual_chunk_size, M, byte_start
                 )
-            return G[start_idx:start_idx + actual_chunk_size, :].to(device, non_blocking=True)
+            return G[start_idx:start_idx + actual_chunk_size, :].to(dev_target, non_blocking=True)
         return unpack_mps
 
-    def unpack_cuda(G: torch.Tensor, start_idx: int, actual_chunk_size: int, M: int) -> torch.Tensor:
-        """
-        Description:
-        Unpacks a packed 2-bit genotype chunk for CUDA computation.
+    torch = require_torch()
 
-        Args:
-            G (torch.Tensor): Packed genotype tensor on CPU or CUDA.
-            start_idx (int): First SNP row in the unpacked coordinate system.
-            actual_chunk_size (int): Number of SNP rows to unpack.
-            M (int): Total number of SNPs.
-
-        Returns:
-            torch.Tensor: Unpacked uint8 genotype chunk on the CUDA device.
-        """
+    def unpack_cuda(G: Any, start_idx: int, actual_chunk_size: int, M: int) -> Any:
+        dev_target = device.torch_device if hasattr(device, "torch_device") else device
         if G.device.type == 'cpu':
             byte_start = start_idx // 4
             byte_end = (start_idx + actual_chunk_size + 3) // 4
-            G_sub = G[byte_start:byte_end, :].to(device, non_blocking=True)
+            G_sub = G[byte_start:byte_end, :].to(dev_target, non_blocking=True)
             return torch.ops.pack2bit.unpack2bit_gpu_chunk_uint8(G_sub, start_idx, actual_chunk_size, M, byte_start, threads_per_block)
         return torch.ops.pack2bit.unpack2bit_gpu_chunk_uint8(G, start_idx, actual_chunk_size, M, 0, threads_per_block)
 
@@ -654,9 +683,9 @@ def get_unpacker(device: torch.device, threads_per_block: int) -> Callable[[torc
 
 
 def loglikelihood_cpu_chunked(
-    G: torch.Tensor | np.ndarray,
-    P: torch.Tensor,
-    Q: torch.Tensor,
+    G: Any,
+    P: Any,
+    Q: Any,
     M: int,
     batch_size: int,
 ) -> float:
@@ -665,9 +694,9 @@ def loglikelihood_cpu_chunked(
     Computes log-likelihood on CPU in float64 for unpacked or 2-bit packed genotypes.
 
     Args:
-        G (torch.Tensor | np.ndarray): Genotype matrix.
-        P (torch.Tensor): Allele-frequency matrix.
-        Q (torch.Tensor): Ancestry-proportion matrix.
+        G (Any): Genotype matrix.
+        P (Any): Allele-frequency matrix.
+        Q (Any): Ancestry-proportion matrix.
         M (int): Number of SNPs.
         batch_size (int): Batch size parameter.
 
@@ -678,7 +707,12 @@ def loglikelihood_cpu_chunked(
 
     del batch_size
 
-    if isinstance(G, torch.Tensor):
+    is_tensor = False
+    if is_torch_available():
+        torch = require_torch()
+        is_tensor = isinstance(G, torch.Tensor)
+
+    if is_tensor:
         G_cpu_tensor = G.detach().cpu()
         G_cpu = G_cpu_tensor.numpy()
         packed = is_packed_genotype_tensor(G, M)
@@ -688,67 +722,45 @@ def loglikelihood_cpu_chunked(
         packed = G_cpu.shape[0] != M
         G_ptr = G_cpu.ctypes.data if packed else None
 
-    P_cpu = np.ascontiguousarray(P.detach().cpu().numpy(), dtype=np.float64)
-    Q_cpu = np.ascontiguousarray(Q.detach().cpu().numpy(), dtype=np.float64)
+    P_raw = P.detach().cpu().numpy() if hasattr(P, "cpu") else P
+    Q_raw = Q.detach().cpu().numpy() if hasattr(Q, "cpu") else Q
+    P_cpu = np.ascontiguousarray(P_raw, dtype=np.float64)
+    Q_cpu = np.ascontiguousarray(Q_raw, dtype=np.float64)
 
     if packed:
         return tools.loglikelihood_packed(G_ptr, M, Q_cpu.shape[0], P_cpu, Q_cpu)
     return tools.loglikelihood(np.ascontiguousarray(G_cpu), P_cpu, Q_cpu)
 
 
-def get_logl_calculator(device: torch.device) -> Callable[[torch.Tensor, torch.Tensor, torch.Tensor, int, int, int, int], float]:
+def get_logl_calculator(device: Any) -> Callable:
     """
     Description:
     Returns the optimal log-likelihood calculation function for the given device.
     Handles the high-precision requirements of log-likelihood by falling back to CPU for MPS.
 
     Args:
-        device (torch.device): Target computation device.
+        device (Any): Target computation device.
 
     Returns:
         Callable: A function with signature (G, P, Q, M, N, batch_size, threads_per_block) -> float.
     """
-    if device.type == 'mps':
-        def logl_mps(G: torch.Tensor, P: torch.Tensor, Q: torch.Tensor, M: int, N: int, batch_size: int, threads_per_block: int) -> float:
-            """
-            Description:
-            Computes log-likelihood on CPU for MPS tensors.
+    dev_type = getattr(device, "type", str(device)).lower()
+    if dev_type == 'cpu':
+        def logl_cpu(G: Any, P: Any, Q: Any, M: int, N: int, batch_size: int, threads_per_block: int) -> float:
+            del N, threads_per_block
+            return loglikelihood_cpu_chunked(G, P, Q, M, batch_size)
+        return logl_cpu
 
-            Args:
-                G (torch.Tensor): Genotype tensor.
-                P (torch.Tensor): Allele-frequency tensor.
-                Q (torch.Tensor): Ancestry-proportion tensor.
-                M (int): Number of SNPs.
-                N (int): Number of individuals.
-                batch_size (int): Batch size argument kept for signature compatibility.
-                threads_per_block (int): CUDA tuning argument kept for signature compatibility.
-
-            Returns:
-                float: Log-likelihood value.
-            """
+    if dev_type == 'mps':
+        def logl_mps(G: Any, P: Any, Q: Any, M: int, N: int, batch_size: int, threads_per_block: int) -> float:
             del N, threads_per_block
             return loglikelihood_cpu_chunked(G, P, Q, M, batch_size)
         return logl_mps
 
     from ..model.em_adam_gpu import loglikelihood_gpu
-    def logl_gpu_wrapped(G: torch.Tensor, P: torch.Tensor, Q: torch.Tensor, M: int, N: int, batch_size: int, threads_per_block: int) -> float:
-        """
-        Description:
-        Computes log-likelihood on CUDA using the packed-genotype GPU implementation.
-
-        Args:
-            G (torch.Tensor): Packed genotype tensor.
-            P (torch.Tensor): Allele-frequency tensor.
-            Q (torch.Tensor): Ancestry-proportion tensor.
-            M (int): Number of SNPs.
-            N (int): Number of individuals.
-            batch_size (int): SNP batch size.
-            threads_per_block (int): CUDA tuning parameter.
-
-        Returns:
-            float: Log-likelihood value.
-        """
-        return loglikelihood_gpu(G, P, Q, M, N, batch_size, device, threads_per_block)
+    def logl_gpu_wrapped(G: Any, P: Any, Q: Any, M: int, N: int, batch_size: int, threads_per_block: int) -> float:
+        dev_target = device.torch_device if hasattr(device, "torch_device") else device
+        return loglikelihood_gpu(G, P, Q, M, N, batch_size, dev_target, threads_per_block)
     return logl_gpu_wrapped
 
 
@@ -817,6 +829,9 @@ def get_centering_unpacker(device: torch.device, threads_per_block: int) -> Call
     Returns:
         Callable: A function (G, f, start_idx, actual_chunk_size, M) -> centered_float32_chunk.
     """
+    torch = require_torch()
+    device_target = device.torch_device if hasattr(device, "torch_device") else device
+
     if device.type == 'mps':
         from .utils_c import metal
 
@@ -839,11 +854,11 @@ def get_centering_unpacker(device: torch.device, threads_per_block: int) -> Call
             if is_packed_genotype_tensor(G, M):
                 byte_start = start_idx // 4
                 byte_end = (start_idx + actual_chunk_size + 3) // 4
-                G_sub = G[byte_start:byte_end, :].to(device, non_blocking=True)
+                G_sub = G[byte_start:byte_end, :].to(device_target, non_blocking=True)
                 return metal.unpack2bit_gpu_chunk_center_mps(
                     G_sub, f, start_idx, actual_chunk_size, M, byte_start
                 )
-            G_chunk = G[start_idx:start_idx + actual_chunk_size, :].to(device, non_blocking=True)
+            G_chunk = G[start_idx:start_idx + actual_chunk_size, :].to(device_target, non_blocking=True)
             f_chunk = f[start_idx:start_idx + actual_chunk_size].unsqueeze(1)
             return G_chunk.float() - 2.0 * f_chunk
         return unpack_center_mps
@@ -872,23 +887,29 @@ def get_centering_unpacker(device: torch.device, threads_per_block: int) -> Call
 
     return unpack_center_cuda
 
-def freq_batch_math(G_chunk: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-    """
-    Description:
-    Core math for calculating allele frequencies on a genotype chunk (uint8).
+_freq_batch_compiled = None
 
-    Args:
-        G_chunk (torch.Tensor): Unpacked uint8 genotype chunk.
 
-    Returns:
-        tuple[torch.Tensor, torch.Tensor]: (sum of alleles, count of non-missing genotypes)
-    """
-    mask = (G_chunk != 3)
-    f_batch = (G_chunk.float() * mask.float()).sum(dim=1)
-    denom_batch = mask.sum(dim=1, dtype=torch.float32)
-    return f_batch, denom_batch
+def _get_freq_batch_compiled() -> Callable[[Any], tuple[Any, Any]]:
+    global _freq_batch_compiled
+    if _freq_batch_compiled is None:
+        torch = require_torch()
 
-freq_batch_compiled = torch.compile(freq_batch_math, disable=not hasattr(torch, "compile"))
+        def freq_batch_math(G_chunk: Any) -> tuple[Any, Any]:
+            mask = (G_chunk != 3)
+            f_batch = (G_chunk.float() * mask.float()).sum(dim=1)
+            denom_batch = mask.sum(dim=1, dtype=torch.float32)
+            return f_batch, denom_batch
+
+        if hasattr(torch, "compile"):
+            try:
+                _freq_batch_compiled = torch.compile(freq_batch_math)
+            except Exception:
+                _freq_batch_compiled = freq_batch_math
+        else:
+            _freq_batch_compiled = freq_batch_math
+    return _freq_batch_compiled
+
 
 def _calculate_frequencies_gpu_once(G_torch: torch.Tensor, M: int, chunk_size: int, device_obj: torch.device, threads_per_block: int) -> torch.Tensor:
     """
@@ -905,16 +926,19 @@ def _calculate_frequencies_gpu_once(G_torch: torch.Tensor, M: int, chunk_size: i
     Returns:
         torch.Tensor: Computed 1D allele frequencies (float32).
     """
-    f_torch = torch.zeros(M, dtype=torch.float32, device=device_obj)
-    denom_torch = torch.zeros(M, dtype=torch.float32, device=device_obj)
+    torch = require_torch()
+    device_target = device_obj.torch_device if hasattr(device_obj, "torch_device") else device_obj
+    f_torch = torch.zeros(M, dtype=torch.float32, device=device_target)
+    denom_torch = torch.zeros(M, dtype=torch.float32, device=device_target)
 
     unpacker = get_unpacker(device_obj, threads_per_block)
+    freq_fn = _get_freq_batch_compiled()
 
     for m in range(0, M, chunk_size):
         actual_chunk_size = min(chunk_size, M - m)
         G_chunk = unpacker(G_torch, m, actual_chunk_size, M)
 
-        f_b, d_b = freq_batch_compiled(G_chunk)
+        f_b, d_b = freq_fn(G_chunk)
         f_torch[m:m+actual_chunk_size] = f_b
         denom_torch[m:m+actual_chunk_size] = d_b
 

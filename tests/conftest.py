@@ -12,6 +12,8 @@ for env_var in (
 ):
     os.environ.setdefault(env_var, "1")
 
+os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
+
 import pytest
 
 np = pytest.importorskip("numpy")

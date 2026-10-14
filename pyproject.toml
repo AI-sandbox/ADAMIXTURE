@@ -34,13 +34,10 @@ classifiers = [
 ]
 dependencies = [
     "configargparse>=1.7.0",
-    "Cython>=3.0.0",
     "numpy>=2.0.0",
     "matplotlib>=3.8.0",
-    "torch>=2.6.0",
     "pgenlib>=0.94.1; sys_platform != 'win32'",
     "zstandard>=0.25.0",
-    "ninja",
 ]
 
 [project.urls]
@@ -48,7 +45,19 @@ Homepage = "https://github.com/AI-sandbox/ADAMIXTURE"
 Repository = "https://github.com/AI-sandbox/ADAMIXTURE"
 
 [project.optional-dependencies]
+gpu = [
+    "torch>=2.6.0",
+    "ninja",
+]
 testing = [
+    "tox",
+    "pytest",
+    "pytest-cov",
+    "pytest-mock",
+]
+all = [
+    "torch>=2.6.0",
+    "ninja",
     "tox",
     "pytest",
     "pytest-cov",

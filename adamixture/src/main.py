@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import argparse
 import gc
 import logging
@@ -7,10 +9,10 @@ from argparse import ArgumentError, ArgumentTypeError
 from pathlib import Path
 
 import numpy as np
-import torch
 
 from . import utils
-from .adamixture import setup, train_k, initialize_k
+from .adamixture import initialize_k, setup, train_k
+from .compat import is_torch_available
 from ..model.br_qn import q_hessian_block_size
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
@@ -86,8 +88,8 @@ def main(args: argparse.Namespace, t0: float) -> int:
                     q_block=q_block,
                 )
 
-                P_np = P.cpu().numpy() if isinstance(P, torch.Tensor) else P
-                Q_np = Q.cpu().numpy() if isinstance(Q, torch.Tensor) else Q
+                P_np = P.cpu().numpy() if hasattr(P, "cpu") else P
+                Q_np = Q.cpu().numpy() if hasattr(Q, "cpu") else Q
 
                 if previous_Q is not None:
                     from .plot import align_clusters_clumppling
@@ -164,8 +166,8 @@ def main(args: argparse.Namespace, t0: float) -> int:
                     q_block=q_block,
                 )
 
-                P_np = P.cpu().numpy() if isinstance(P, torch.Tensor) else P
-                Q_np = Q.cpu().numpy() if isinstance(Q, torch.Tensor) else Q
+                P_np = P.cpu().numpy() if hasattr(P, "cpu") else P
+                Q_np = Q.cpu().numpy() if hasattr(Q, "cpu") else Q
 
                 if previous_Q is not None:
                     from .plot import align_clusters_clumppling
@@ -205,7 +207,7 @@ def main(args: argparse.Namespace, t0: float) -> int:
                 del G
                 gc.collect()
                 if device_obj.type == 'cuda':
-                    torch.cuda.empty_cache()
+                    utils.clear_device_cache(device_obj)
 
                 previous_disable = logging.root.manager.disable
                 logging.disable(logging.CRITICAL)

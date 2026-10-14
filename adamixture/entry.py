@@ -183,9 +183,12 @@ def _fix_macos_libomp() -> None:
     ]
 
     try:
-        import torch as _torch
-        torch_omp = os.path.join(os.path.dirname(_torch.__file__), "lib", "libomp.dylib")
-    except ImportError:
+        import importlib.util
+        torch_spec = importlib.util.find_spec("torch")
+        if not torch_spec or not torch_spec.origin:
+            return
+        torch_omp = os.path.join(os.path.dirname(torch_spec.origin), "lib", "libomp.dylib")
+    except Exception:
         return
 
     if not os.path.exists(torch_omp):
@@ -225,7 +228,6 @@ def main() -> None:
         None
     """
     _fix_macos_libomp()
-    import torch
 
     print_adamixture_banner(__version__)
     arg_list = tuple(sys.argv)
@@ -299,7 +301,15 @@ def main() -> None:
         log.info(f"System not recognized: {system}")
         sys.exit(1)
 
-    if args.device == 'gpu':
+    from .compat import Device, require_torch
+
+    if args.device in ('gpu', 'cuda'):
+        try:
+            torch = require_torch()
+        except ImportError as exc:
+            log.error(f"    {exc}")
+            sys.exit(1)
+
         if not torch.cuda.is_available():
             log.error("    GPU requested via --device gpu but CUDA is not available.")
             sys.exit(1)
@@ -312,6 +322,12 @@ def main() -> None:
 
         args.device = 'cuda'
     elif args.device == 'mps':
+        try:
+            torch = require_torch()
+        except ImportError as exc:
+            log.error(f"    {exc}")
+            sys.exit(1)
+
         if not torch.backends.mps.is_available():
             log.error("    MPS requested via --device mps but MPS is not available.")
             sys.exit(1)
@@ -322,10 +338,15 @@ def main() -> None:
             if args.max_k is not None and args.max_k > 32:
                 log.error(f"    Error: max_k={args.max_k} exceeds the current MPS BR-QN limit (MAX_K=32).")
                 sys.exit(1)
+    elif args.device == 'cpu':
+        pass
+    else:
+        log.error(f"    Invalid or unavailable device '{args.device}'.")
+        sys.exit(1)
 
     # Final check: can we actually create a device object?
     try:
-        torch.device(args.device)
+        Device(args.device)
     except Exception as e:
         log.error(f"    Invalid or unavailable device '{args.device}': {e}")
         sys.exit(1)

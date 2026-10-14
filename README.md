@@ -40,11 +40,23 @@ $ uv pip install adamixture
 
 ## Installation Guide
 
-The package can be easily installed in at most a few minutes using `pip` (make sure to add the `--upgrade` flag if updating the version):
+The package can be installed using `pip`:
 
+### Basic Installation (CPU default)
+Uses the pre-compiled C/Cython wheel and does not install PyTorch:
 ```console
 $ pip install adamixture
 ```
+
+### GPU Installation (NVIDIA CUDA / Apple Silicon MPS)
+Includes PyTorch and Ninja for hardware-accelerated execution:
+```console
+$ pip install "adamixture[gpu]"
+```
+
+The commands above use the binary wheel when one is available for the Python
+version and platform. Installing directly from a source checkout (for example,
+with `pip install -e .`) requires a local C/Cython build toolchain.
 
 
 ## Running ADAMIXTURE

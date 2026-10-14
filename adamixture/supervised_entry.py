@@ -12,12 +12,12 @@ os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
 os.environ.setdefault("TORCHDYNAMO_SUPPRESS_ERRORS", "1")
 
 from ._version import __version__
+from .compat import Device, require_torch
 from .entry import _fix_macos_libomp, print_adamixture_banner
 
 _fix_macos_libomp()
 
 import numpy as np
-import torch
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
 log = logging.getLogger(__name__)
@@ -266,8 +266,11 @@ def main() -> None:
         optimize_supervised_original_gpu,
     )
 
-    device_str = args.device
-    use_gpu = device_str in ("cuda", "mps")
+    device_obj = Device(args.device)
+    device_str = device_obj.type
+    use_gpu = device_obj.type != "cpu"
+    if use_gpu:
+        require_torch()
     utils.set_seed(args.seed)
 
     t0 = time.time()
@@ -321,15 +324,16 @@ def main() -> None:
 
     # ── Run supervised optimisation ──────────────────────────────────────────────
     if use_gpu:
-        device_obj = torch.device(device_str)
-        threads_per_block = utils.get_tuning_params(device_obj)
-        utils.load_extensions(device_obj)
-        G_t = torch.from_numpy(G) if not isinstance(G, torch.Tensor) else G
-        P_t = torch.tensor(P, dtype=utils.get_dtype(device_obj), device=device_obj)
-        Q_t = torch.tensor(Q, dtype=utils.get_dtype(device_obj), device=device_obj)
+        torch = require_torch()
+        torch_dev = device_obj.torch_device
+        threads_per_block = utils.get_tuning_params(torch_dev)
+        utils.load_extensions(torch_dev)
+        G_t = torch.from_numpy(G) if not hasattr(G, "cpu") else G
+        P_t = torch.tensor(P, dtype=utils.get_dtype(torch_dev), device=torch_dev)
+        Q_t = torch.tensor(Q, dtype=utils.get_dtype(torch_dev), device=torch_dev)
         G_t = utils.manage_gpu_memory(
             G_t,
-            device_obj,
+            torch_dev,
             M,
             N,
             K,
@@ -343,7 +347,7 @@ def main() -> None:
                 G=G_t, P=P_t, Q=Q_t, y=y,
                 max_iter=args.max_iter, K=K, M=M, N=N, tol=args.tol, Q_hist=args.Q_hist,
                 patience=args.patience,
-                device=device_obj, chunk_size=args.chunk_size, threads_per_block=threads_per_block,
+                device=torch_dev, chunk_size=args.chunk_size, threads_per_block=threads_per_block,
             )
         else:
             P_gpu, Q_gpu = optimize_supervised_gpu(
@@ -352,7 +356,7 @@ def main() -> None:
                 max_iter=args.max_iter, check=args.check, M=M,
                 lr_decay=args.lr_decay, min_lr=args.min_lr,
                 patience=args.patience, tol_adam=args.tol,
-                device=device_obj, chunk_size=args.chunk_size, threads_per_block=threads_per_block,
+                device=torch_dev, chunk_size=args.chunk_size, threads_per_block=threads_per_block,
             )
         P_opt = P_gpu.cpu().numpy()
         Q_opt = Q_gpu.cpu().numpy()

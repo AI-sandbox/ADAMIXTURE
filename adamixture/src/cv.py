@@ -1,10 +1,11 @@
+from __future__ import annotations
+
 import gc
 import logging
 import sys
 from argparse import Namespace
 
 import numpy as np
-import torch
 
 from ..model.br_qn import polish_sqp_qn
 from .utils_c import (
@@ -196,9 +197,9 @@ def run_cross_validation(args: Namespace, G: np.ndarray, N: int, M: int, K: int,
     Returns:
         float: CV index (average squared deviance residual across all held-out entries).
     """
-    if isinstance(P_global, torch.Tensor):
+    if hasattr(P_global, "cpu"):
         P_global = P_global.detach().cpu().numpy()
-    if isinstance(Q_global, torch.Tensor):
+    if hasattr(Q_global, "cpu"):
         Q_global = Q_global.detach().cpu().numpy()
     if G.shape != (M, N):
         raise ValueError(f"CV requires an unpacked genotype matrix with shape {(M, N)}, got {G.shape}.")
