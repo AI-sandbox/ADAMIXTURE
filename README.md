@@ -215,8 +215,6 @@ Common issues and platform notes:
 
 This project is licensed under the BSD 3-Clause License - see the [LICENSE](LICENSE) file for details.
 
-The cluster alignment and mode detection used for plotting are a port of [Clumppling](https://github.com/PopGenClustering/Clumppling) (MIT License, Xiran Liu et al.), reimplemented on NumPy and Cython in `adamixture/src/clumppling.py`.
-
 ## Cite
 
 When using this software, please cite the following paper:
