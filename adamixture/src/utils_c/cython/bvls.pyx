@@ -3,6 +3,8 @@ from cython.parallel import parallel, prange
 from libc.math cimport fabs
 from libc.stdlib cimport malloc, free
 
+import numpy as np
+
 # Solve linear system for variable subset
 cdef bint solve_subset_ptr(const double* A, const double* b, double* x, int* F, int K, double* aug, int* map_idx) noexcept nogil:
     """
@@ -72,13 +74,14 @@ cdef bint solve_subset_ptr(const double* A, const double* b, double* x, int* F, 
     return True
 
 # Exact NNLS using Block Principal Pivoting
-cdef void _exact_nnls_bpp_ptr(const double* A, const double* b, double* x, int K, double* aug, int* map_idx, int* F, double* y) noexcept nogil:
+cdef void _exact_nnls_bpp_ptr(const double* A, const double* A_inv, const double* b, double* x, int K, double* aug, int* map_idx, int* F, double* y) noexcept nogil:
     """
     Description:
     Computes Exact Non-Negative Least Squares (NNLS) solution using Block Principal Pivoting.
 
     Args:
         A (const double*): Positive-definite matrix A (K x K).
+        A_inv (const double*): Precomputed inverse of matrix A (K x K).
         b (const double*): Target vector b (K).
         x (double*): Current and output solution vector x (K).
         K (int): Number of variables.
@@ -91,13 +94,28 @@ cdef void _exact_nnls_bpp_ptr(const double* A, const double* b, double* x, int K
         None
     """
     cdef int i, j, iter_count
-    cdef bint changed
+    cdef bint all_nonneg = True, changed
+    cdef double acc
     
+    # Iteration 0: Analytical unconstrained solution x = A_inv @ b
     for i in range(K):
-        F[i] = 1
-        x[i] = 0.0
-        
-    for iter_count in range(50):
+        acc = 0.0
+        for j in range(K):
+            acc += A_inv[i * K + j] * b[j]
+        if acc < -1e-8:
+            F[i] = 0
+            x[i] = 0.0
+            all_nonneg = False
+        else:
+            F[i] = 1
+            x[i] = acc
+
+    # Fast-path: if all components >= 0, KKT conditions are satisfied (global optimum)
+    if all_nonneg:
+        return
+
+    # Iterations 1..49: Reduced sub-systems for variables violating bounds
+    for iter_count in range(1, 50):
         for i in range(K):
             if F[i] == 0:
                 x[i] = 0.0
@@ -127,13 +145,14 @@ cdef void _exact_nnls_bpp_ptr(const double* A, const double* b, double* x, int K
             break
 
 # Exact BVLS using Block Principal Pivoting
-cdef void _exact_bvls_bpp_ptr(const double* A, const double* b, double* x, int K, double* aug, int* map_idx, int* F, int* U, double* y, double* b_subset, double lower, double upper) noexcept nogil:
+cdef void _exact_bvls_bpp_ptr(const double* A, const double* A_inv, const double* b, double* x, int K, double* aug, int* map_idx, int* F, int* U, double* y, double* b_subset, double lower, double upper) noexcept nogil:
     """
     Description:
     Computes Exact Bounded Variable Least Squares (BVLS) solution using Block Principal Pivoting.
 
     Args:
         A (const double*): Positive-definite matrix A (K x K).
+        A_inv (const double*): Precomputed inverse of matrix A (K x K).
         b (const double*): Target vector b (K).
         x (double*): Current and output solution vector x (K).
         K (int): Number of variables.
@@ -150,26 +169,30 @@ cdef void _exact_bvls_bpp_ptr(const double* A, const double* b, double* x, int K
         None
     """
     cdef int i, j, iter_count
-    cdef bint changed
+    cdef bint changed = False
+    cdef double acc
     
-    # Start from the unconstrained solution. If it is already feasible,
-    # it is also the bounded optimum and BPP can be skipped.
-    changed = False
+    # Iteration 0: Analytical unconstrained solution x = A_inv @ b
     for i in range(K):
-        F[i] = 1
-        U[i] = 0
-        b_subset[i] = b[i]
-    if not solve_subset_ptr(A, b_subset, x, F, K, aug, map_idx):
-        return
-    for i in range(K):
-        if x[i] < lower - 1e-8:
+        acc = 0.0
+        for j in range(K):
+            acc += A_inv[i * K + j] * b[j]
+        if acc < lower - 1e-8:
             F[i] = 0
             U[i] = 0
+            x[i] = lower
             changed = True
-        elif x[i] > upper + 1e-8:
+        elif acc > upper + 1e-8:
             F[i] = 0
             U[i] = 1
+            x[i] = upper
             changed = True
+        else:
+            F[i] = 1
+            U[i] = 0
+            x[i] = acc
+
+    # Fast-path: If all variables are within bounds, x is the unconstrained minimizer (optimal).
     if not changed:
         return
         
@@ -226,7 +249,7 @@ cdef void _exact_bvls_bpp_ptr(const double* A, const double* b, double* x, int K
             break
 
 # Batch NNLS solver
-cpdef void batch_nnls_bpp(double[:, ::1] A_cov, double[:, ::1] B_target, double[:, ::1] Out_mat) noexcept nogil:
+cpdef void batch_nnls_bpp(double[:, ::1] A_cov, double[:, ::1] B_target, double[:, ::1] Out_mat):
     """
     Description:
     Solves NNLS for a batch of target vectors against a single covariance matrix.
@@ -244,6 +267,8 @@ cpdef void batch_nnls_bpp(double[:, ::1] A_cov, double[:, ::1] B_target, double[
     cdef int K = A_cov.shape[0]
     cdef int i
     cdef const double* A_ptr = &A_cov[0, 0]
+    cdef double[:, ::1] A_inv = np.ascontiguousarray(np.linalg.pinv(A_cov), dtype=np.float64)
+    cdef const double* A_inv_ptr = &A_inv[0, 0]
     
     cdef double* aug
     cdef int* map_idx
@@ -257,7 +282,7 @@ cpdef void batch_nnls_bpp(double[:, ::1] A_cov, double[:, ::1] B_target, double[
         y = <double*>malloc(K * sizeof(double))
 
         for i in prange(M, schedule='static'):
-            _exact_nnls_bpp_ptr(A_ptr, &B_target[i, 0], &Out_mat[i, 0], K, aug, map_idx, F, y)
+            _exact_nnls_bpp_ptr(A_ptr, A_inv_ptr, &B_target[i, 0], &Out_mat[i, 0], K, aug, map_idx, F, y)
 
         free(aug)
         free(map_idx)
@@ -265,7 +290,7 @@ cpdef void batch_nnls_bpp(double[:, ::1] A_cov, double[:, ::1] B_target, double[
         free(y)
 
 # Batch BVLS solver
-cpdef void batch_bvls_bpp(double[:, ::1] A_cov, double[:, ::1] B_target, double[:, ::1] Out_mat, double lower, double upper) noexcept nogil:
+cpdef void batch_bvls_bpp(double[:, ::1] A_cov, double[:, ::1] B_target, double[:, ::1] Out_mat, double lower, double upper):
     """
     Description:
     Solves BVLS for a batch of target vectors against a single covariance matrix.
@@ -285,6 +310,8 @@ cpdef void batch_bvls_bpp(double[:, ::1] A_cov, double[:, ::1] B_target, double[
     cdef int K = A_cov.shape[0]
     cdef int i
     cdef const double* A_ptr = &A_cov[0, 0]
+    cdef double[:, ::1] A_inv = np.ascontiguousarray(np.linalg.pinv(A_cov), dtype=np.float64)
+    cdef const double* A_inv_ptr = &A_inv[0, 0]
     
     cdef double* aug
     cdef int* map_idx
@@ -302,7 +329,7 @@ cpdef void batch_bvls_bpp(double[:, ::1] A_cov, double[:, ::1] B_target, double[
         b_subset = <double*>malloc(K * sizeof(double))
 
         for i in prange(M, schedule='static'):
-            _exact_bvls_bpp_ptr(A_ptr, &B_target[i, 0], &Out_mat[i, 0], K, aug, map_idx, F, U, y, b_subset, lower, upper)
+            _exact_bvls_bpp_ptr(A_ptr, A_inv_ptr, &B_target[i, 0], &Out_mat[i, 0], K, aug, map_idx, F, U, y, b_subset, lower, upper)
 
         free(aug)
         free(map_idx)
