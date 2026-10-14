@@ -1,7 +1,9 @@
 # cython: language_level=3, boundscheck=False, wraparound=False, initializedcheck=False, cdivision=True
 from cython.parallel import parallel, prange
+cimport openmp
 from libc.math cimport fabs, log
 from libc.stdint cimport int32_t, uint8_t
+from libc.stdlib cimport calloc, free, malloc
 
 # ZAL Quasi-Newton: update U and V history matrices
 cpdef void update_UV_ZAL(double[::1] U_flat, double[::1] V_flat, const double[::1] x, const double[::1] x_next,
@@ -28,26 +30,46 @@ cpdef void qn_extrapolate_ZAL(double[::1] x_qn, const double[::1] x_next, const 
     """
     cdef:
         int q = n_cols
-        size_t i, j, k
-        double val
+        size_t i, j, k, inner_i, inner_j, idx
         double val_final
         int max_row
         double max_val, temp, pivot
+        openmp.omp_lock_t zal_lock
+        double* local_mat
+        double* diff_UV
+        double diff_x
+        double u_ik
 
     # 1. Build the linear system U^T @ (U - V) and U^T @ (x - x_next)
-    for i in range(q):
-        for j in range(q):
-            val = 0.0
-            # Parallel reduction for dot product (O(dim) accelerated)
-            for k in prange(dim, schedule='static'):
-                val += U_flat[i * dim + k] * (U_flat[j * dim + k] - V_flat[j * dim + k])
-            UtUmV_workspace[i * (q + 1) + j] = val
+    for idx in range(q * (q + 1)):
+        UtUmV_workspace[idx] = 0.0
 
-        # Augmented column (Right-hand side of the system)
-        val = 0.0
+    openmp.omp_init_lock(&zal_lock)
+
+    with nogil, parallel():
+        local_mat = <double*>calloc(q * (q + 1), sizeof(double))
+        diff_UV = <double*>malloc(q * sizeof(double))
+
         for k in prange(dim, schedule='static'):
-            val += U_flat[i * dim + k] * (x[k] - x_next[k])
-        UtUmV_workspace[i * (q + 1) + q] = val
+            diff_x = x[k] - x_next[k]
+            for inner_j in range(q):
+                diff_UV[inner_j] = U_flat[inner_j * dim + k] - V_flat[inner_j * dim + k]
+
+            for inner_i in range(q):
+                u_ik = U_flat[inner_i * dim + k]
+                for inner_j in range(q):
+                    local_mat[inner_i * (q + 1) + inner_j] += u_ik * diff_UV[inner_j]
+                local_mat[inner_i * (q + 1) + q] += u_ik * diff_x
+
+        openmp.omp_set_lock(&zal_lock)
+        for idx in range(q * (q + 1)):
+            UtUmV_workspace[idx] += local_mat[idx]
+        openmp.omp_unset_lock(&zal_lock)
+
+        free(diff_UV)
+        free(local_mat)
+
+    openmp.omp_destroy_lock(&zal_lock)
 
     # 2. Solve UtUmV_workspace @ coeff_workspace = rhs via Gaussian Elimination
     # (This happens in the q x q space which is tiny, so it is sequential)

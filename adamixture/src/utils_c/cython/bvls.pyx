@@ -251,18 +251,18 @@ cpdef void batch_nnls_bpp(double[:, ::1] A_cov, double[:, ::1] B_target, double[
     cdef double* y
     
     with nogil, parallel():
+        aug = <double*>malloc(K * (K + 1) * sizeof(double))
+        map_idx = <int*>malloc(K * sizeof(int))
+        F = <int*>malloc(K * sizeof(int))
+        y = <double*>malloc(K * sizeof(double))
+
         for i in prange(M, schedule='static'):
-            aug = <double*>malloc(K * (K + 1) * sizeof(double))
-            map_idx = <int*>malloc(K * sizeof(int))
-            F = <int*>malloc(K * sizeof(int))
-            y = <double*>malloc(K * sizeof(double))
-            
             _exact_nnls_bpp_ptr(A_ptr, &B_target[i, 0], &Out_mat[i, 0], K, aug, map_idx, F, y)
-            
-            free(aug)
-            free(map_idx)
-            free(F)
-            free(y)
+
+        free(aug)
+        free(map_idx)
+        free(F)
+        free(y)
 
 # Batch BVLS solver
 cpdef void batch_bvls_bpp(double[:, ::1] A_cov, double[:, ::1] B_target, double[:, ::1] Out_mat, double lower, double upper) noexcept nogil:
@@ -294,19 +294,19 @@ cpdef void batch_bvls_bpp(double[:, ::1] A_cov, double[:, ::1] B_target, double[
     cdef double* b_subset
     
     with nogil, parallel():
+        aug = <double*>malloc(K * (K + 1) * sizeof(double))
+        map_idx = <int*>malloc(K * sizeof(int))
+        F = <int*>malloc(K * sizeof(int))
+        U = <int*>malloc(K * sizeof(int))
+        y = <double*>malloc(K * sizeof(double))
+        b_subset = <double*>malloc(K * sizeof(double))
+
         for i in prange(M, schedule='static'):
-            aug = <double*>malloc(K * (K + 1) * sizeof(double))
-            map_idx = <int*>malloc(K * sizeof(int))
-            F = <int*>malloc(K * sizeof(int))
-            U = <int*>malloc(K * sizeof(int))
-            y = <double*>malloc(K * sizeof(double))
-            b_subset = <double*>malloc(K * sizeof(double))
-            
             _exact_bvls_bpp_ptr(A_ptr, &B_target[i, 0], &Out_mat[i, 0], K, aug, map_idx, F, U, y, b_subset, lower, upper)
-            
-            free(aug)
-            free(map_idx)
-            free(F)
-            free(U)
-            free(y)
-            free(b_subset)
+
+        free(aug)
+        free(map_idx)
+        free(F)
+        free(U)
+        free(y)
+        free(b_subset)
