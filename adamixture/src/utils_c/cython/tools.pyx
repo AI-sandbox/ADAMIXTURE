@@ -1,59 +1,68 @@
 # cython: language_level=3, boundscheck=False, wraparound=False, initializedcheck=False, cdivision=True
 from cython.parallel import parallel, prange
-from libc.math cimport log, log1p, sqrtf, sqrt
-from libc.stdlib cimport calloc, free, malloc
+from libc.math cimport log, sqrtf, sqrt
+from libc.stdlib cimport free, malloc
 from libc.stdint cimport uint8_t, uint32_t, uintptr_t, int32_t, uint64_t
 
 import numpy as np
 
-# Row-wise genotype reconstruction
-cdef inline void _reconstruct(double* Q, double* p, double* rec, Py_ssize_t N, Py_ssize_t K) noexcept nogil:
-    """
-    Description:
-    Computes the reconstruction vector for all samples for a single SNP (p dot Q_i).
 
-    Args:
-        Q (double*): Full Q matrix (samples x clusters).
-        p (double*): Single SNP row from P matrix (clusters).
-        rec (double*): Output buffer for reconstruction values (samples).
-        N (Py_ssize_t): Number of samples.
-        K (Py_ssize_t): Number of ancestral populations.
-
-    Returns:
-        None
-    """
+# Row-wise genotype reconstruction and log-likelihood (fused)
+cdef inline double _row_loglike(const uint8_t* g_row, const double* p, const double* Q, Py_ssize_t N, Py_ssize_t K) noexcept nogil:
     cdef:
-        size_t i, k
-        double* q
+        Py_ssize_t i, k
+        uint8_t g_val
+        double row_ll = 0.0, r
+        const double *q
+
     for i in range(N):
-        q = &Q[i*K]
+        g_val = g_row[i]
+        if g_val == 3:
+            continue
+        q = &Q[i * K]
+        r = 0.0
         for k in range(K):
-            rec[i] += p[k]*q[k]
+            r += p[k] * q[k]
+        if r < 1e-15:
+            r = 1e-15
+        elif r > 1.0 - 1e-15:
+            r = 1.0 - 1e-15
 
-# Calculate SNP log-likelihood
-cdef inline double _ind_loglike(uint8_t* g, double* rec, Py_ssize_t N) noexcept nogil:
-    """
-    Description:
-    Calculates the log-likelihood for a SNP across all individuals.
+        if g_val == 0:
+            row_ll += 2.0 * log(1.0 - r)
+        elif g_val == 1:
+            row_ll += log(r * (1.0 - r))
+        else:
+            row_ll += 2.0 * log(r)
+    return row_ll
 
-    Args:
-        g (uint8_t*): Genotype vector for the SNP.
-        rec (double*): Reconstructed values for the SNP.
-        N (Py_ssize_t): Number of samples.
-
-    Returns:
-        double: Accumulated log-likelihood for this SNP.
-    """
+cdef inline double _row_loglike_packed(const uint8_t* packed_row, uint8_t shift, const double* p, const double* Q, Py_ssize_t N, Py_ssize_t K) noexcept nogil:
     cdef:
-        size_t i
-        double ll = 0.0
-        double g_d
-    for i in range(N):
-        g_d = <double>g[i]
-        ll += g_d*log(rec[i]) + (2.0-g_d)*log1p(-rec[i]) if g[i] != 3 else 0.0
-        rec[i] = 0.0
-    return ll
+        Py_ssize_t i, k
+        uint8_t g_val
+        double row_ll = 0.0, r
+        const double *q
 
+    for i in range(N):
+        g_val = (packed_row[i] >> shift) & 0x03
+        if g_val == 3:
+            continue
+        q = &Q[i * K]
+        r = 0.0
+        for k in range(K):
+            r += p[k] * q[k]
+        if r < 1e-15:
+            r = 1e-15
+        elif r > 1.0 - 1e-15:
+            r = 1.0 - 1e-15
+
+        if g_val == 0:
+            row_ll += 2.0 * log(1.0 - r)
+        elif g_val == 1:
+            row_ll += log(r * (1.0 - r))
+        else:
+            row_ll += 2.0 * log(r)
+    return row_ll
 
 # Calculate total log-likelihood
 cpdef double loglikelihood(uint8_t[:,::1] G, double[:,::1] P, double[:,::1] Q) noexcept nogil:
@@ -73,15 +82,13 @@ cpdef double loglikelihood(uint8_t[:,::1] G, double[:,::1] P, double[:,::1] Q) n
         Py_ssize_t M = G.shape[0]
         Py_ssize_t N = G.shape[1]
         Py_ssize_t K = Q.shape[1]
-        size_t i, j
+        Py_ssize_t j
         double ll = 0.0
-        double* rec
+        const double* Q_ptr = &Q[0, 0]
+
     with nogil, parallel():
-        rec = <double*>calloc(N, sizeof(double))
         for j in prange(M, schedule='guided'):
-            _reconstruct(&Q[0,0], &P[j,0], rec, N, K)
-            ll += _ind_loglike(&G[j,0], rec, N)
-        free(rec)
+            ll += _row_loglike(&G[j, 0], &P[j, 0], Q_ptr, N, K)
     return ll
 
 
@@ -95,28 +102,19 @@ cpdef double loglikelihood_packed(uintptr_t G_ptr, size_t M, size_t N, double[:,
     cdef:
         uint8_t* G = <uint8_t*>G_ptr
         Py_ssize_t K = Q.shape[1]
-        size_t i, j
+        Py_ssize_t j
         size_t byte_idx
-        uint8_t shift, g
+        uint8_t shift
         uint8_t* packed_row
         double ll = 0.0
-        double* rec
-        double g_d
+        const double* Q_ptr = &Q[0, 0]
 
     with nogil, parallel():
-        rec = <double*>calloc(N, sizeof(double))
         for j in prange(M, schedule='guided'):
-            _reconstruct(&Q[0,0], &P[j,0], rec, N, K)
             byte_idx = j >> 2
             shift = <uint8_t>((j & 3) << 1)
             packed_row = &G[byte_idx * N]
-            for i in range(N):
-                g = (packed_row[i] >> shift) & 0x03
-                if g != 3:
-                    g_d = <double>g
-                    ll += g_d * log(rec[i]) + (2.0 - g_d) * log1p(-rec[i])
-                rec[i] = 0.0
-        free(rec)
+            ll += _row_loglike_packed(packed_row, shift, &P[j, 0], Q_ptr, N, K)
     return ll
 
 # Calculate SNP allele frequencies
