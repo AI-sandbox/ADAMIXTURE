@@ -1,15 +1,16 @@
 # cython: language_level=3, boundscheck=False, wraparound=False, initializedcheck=False, cdivision=True
 from cython.parallel import parallel, prange
-from libc.math cimport fabs
+from libc.math cimport fabs, sqrt
 from libc.stdlib cimport malloc, free
 
 import numpy as np
 
 # Solve linear system for variable subset
-cdef bint solve_subset_ptr(const double* A, const double* b, double* x, int* F, int K, double* aug, int* map_idx) noexcept nogil:
+cdef int solve_subset_ptr(const double* A, const double* b, double* x, int* F, int K, double* aug, int* map_idx) noexcept nogil:
     """
     Description:
-    Solves a linear system Ax = b for a subset of variables using Gaussian elimination with pivoting.
+    Solves a linear system Ax = b for a subset of variables using Cholesky (LL^T) decomposition.
+    Exploits symmetry and positive definiteness of covariance submatrices without pivot searching.
 
     Args:
         A (const double*): Full covariance matrix (K x K).
@@ -17,14 +18,16 @@ cdef bint solve_subset_ptr(const double* A, const double* b, double* x, int* F, 
         x (double*): Output vector for solution (K).
         F (int*): Mask indicator of Free (1) vs Fixed (0) variables.
         K (int): Total number of variables.
-        aug (double*): Buffer for augmented matrix (K * (K+1)).
+        aug (double*): Buffer for Cholesky L matrix and forward solve y (K * (K+1)).
         map_idx (int*): Buffer for mapping indices of free variables.
 
     Returns:
-        bint: True if system was successfully solved, False if matrix was singular.
+        int: Number of free variables n if successful, or -1 if matrix was singular/not positive definite.
     """
-    cdef int n = 0, i, j, k, max_row
-    cdef double max_val, temp, pivot
+    cdef int n = 0, i, j, k
+    cdef double s, d, inv_d
+    cdef double* L = aug
+    cdef double* y
 
     for i in range(K):
         if F[i] == 1:
@@ -32,46 +35,41 @@ cdef bint solve_subset_ptr(const double* A, const double* b, double* x, int* F, 
             n += 1
 
     if n == 0:
-        return True
+        return 0
 
+    y = &aug[n * n]
+
+    # Cholesky factorization: A_sub = L L^T (lower triangular)
+    for j in range(n):
+        s = 0.0
+        for k in range(j):
+            s += L[j * n + k] * L[j * n + k]
+        d = A[map_idx[j] * K + map_idx[j]] - s
+        if d <= 1e-14:
+            return -1
+        L[j * n + j] = sqrt(d)
+        inv_d = 1.0 / L[j * n + j]
+        for i in range(j + 1, n):
+            s = 0.0
+            for k in range(j):
+                s += L[i * n + k] * L[j * n + k]
+            L[i * n + j] = (A[map_idx[i] * K + map_idx[j]] - s) * inv_d
+
+    # Forward substitution: L y = b_sub
     for i in range(n):
-        for j in range(n):
-            aug[i * (n + 1) + j] = A[map_idx[i] * K + map_idx[j]]
-        aug[i * (n + 1) + n] = b[map_idx[i]]
+        s = 0.0
+        for k in range(i):
+            s += L[i * n + k] * y[k]
+        y[i] = (b[map_idx[i]] - s) / L[i * n + i]
 
-    for i in range(n):
-        max_row = i
-        max_val = aug[i * (n + 1) + i]
-        if max_val < 0: max_val = -max_val
-        for k in range(i+1, n):
-            temp = aug[k * (n + 1) + i]
-            if temp < 0: temp = -temp
-            if temp > max_val:
-                max_val = temp
-                max_row = k
-        
-        if max_val < 1e-12:
-            return False 
+    # Backward substitution: L^T x_sub = y
+    for i in range(n - 1, -1, -1):
+        s = 0.0
+        for k in range(i + 1, n):
+            s += L[k * n + i] * x[map_idx[k]]
+        x[map_idx[i]] = (y[i] - s) / L[i * n + i]
 
-        if max_row != i:
-            for j in range(i, n+1):
-                temp = aug[i * (n + 1) + j]
-                aug[i * (n + 1) + j] = aug[max_row * (n + 1) + j]
-                aug[max_row * (n + 1) + j] = temp
-
-        pivot = aug[i * (n + 1) + i]
-        for j in range(i, n+1):
-            aug[i * (n + 1) + j] /= pivot
-
-        for k in range(n):
-            if k != i:
-                temp = aug[k * (n + 1) + i]
-                for j in range(i, n+1):
-                    aug[k * (n + 1) + j] -= temp * aug[i * (n + 1) + j]
-
-    for i in range(n):
-        x[map_idx[i]] = aug[i * (n + 1) + n]
-    return True
+    return n
 
 # Exact NNLS using Block Principal Pivoting
 cdef void _exact_nnls_bpp_ptr(const double* A, const double* A_inv, const double* b, double* x, int K, double* aug, int* map_idx, int* F, double* y) noexcept nogil:
@@ -93,7 +91,7 @@ cdef void _exact_nnls_bpp_ptr(const double* A, const double* A_inv, const double
     Returns:
         None
     """
-    cdef int i, j, iter_count
+    cdef int i, j, idx, iter_count, n_free
     cdef bint all_nonneg = True, changed
     cdef double acc
     
@@ -120,15 +118,17 @@ cdef void _exact_nnls_bpp_ptr(const double* A, const double* A_inv, const double
             if F[i] == 0:
                 x[i] = 0.0
                 
-        if not solve_subset_ptr(A, b, x, F, K, aug, map_idx):
+        n_free = solve_subset_ptr(A, b, x, F, K, aug, map_idx)
+        if n_free < 0:
             break
 
         for i in range(K):
             if F[i] == 0:
-                y[i] = -b[i]
-                for j in range(K):
-                    if F[j] == 1:
-                        y[i] += A[i * K + j] * x[j]
+                acc = -b[i]
+                for idx in range(n_free):
+                    j = map_idx[idx]
+                    acc += A[i * K + j] * x[j]
+                y[i] = acc
             else:
                 y[i] = 0.0
 
@@ -207,7 +207,7 @@ cdef void _exact_bvls_bpp_ptr(const double* A, const double* A_inv, const double
                         else:
                             b_subset[i] -= A[i * K + j] * lower
         
-        if not solve_subset_ptr(A, b_subset, x, F, K, aug, map_idx):
+        if solve_subset_ptr(A, b_subset, x, F, K, aug, map_idx) < 0:
             break
             
         for i in range(K):
