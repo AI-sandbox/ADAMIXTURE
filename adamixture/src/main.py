@@ -12,7 +12,6 @@ import numpy as np
 
 from . import utils
 from .adamixture import initialize_k, setup, train_k
-from .compat import is_torch_available
 from ..model.br_qn import q_hessian_block_size
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")

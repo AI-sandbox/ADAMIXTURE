@@ -20,7 +20,6 @@ from .utils_c import (
     flip_unpacked,
     get_mean_packed,
     get_mean_unpacked,
-    pack_genotypes,
     read_bcf_file,
     read_bcf_file_packed,
     read_bed,
@@ -29,7 +28,6 @@ from .utils_c import (
     read_pgen_file_packed,
     read_vcf_file,
     read_vcf_file_packed,
-    replace_missing_with_three,
 )
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
@@ -361,7 +359,7 @@ class SNPReader:
         chrom_mode: str,
         autosomes: int,
         specific_chrom: list | tuple | str | int | set | None = None,
-    ) -> tuple[torch.Tensor | np.ndarray, int, int]:
+    ) -> "tuple[torch.Tensor | np.ndarray, int, int]":
         """
         Description:
         Internal reader for PLINK BED files. Handles both regular (uint8) and
@@ -455,7 +453,7 @@ class SNPReader:
         chrom_mode: str,
         autosomes: int,
         specific_chrom: list | tuple | str | int | set | None = None,
-    ) -> tuple[torch.Tensor | np.ndarray, int, int]:
+    ) -> "tuple[torch.Tensor | np.ndarray, int, int]":
         """
         Description:
         Internal reader for VCF files using Cython-based parser.
@@ -517,7 +515,7 @@ class SNPReader:
         chrom_mode: str,
         autosomes: int,
         specific_chrom: list | tuple | str | int | set | None = None,
-    ) -> tuple[torch.Tensor | np.ndarray, int, int]:
+    ) -> "tuple[torch.Tensor | np.ndarray, int, int]":
         """
         Description:
         Internal reader for PLINK PGEN files.
@@ -604,7 +602,7 @@ class SNPReader:
         chrom_mode: str,
         autosomes: int,
         specific_chrom: list | tuple | str | int | set | None = None,
-    ) -> tuple[torch.Tensor | np.ndarray, int, int]:
+    ) -> "tuple[torch.Tensor | np.ndarray, int, int]":
         """
         Description:
         Internal reader for BCF files using Cython-based parser.
@@ -698,7 +696,7 @@ class SNPReader:
         chrom_mode: str,
         autosomes: int,
         specific_chrom: list | tuple | str | int | set | None = None,
-    ) -> tuple[torch.Tensor | np.ndarray, int, int]:
+    ) -> "tuple[torch.Tensor | np.ndarray, int, int]":
         """
         Description:
         Public wrapper to read genotype data from various formats (BED, VCF).

@@ -10,7 +10,7 @@ from typing import Any
 
 import numpy as np
 
-from .compat import Device, is_torch_available, require_torch
+from .compat import is_torch_available, require_torch
 from .snp_reader import SNPReader
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
@@ -190,7 +190,7 @@ def reduce_cpu_chunk_or_raise(chunk_size: int, exc: BaseException, context: str)
     return new_chunk_size
 
 
-def set_cuda_arch_list_if_needed(device: torch.device) -> None:
+def set_cuda_arch_list_if_needed(device: "torch.device | Any") -> None:
     """
     Description:
     Sets TORCH_CUDA_ARCH_LIST from the active CUDA device to avoid compiling
@@ -219,7 +219,7 @@ def read_data(tr_file: str | Path | np.ndarray, packed: bool = False, chunk_size
               specific_chrom: list | tuple | str | int | set | None = None,
               verbose: bool = True, plink: bool = True,
               n_indiv: int | None = None,
-              n_loci: int | None = None) -> tuple[torch.Tensor | np.ndarray, int, int]:
+              n_loci: int | None = None) -> "tuple[torch.Tensor | np.ndarray, int, int]":
     """
     Description:
     Reads SNP data from a file (BED, VCF, raw binary from tidypopgen) or directly from
@@ -816,7 +816,7 @@ def calculate_frequencies_cpu(G: np.ndarray, M: int, N: int, chunk_size: int) ->
             )
 
 
-def get_centering_unpacker(device: torch.device, threads_per_block: int) -> Callable[[torch.Tensor, torch.Tensor, int, int, int], torch.Tensor]:
+def get_centering_unpacker(device: "torch.device | Any", threads_per_block: int) -> Callable[["torch.Tensor", "torch.Tensor", int, int, int], "torch.Tensor"]:
     """
     Description:
     Returns a specialized function for unpacking and centering genotype chunks.
@@ -835,7 +835,7 @@ def get_centering_unpacker(device: torch.device, threads_per_block: int) -> Call
     if device.type == 'mps':
         from .utils_c import metal
 
-        def unpack_center_mps(G: torch.Tensor, f: torch.Tensor, start_idx: int, actual_chunk_size: int, M: int) -> torch.Tensor:
+        def unpack_center_mps(G: "torch.Tensor", f: "torch.Tensor", start_idx: int, actual_chunk_size: int, M: int) -> "torch.Tensor":
             """
             Description:
             Slices and centers an unpacked genotype chunk, or unpacks and
@@ -863,7 +863,7 @@ def get_centering_unpacker(device: torch.device, threads_per_block: int) -> Call
             return G_chunk.float() - 2.0 * f_chunk
         return unpack_center_mps
 
-    def unpack_center_cuda(G: torch.Tensor, f: torch.Tensor, start_idx: int, actual_chunk_size: int, M: int) -> torch.Tensor:
+    def unpack_center_cuda(G: "torch.Tensor", f: "torch.Tensor", start_idx: int, actual_chunk_size: int, M: int) -> "torch.Tensor":
         """
         Description:
         Unpacks and centers a packed 2-bit genotype chunk for CUDA SVD.
@@ -911,7 +911,7 @@ def _get_freq_batch_compiled() -> Callable[[Any], tuple[Any, Any]]:
     return _freq_batch_compiled
 
 
-def _calculate_frequencies_gpu_once(G_torch: torch.Tensor, M: int, chunk_size: int, device_obj: torch.device, threads_per_block: int) -> torch.Tensor:
+def _calculate_frequencies_gpu_once(G_torch: "torch.Tensor", M: int, chunk_size: int, device_obj: "torch.device | Any", threads_per_block: int) -> "torch.Tensor":
     """
     Description:
     Calculates allele frequencies iteratively using GPU-accelerated chunks.
@@ -947,7 +947,7 @@ def _calculate_frequencies_gpu_once(G_torch: torch.Tensor, M: int, chunk_size: i
     return f_torch
 
 
-def calculate_frequencies_gpu(G_torch: torch.Tensor, M: int, chunk_size: int, device_obj: torch.device, threads_per_block: int) -> torch.Tensor:
+def calculate_frequencies_gpu(G_torch: "torch.Tensor", M: int, chunk_size: int, device_obj: "torch.device | Any", threads_per_block: int) -> "torch.Tensor":
     """
     Description:
     Calculates allele frequencies on GPU, retrying with smaller chunks on CUDA OOM.

@@ -173,7 +173,7 @@ def _polish_fold(G: np.ndarray, P_init: np.ndarray, Q_init: np.ndarray,
     )
 
 def run_cross_validation(args: Namespace, G: np.ndarray, N: int, M: int, K: int,
-                        P_global: np.ndarray | torch.Tensor, Q_global: np.ndarray | torch.Tensor,
+                        P_global: "np.ndarray | torch.Tensor", Q_global: "np.ndarray | torch.Tensor",
                         q_block: int | None = None) -> float:
     """
     Description:

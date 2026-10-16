@@ -1,4 +1,4 @@
-import importlib.util
+from importlib import util as importlib_util
 import sys
 from typing import Any
 
@@ -40,7 +40,7 @@ def is_torch_available() -> bool:
         _torch = sys.modules["torch"]
         return True
     try:
-        spec = importlib.util.find_spec("torch")
+        spec = importlib_util.find_spec("torch")
         return spec is not None
     except (ImportError, AttributeError, ValueError):
         return False

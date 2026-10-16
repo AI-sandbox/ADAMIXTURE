@@ -12,7 +12,7 @@ from ..model.br_qn import optimize_original
 from ..model.em_adam import emStep, optimize_parameters
 from ..model.svd import RSVD
 from . import utils
-from .compat import Device, is_torch_available, require_torch
+from .compat import Device, require_torch
 from .utils_c import tools
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
@@ -173,10 +173,10 @@ def initialize_em_gpu(G: Any, seed: int, M: int, N: int, K: int,
     return P, Q
 
 
-def initialize_k(G: torch.Tensor | np.ndarray, N: int, M: int, K: int,
-                  f: np.ndarray | torch.Tensor, seed: int, power: int, tol_svd: float,
+def initialize_k(G: "torch.Tensor | np.ndarray", N: int, M: int, K: int,
+                  f: "np.ndarray | torch.Tensor", seed: int, power: int, tol_svd: float,
                   max_als: int, tol_als: float, chunk_size: int,
-                  device_obj: torch.device, threads_per_block: int,
+                  device_obj: "Device | Any", threads_per_block: int,
                   original: bool = False, init_original: str = 'em',
                   em_init_steps: int = 5) -> tuple:
     """
@@ -196,7 +196,7 @@ def initialize_k(G: torch.Tensor | np.ndarray, N: int, M: int, K: int,
         max_als (int): Maximum ALS iterations.
         tol_als (float): ALS convergence tolerance.
         chunk_size (int): Chunk size for batched operations.
-        device_obj (torch.device): Computation device.
+        device_obj (Device | torch.device): Computation device.
         threads_per_block (int): CUDA tuning parameter.
         original (bool): If True, use original ADMIXTURE algorithm.
         init_original (str): Initialization method ('em' or 'als').
@@ -242,14 +242,14 @@ def initialize_k(G: torch.Tensor | np.ndarray, N: int, M: int, K: int,
     return P, Q, logl
 
 
-def train_k(G: torch.Tensor | np.ndarray, N: int, M: int, K: int, U_max: np.ndarray | torch.Tensor, S_max: np.ndarray | torch.Tensor,
-        V_max: np.ndarray | torch.Tensor, f: np.ndarray | torch.Tensor, seed: int, lr: float, beta1: float, beta2: float, reg_adam: float,
+def train_k(G: "torch.Tensor | np.ndarray", N: int, M: int, K: int, U_max: "np.ndarray | torch.Tensor", S_max: "np.ndarray | torch.Tensor",
+        V_max: "np.ndarray | torch.Tensor", f: "np.ndarray | torch.Tensor", seed: int, lr: float, beta1: float, beta2: float, reg_adam: float,
         max_iter: int, check: int, max_als: int, tol_als: float, lr_decay: float, min_lr: float, chunk_size: int, patience: int, tol_adam: float,
-        device_obj: torch.device, threads_per_block: int, original: bool = False, rtol: float = 1e-7, Q_hist: int = 3,
+        device_obj: "Device | Any", threads_per_block: int, original: bool = False, rtol: float = 1e-7, Q_hist: int = 3,
         init_original: str = 'em', em_init_steps: int = 5,
-        P_init: np.ndarray | torch.Tensor | None = None,
-        Q_init: np.ndarray | torch.Tensor | None = None,
-        q_block: int | None = None) -> tuple[np.ndarray, np.ndarray] | tuple[torch.Tensor, torch.Tensor]:
+        P_init: "np.ndarray | torch.Tensor | None" = None,
+        Q_init: "np.ndarray | torch.Tensor | None" = None,
+        q_block: int | None = None) -> "tuple[np.ndarray, np.ndarray] | tuple[torch.Tensor, torch.Tensor]":
     """
     Description:
     Trains ADAMIXTURE for a single K value, using pre-computed SVD results.
