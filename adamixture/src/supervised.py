@@ -500,59 +500,58 @@ def optimize_supervised_original(G: np.ndarray, P: np.ndarray, Q: np.ndarray, y:
     XtX_p = np.empty((M, K, K), dtype=np.float64)
     Xtz_p = np.empty((M, K), dtype=np.float64)
 
-    P_next = np.empty_like(P, dtype=np.float64)
-    Q_next = np.empty_like(Q, dtype=np.float64)
-    P_next2 = np.empty_like(P, dtype=np.float64)
-    Q_next2 = np.empty_like(Q, dtype=np.float64)
+    # Contiguous parameter buffers with zero-copy views
+    PQ = np.empty((M + N, K), dtype=np.float64)
+    P_cur = PQ[:M]
+    Q_cur = PQ[M:]
+    P_cur[:] = P
+    Q_cur[:] = Q
+    x_buf = PQ.ravel()
+
+    PQ_next = np.empty((M + N, K), dtype=np.float64)
+    P_next, Q_next = PQ_next[:M], PQ_next[M:]
+    x_next_buf = PQ_next.ravel()
+
+    PQ_next2 = np.empty((M + N, K), dtype=np.float64)
+    P_next2, Q_next2 = PQ_next2[:M], PQ_next2[M:]
+    x_next2_buf = PQ_next2.ravel()
+
+    PQ_qn = np.empty((M + N, K), dtype=np.float64)
+    P_qn, Q_qn = PQ_qn[:M], PQ_qn[M:]
+    x_qn = PQ_qn.ravel()
 
     # QN history buffers
-    dim = M * K + N * K
+    dim = (M + N) * K
     U = np.zeros(dim * Q_hist, dtype=np.float64)
     V = np.zeros(dim * Q_hist, dtype=np.float64)
     UtUmV_workspace = np.zeros(Q_hist * (Q_hist + 1), dtype=np.float64)
     coeff_workspace = np.zeros(Q_hist, dtype=np.float64)
 
-    # QN extrapolation buffers
-    x_qn = np.empty(dim, dtype=np.float64)
-    P_qn = np.empty_like(P)
-    Q_qn = np.empty_like(Q)
-
-    # Pre-allocated buffers for ZAL QN acceleration
-    x_buf = np.empty(dim, dtype=np.float64)
-    x_next_buf = np.empty(dim, dtype=np.float64)
-    x_next2_buf = np.empty(dim, dtype=np.float64)
-
     # 3. Initialize log-likelihood
     ll_prev_iter = -float('inf')
     ll_best = -float("inf")
     wait = 0
-    P_best = np.empty_like(P)
-    Q_best = np.empty_like(Q)
+    PQ_best = np.empty_like(PQ)
+    P_best, Q_best = PQ_best[:M], PQ_best[M:]
 
     for it in range(1, max_iter + 1):
         it_start = time.time()
 
-        # --- SQP Update 1: (P, Q) -> (P_next, Q_next) ---
-        sqp.update_q_sqp(G, Q, Q_next, P, XtX_q, Xtz_q, v_kk, M, N, K, q_block)
+        # --- SQP Update 1: (P_cur, Q_cur) -> (P_next, Q_next) ---
+        sqp.update_q_sqp(G, Q_cur, Q_next, P_cur, XtX_q, Xtz_q, v_kk, M, N, K, q_block)
         _snap_q_cpu(Q_next, y, K)
-        sqp.update_p_sqp(G, Q_next, P, P_next, XtX_p, Xtz_p, M, N, K)
+        sqp.update_p_sqp(G, Q_next, P_cur, P_next, XtX_p, Xtz_p, M, N, K)
 
         # --- SQP Update 2: (P_next, Q_next) -> (P_next2, Q_next2) ---
         sqp.update_q_sqp(G, Q_next, Q_next2, P_next, XtX_q, Xtz_q, v_kk, M, N, K, q_block)
         _snap_q_cpu(Q_next2, y, K)
         sqp.update_p_sqp(G, Q_next2, P_next, P_next2, XtX_p, Xtz_p, M, N, K)
 
-        # --- ZAL QN acceleration ---
-        _flatten_PQ_inplace(P, Q, x_buf)
-        _flatten_PQ_inplace(P_next, Q_next, x_next_buf)
-        _flatten_PQ_inplace(P_next2, Q_next2, x_next2_buf)
-
+        # --- ZAL QN acceleration (Zero-Copy) ---
         update_UV_ZAL(U, V, x_buf, x_next_buf, x_next2_buf, it, Q_hist, dim)
 
         n_cols = min(it, Q_hist)
         qn_extrapolate_ZAL(x_qn, x_next_buf, x_buf, U, V, n_cols, dim, UtUmV_workspace, coeff_workspace)
-
-        _unflatten_PQ(x_qn, P_qn, Q_qn, M, K)
 
         sqp.project_p_box(P_qn, M, K)
         sqp.project_q_simplex(Q_qn, N, K)
@@ -562,19 +561,16 @@ def optimize_supervised_original(G: np.ndarray, P: np.ndarray, Q: np.ndarray, y:
         ll_qn = tools.loglikelihood(G, P_qn, Q_qn)
 
         if ll_qn > ll_prev_iter:
-            memoryview(P.ravel())[:] = memoryview(P_qn.ravel())
-            memoryview(Q.ravel())[:] = memoryview(Q_qn.ravel())
+            PQ[:] = PQ_qn
             ll_new = ll_qn
         else:
-            memoryview(P.ravel())[:] = memoryview(P_next2.ravel())
-            memoryview(Q.ravel())[:] = memoryview(Q_next2.ravel())
+            PQ[:] = PQ_next2
             ll_new = tools.loglikelihood(G, P_next2, Q_next2)
 
         best_before = ll_best
         if ll_new > ll_best:
             ll_best = ll_new
-            memoryview(P_best.ravel())[:] = memoryview(P.ravel())
-            memoryview(Q_best.ravel())[:] = memoryview(Q.ravel())
+            PQ_best[:] = PQ
         if best_before != -float("inf") and ll_new <= best_before + tol:
             wait += 1
         else:
@@ -597,6 +593,8 @@ def optimize_supervised_original(G: np.ndarray, P: np.ndarray, Q: np.ndarray, y:
         ll_prev_iter = ll_new
 
     log.info(f"\n    Final log-likelihood (supervised): {ll_best:.1f}")
+    P[:] = P_best
+    Q[:] = Q_best
     return P_best, Q_best
 
 

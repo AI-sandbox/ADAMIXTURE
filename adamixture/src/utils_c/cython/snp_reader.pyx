@@ -47,8 +47,9 @@ cpdef void read_bed(unsigned char[:,::1] bed_source, unsigned char[:,::1] geno_t
     cdef:
         Py_ssize_t n_snps = geno_target.shape[0]
         Py_ssize_t n_samples = geno_target.shape[1]
-        Py_ssize_t byte_count = bed_source.shape[1]
-        Py_ssize_t snp_idx, byte_pos, sample_pos
+        Py_ssize_t full_bytes = n_samples // 4
+        Py_ssize_t rem = n_samples % 4
+        Py_ssize_t snp_idx, byte_pos, sample_pos, r_idx
         unsigned char current_byte
         unsigned char lookup_table[4]
 
@@ -59,18 +60,19 @@ cpdef void read_bed(unsigned char[:,::1] bed_source, unsigned char[:,::1] geno_t
 
     with nogil, parallel():
         for snp_idx in prange(n_snps):
-            for byte_pos in range(byte_count):
+            for byte_pos in range(full_bytes):
                 current_byte = bed_source[snp_idx, byte_pos]
                 sample_pos = byte_pos * 4
+                geno_target[snp_idx, sample_pos]     = lookup_table[current_byte & 3]
+                geno_target[snp_idx, sample_pos + 1] = lookup_table[(current_byte >> 2) & 3]
+                geno_target[snp_idx, sample_pos + 2] = lookup_table[(current_byte >> 4) & 3]
+                geno_target[snp_idx, sample_pos + 3] = lookup_table[(current_byte >> 6) & 3]
 
-                if sample_pos < n_samples:
-                    geno_target[snp_idx, sample_pos] = lookup_table[current_byte & 3]
-                    if sample_pos + 1 < n_samples:
-                        geno_target[snp_idx, sample_pos + 1] = lookup_table[(current_byte >> 2) & 3]
-                        if sample_pos + 2 < n_samples:
-                            geno_target[snp_idx, sample_pos + 2] = lookup_table[(current_byte >> 4) & 3]
-                            if sample_pos + 3 < n_samples:
-                                geno_target[snp_idx, sample_pos + 3] = lookup_table[(current_byte >> 6) & 3]
+            if rem > 0:
+                current_byte = bed_source[snp_idx, full_bytes]
+                sample_pos = full_bytes * 4
+                for r_idx in range(rem):
+                    geno_target[snp_idx, sample_pos + r_idx] = lookup_table[(current_byte >> (2 * r_idx)) & 3]
 
 # Read BED to 2-bit packed format
 cpdef void read_bed_packed(uintptr_t B_bed_ptr, uintptr_t G_packed_ptr, Py_ssize_t M, Py_ssize_t N_bytes, Py_ssize_t N, Py_ssize_t M_bytes) noexcept nogil:

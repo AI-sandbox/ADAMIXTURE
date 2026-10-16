@@ -117,6 +117,18 @@ cpdef double loglikelihood_packed(uintptr_t G_ptr, size_t M, size_t N, double[:,
             ll += _row_loglike_packed(packed_row, shift, &P[j, 0], Q_ptr, N, K)
     return ll
 
+cdef inline float _snp_af(const uint8_t* r, size_t N) noexcept nogil:
+    cdef:
+        size_t y
+        uint32_t sum_int = 0, valid_cnt = 0
+        uint8_t g, is_valid
+    for y in range(N):
+        g = r[y]
+        is_valid = (g != 3)
+        sum_int += g if is_valid else 0
+        valid_cnt += is_valid
+    return <float>sum_int / <float>(2 * valid_cnt) if valid_cnt > 0 else 0.0
+
 # Calculate SNP allele frequencies
 cpdef void alleleFrequency(uint8_t[:, ::1] G, float[::1] f, int M, int N) noexcept nogil:
     """
@@ -132,19 +144,9 @@ cpdef void alleleFrequency(uint8_t[:, ::1] G, float[::1] f, int M, int N) noexce
     Returns:
         None
     """
-    cdef:
-        size_t x, y
-        uint8_t* r
-        float sum_val, denom
+    cdef size_t x
     for x in prange(M, schedule='guided'):
-        sum_val = 0.0
-        denom = 0.0
-        r = &G[x,0]
-        for y in range(N):
-            if r[y] != 3:
-                sum_val = sum_val + <float>r[y]
-                denom = denom + 2.0
-        f[x] = sum_val / denom
+        f[x] = _snp_af(&G[x, 0], N)
 
 # Calculate RMSE between matrices
 cpdef double rmse_d(double[:,::1] Q1, double[:,::1] Q2, int N, int K) noexcept nogil:
