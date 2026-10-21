@@ -20,3 +20,18 @@ def test_min_k1_is_accepted() -> None:
 def test_k0_is_rejected() -> None:
     with pytest.raises(SystemExit):
         parse_args(["-k", "0", *MIN_ARGS])
+
+
+def test_beta_als_default_and_custom() -> None:
+    args = parse_args(["-k", "2", *MIN_ARGS])
+    assert args.beta_als == 0.8
+
+    args = parse_args(["-k", "2", "--beta_als", "0.5", *MIN_ARGS])
+    assert args.beta_als == 0.5
+
+
+def test_beta_als_invalid_rejected() -> None:
+    with pytest.raises(SystemExit):
+        parse_args(["-k", "2", "--beta_als", "-0.1", *MIN_ARGS])
+    with pytest.raises(SystemExit):
+        parse_args(["-k", "2", "--beta_als", "1.0", *MIN_ARGS])

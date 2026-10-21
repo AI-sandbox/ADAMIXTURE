@@ -41,6 +41,7 @@ POWER = 5
 TOL_SVD = 1e-1
 MAX_ALS = 1000
 TOL_ALS = 1e-4
+BETA_ALS = 0.0
 
 LR = 0.005
 BETA1 = 0.80
@@ -136,6 +137,7 @@ def generate_algorithm(device: str, algorithm: str) -> None:
         MAX_ALS,
         TOL_ALS,
         device_obj,
+        BETA_ALS,
     )
     _save(out_dir / "demo_run.als.P.expected", P_als)
     _save(out_dir / "demo_run.als.Q.expected", Q_als)

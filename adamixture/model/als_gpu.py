@@ -44,7 +44,7 @@ def _cov_inverse(A: torch.Tensor, device: torch.device) -> torch.Tensor:
 
 def ALS_gpu(U: torch.Tensor, S: torch.Tensor, V: torch.Tensor, f: torch.Tensor,
             seed: int, M: int, K: int, max_iter: int, tol: float,
-            device: torch.device) -> tuple[torch.Tensor, torch.Tensor]:
+            device: torch.device, beta: float) -> tuple[torch.Tensor, torch.Tensor]:
     """
     Description:
     Alternating Least Squares (ALS) implementation in PyTorch using Block Principal Pivoting.
@@ -61,6 +61,7 @@ def ALS_gpu(U: torch.Tensor, S: torch.Tensor, V: torch.Tensor, f: torch.Tensor,
         max_iter (int): Maximum ALS iterations.
         tol (float): RMSE convergence tolerance.
         device (torch.device): Computation device.
+        beta (float): Momentum extrapolation factor for Q.
 
     Returns:
         tuple[torch.Tensor, torch.Tensor]: Optimized P and Q matrices.
@@ -79,48 +80,56 @@ def ALS_gpu(U: torch.Tensor, S: torch.Tensor, V: torch.Tensor, f: torch.Tensor,
     Z = (U * S).to(dtype)
     V = torch.as_tensor(V, device=device, dtype=dtype)
     V_T = V.T
-    Z_T = Z.T
     f_work = f.to(dtype)
+
+    # Fisher information curvature weights: w2 = 1 / clamp(f * (1 - f), min=1e-3)
+    w2 = 1.0 / torch.clamp(f_work * (1.0 - f_work), min=1e-3)
+    w2 = w2 / torch.mean(w2)
+    Z_w2_T = (Z * w2.unsqueeze(1)).T
+    f_w2 = (f_work * w2).reshape(1, -1)
 
     # Init P
     P = torch.rand((M, K), dtype=dtype, generator=gen, device=device)
     mapP(P)
 
-    # Initial Q
-    A_cov_P = P.T @ P
+    # Initial Q with Fisher weighting
+    A_cov_P = P.T @ (w2.unsqueeze(1) * P)
     I_p = P @ _cov_inverse(A_cov_P, device)
-    f_p = (f_work.reshape(1, -1) @ I_p)
-    Q = 0.5 * (V.to(dtype) @ (Z_T @ I_p)) + f_p
+    Q = 0.5 * (V.to(dtype) @ (Z_w2_T @ I_p)) + (f_w2 @ I_p)
 
     mapQ(Q)
-    Q0 = Q.clone()
+    Q_prev = Q.clone()
+    Q_next = torch.empty_like(Q)
 
     for i in range(max_iter):
+        if beta > 0.0 and i > 0:
+            Q_extrap = Q + beta * (Q - Q_prev)
+            mapQ(Q_extrap)
+            Q_use = Q_extrap
+        else:
+            Q_use = Q
+
         # UPDATE P
-        A_cov_Q = Q.T @ Q
-        I_q = Q @ _cov_inverse(A_cov_Q, device)
-        P_free = 0.5 * (Z @ (V_T @ I_q)) + torch.outer(f_work, I_q.sum(dim=0))
-        B_target_P = P_free @ A_cov_Q
+        A_cov_Q = Q_use.T @ Q_use
+        B_target_P = 0.5 * (Z @ (V_T @ Q_use)) + torch.outer(f_work, Q_use.sum(dim=0))
 
         P = bvls_solver(A_cov_Q, B_target_P, 0.0, 1.0)
         mapP(P)
 
-        # UPDATE Q
-        A_cov_P = P.T @ P
-        I_p = P @ _cov_inverse(A_cov_P, device)
-        f_p = (f_work.reshape(1, -1) @ I_p)
-        Q_free = 0.5 * (V.to(dtype) @ (Z_T @ I_p)) + f_p
-        B_target_Q = Q_free @ A_cov_P
+        # UPDATE Q (weighted by Fisher curvature)
+        A_cov_P = P.T @ (w2.unsqueeze(1) * P)
+        B_target_Q = 0.5 * (V.to(dtype) @ (Z_w2_T @ P)) + (f_w2 @ P)
 
-        Q = bvls_solver(A_cov_P, B_target_Q, 0.0, 1.0)
-        mapQ(Q)
+        Q_next = bvls_solver(A_cov_P, B_target_Q, 0.0, 1.0)
+        mapQ(Q_next)
 
-        rmse_error = torch.sqrt(torch.mean((Q - Q0)**2))
+        rmse_error = torch.sqrt(torch.mean((Q_next - Q)**2))
+        Q_prev.copy_(Q)
+        Q.copy_(Q_next)
+
         if rmse_error < tol:
             log.info(f"        Convergence reached in iteration {i+1}.")
             break
-        else:
-            Q0.copy_(Q)
 
     total_time = time.time() - t0
     log.info(f"        Total ALS time={total_time:.3f}s\n")

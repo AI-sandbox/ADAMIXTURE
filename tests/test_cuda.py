@@ -11,6 +11,7 @@ from adamixture.src import utils
 from adamixture.src.adamixture import setup
 
 from tests.config import (
+    BETA_ALS,
     CHUNK_SIZE,
     DATA_DIR,
     EXPECTED_ATOL,
@@ -94,6 +95,7 @@ def _cuda_steps(cuda_bed_data, *, algorithm: str):
         MAX_ALS,
         TOL_ALS,
         device_obj,
+        BETA_ALS,
     )
     if is_brqn:
         P_opt, Q_opt = optimize_original_gpu(

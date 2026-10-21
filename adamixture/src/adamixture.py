@@ -178,7 +178,7 @@ def initialize_k(G: "torch.Tensor | np.ndarray", N: int, M: int, K: int,
                   max_als: int, tol_als: float, chunk_size: int,
                   device_obj: "Device | Any", threads_per_block: int,
                   original: bool = False, init_original: str = 'em',
-                  em_init_steps: int = 5) -> tuple:
+                  em_init_steps: int = 5, beta_als: float = 0.8) -> tuple:
     """
     Description:
     Run one initialization (SVD + ALS, or random EM) for a single K value.
@@ -201,6 +201,7 @@ def initialize_k(G: "torch.Tensor | np.ndarray", N: int, M: int, K: int,
         original (bool): If True, use original ADMIXTURE algorithm.
         init_original (str): Initialization method ('em' or 'als').
         em_init_steps (int): Number of EM priming steps.
+        beta_als (float): Momentum extrapolation factor for ALS.
 
     Returns:
         tuple: (P, Q, logl) — initialized matrices and initial log-likelihood.
@@ -222,7 +223,7 @@ def initialize_k(G: "torch.Tensor | np.ndarray", N: int, M: int, K: int,
         log.info("    Running SVD...\n")
         U, S, V = RSVD(G, N, M, f, K, seed, power, tol_svd, chunk_size)
         log.info("    Running ALS...")
-        P, Q = ALS(U, S, V, f, seed, M, N, K, max_als, tol_als)
+        P, Q = ALS(U, S, V, f, seed, M, N, K, max_als, tol_als, beta=beta_als)
         logl = tools.loglikelihood(G, P, Q)
     else:
         from ..model.svd_gpu import SVD_gpu
@@ -233,7 +234,7 @@ def initialize_k(G: "torch.Tensor | np.ndarray", N: int, M: int, K: int,
                           chunk_size, dev_target, threads_per_block)
         log.info(f"    Running ALS on GPU ({device_obj})...")
         P, Q = ALS_gpu(U.contiguous(), S.contiguous(), V.contiguous(),
-                       f, seed, M, K, max_als, tol_als, dev_target)
+                       f, seed, M, K, max_als, tol_als, dev_target, beta=beta_als)
         utils.clear_device_cache(device_obj)
         logl_calc = utils.get_logl_calculator(device_obj)
         logl = logl_calc(G, P, Q, M, N, chunk_size, threads_per_block)
@@ -249,7 +250,8 @@ def train_k(G: "torch.Tensor | np.ndarray", N: int, M: int, K: int, U_max: "np.n
         init_original: str = 'em', em_init_steps: int = 5,
         P_init: "np.ndarray | torch.Tensor | None" = None,
         Q_init: "np.ndarray | torch.Tensor | None" = None,
-        q_block: int | None = None) -> "tuple[np.ndarray, np.ndarray] | tuple[torch.Tensor, torch.Tensor]":
+        q_block: int | None = None,
+        beta_als: float = 0.8) -> "tuple[np.ndarray, np.ndarray] | tuple[torch.Tensor, torch.Tensor]":
     """
     Description:
     Trains ADAMIXTURE for a single K value, using pre-computed SVD results.
@@ -306,7 +308,7 @@ def train_k(G: "torch.Tensor | np.ndarray", N: int, M: int, K: int, U_max: "np.n
                 P, Q = initialize_em_cpu(G, seed, M, N, K, em_init_steps)
             else:
                 log.info("    Running ALS...")
-                P, Q = ALS(U, S, V, f, seed, M, N, K, max_als, tol_als)
+                P, Q = ALS(U, S, V, f, seed, M, N, K, max_als, tol_als, beta=beta_als)
             logl = tools.loglikelihood(G, P, Q)
             log.info(f"    Initial log-likelihood for K={K}: {logl:.1f}.")
         else:
@@ -319,7 +321,7 @@ def train_k(G: "torch.Tensor | np.ndarray", N: int, M: int, K: int, U_max: "np.n
                 S_k = S.contiguous()
                 V_k = V.contiguous()
                 dev_target = device_obj.torch_device if hasattr(device_obj, 'torch_device') else device_obj
-                P, Q = ALS_gpu(U_k, S_k, V_k, f, seed, M, K, max_als, tol_als, dev_target)
+                P, Q = ALS_gpu(U_k, S_k, V_k, f, seed, M, K, max_als, tol_als, dev_target, beta=beta_als)
 
             utils.clear_device_cache(device_obj)
 

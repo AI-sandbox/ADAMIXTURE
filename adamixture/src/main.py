@@ -85,6 +85,7 @@ def main(args: argparse.Namespace, t0: float) -> int:
                     init_original=args.init,
                     em_init_steps=int(args.em_init_steps),
                     q_block=q_block,
+                    beta_als=float(args.beta_als),
                 )
 
                 P_np = P.cpu().numpy() if hasattr(P, "cpu") else P
@@ -143,6 +144,7 @@ def main(args: argparse.Namespace, t0: float) -> int:
                         original=(args.algorithm == 'brqn'),
                         init_original=args.init,
                         em_init_steps=int(args.em_init_steps),
+                        beta_als=float(args.beta_als),
                     )
 
                     if logl > best_logl:
@@ -163,6 +165,7 @@ def main(args: argparse.Namespace, t0: float) -> int:
                     em_init_steps=int(args.em_init_steps),
                     P_init=best_P, Q_init=best_Q,
                     q_block=q_block,
+                    beta_als=float(args.beta_als),
                 )
 
                 P_np = P.cpu().numpy() if hasattr(P, "cpu") else P

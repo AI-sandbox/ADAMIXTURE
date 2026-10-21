@@ -370,13 +370,94 @@ cpdef void update_q_sqp(const uint8_t[:,::1] G, const double[:,::1] Q, double[:,
     for i in prange(N, schedule='static'):
         update_single_q(i, Q, Q_next, XtX_q, Xtz_q, v_kk, K)
 
-cpdef void update_p_sqp(const uint8_t[:,::1] G, const double[:,::1] Q, const double[:,::1] P, 
-                        double[:,::1] P_next, double[:,:,::1] XtX_p, double[:,::1] Xtz_p, 
-                        int M, int N, int K) noexcept nogil:
-    cdef int j
-    
-    compute_grad_hess_P(G, Q, P, XtX_p, Xtz_p, M, N, K)
-    
+cdef void update_single_p_fused(int j, const uint8_t[:,::1] G, const double[:,::1] Q, 
+                                const double[:,::1] P, double[:,::1] P_next, 
+                                int N, int K) noexcept nogil:
+    cdef:
+        int sz = K + 1
+        int i, k, k2
+        double qp, g
+        double oneT = 1.0
+        double twoT = 2.0
+        double term1_z, term2_z, term1, term2, term_z_diff, term_sum
+        double tqk
+        double tableau[17000]
+        double d_buf[130]
+        double tmp_buf[130]
+        uint8_t swept_buf[128]
+        double delta[128]
+        double pj[128]
+        const uint8_t* g_row = &G[j, 0]
+        const double* q_row
 
+    for k in range(sz * sz):
+        tableau[k] = 0.0
+
+    for k in range(K):
+        pj[k] = P[j, k]
+
+    for i in range(N):
+        if g_row[i] == 3:
+            continue
+        g = <double>g_row[i]
+        q_row = &Q[i, 0]
+        qp = 0.0
+        for k in range(K):
+            qp += q_row[k] * pj[k]
+        qp = fmax(fmin(qp, 1.0 - 1e-10), 1e-10)
+
+        term1_z = g / qp
+        term2_z = (twoT - g) / (oneT - qp)
+        term1 = term1_z / qp
+        term2 = term2_z / (oneT - qp)
+        term_z_diff = term1_z - term2_z
+        term_sum = term1 + term2
+
+        for k in range(K):
+            tableau[k * sz + K] += term_z_diff * q_row[k]
+            tqk = term_sum * q_row[k]
+            for k2 in range(k, K):
+                tableau[k * sz + k2] += tqk * q_row[k2]
+
+    for k in range(K):
+        tableau[K * sz + k] = tableau[k * sz + K]
+        for k2 in range(k):
+            tableau[k * sz + k2] = tableau[k2 * sz + k]
+
+    quadratic_program_local(delta, tableau, pj, K, 0, d_buf, tmp_buf, swept_buf)
+
+    for k in range(K):
+        P_next[j, k] = pj[k] + delta[k]
+    project_p_box_row(&P_next[j, 0], K, 1e-5)
+
+cpdef void update_p_sqp_fused(const uint8_t[:,::1] G, const double[:,::1] Q, const double[:,::1] P, 
+                              double[:,::1] P_next, int M, int N, int K) noexcept nogil:
+    cdef int j
+    for j in prange(M, schedule='static'):
+        update_single_p_fused(j, G, Q, P, P_next, N, K)
+
+cpdef void update_p_sqp_unfused(const uint8_t[:,::1] G, const double[:,::1] Q, const double[:,::1] P, 
+                                double[:,::1] P_next, double[:,:,::1] XtX_p, double[:,::1] Xtz_p, 
+                                int M, int N, int K) noexcept nogil:
+    cdef int j
+    compute_grad_hess_P(G, Q, P, XtX_p, Xtz_p, M, N, K)
     for j in prange(M, schedule='static'):
         update_single_p(j, P, P_next, XtX_p, Xtz_p, K)
+
+def update_p_sqp(const uint8_t[:,::1] G, const double[:,::1] Q, const double[:,::1] P, 
+                 double[:,::1] P_next, *args):
+    cdef:
+        int M, N, K
+    if len(args) == 3:
+        M = int(args[0])
+        N = int(args[1])
+        K = int(args[2])
+        update_p_sqp_fused(G, Q, P, P_next, M, N, K)
+    elif len(args) == 5:
+        M = int(args[2])
+        N = int(args[3])
+        K = int(args[4])
+        update_p_sqp_unfused(G, Q, P, P_next, args[0], args[1], M, N, K)
+    else:
+        raise TypeError(f"update_p_sqp expects either 7 or 9 arguments, got {4 + len(args)}")
+

@@ -4,6 +4,7 @@ import gc
 import logging
 import sys
 from argparse import Namespace
+from typing import TYPE_CHECKING
 
 import numpy as np
 
@@ -16,6 +17,9 @@ from .utils_c import (
     restore_entries_i32,
     restore_entries_i64,
 )
+
+if TYPE_CHECKING:
+    import torch
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
 log = logging.getLogger(__name__)
@@ -131,19 +135,11 @@ def _build_hashed_fold_entries(G: np.ndarray, N: int, n_folds: int, fold: int, s
     Returns:
         np.ndarray: Flat genotype indices assigned to the requested fold.
     """
-    n_fold_entries = 0
-    for flat_entries in _iter_non_missing_flat_chunks(G, N):
-        n_fold_entries += int(np.count_nonzero(_hash_fold_mask(flat_entries, seed, n_folds, fold)))
-
-    held_out_entries = np.empty(n_fold_entries, dtype=np.int64)
-    offset = 0
-    for flat_entries in _iter_non_missing_flat_chunks(G, N):
-        selected = flat_entries[_hash_fold_mask(flat_entries, seed, n_folds, fold)]
-        next_offset = offset + selected.size
-        held_out_entries[offset:next_offset] = selected
-        offset = next_offset
-
-    return held_out_entries
+    chunks = [
+        flat_entries[_hash_fold_mask(flat_entries, seed, n_folds, fold)]
+        for flat_entries in _iter_non_missing_flat_chunks(G, N)
+    ]
+    return np.concatenate(chunks) if chunks else np.empty(0, dtype=np.int64)
 
 def _polish_fold(G: np.ndarray, P_init: np.ndarray, Q_init: np.ndarray,
                 M: int, N: int, K: int,
@@ -225,7 +221,7 @@ def run_cross_validation(args: Namespace, G: np.ndarray, N: int, M: int, K: int,
         if use_streaming_folds:
             held_out_entries = _build_hashed_fold_entries(G, N, n_folds, fold, int(args.seed))
         else:
-            held_out_entries = shuffled[fold::n_folds]
+            held_out_entries = np.sort(shuffled[fold::n_folds])
         if held_out_entries.size == 0:
             if use_streaming_folds:
                 del held_out_entries

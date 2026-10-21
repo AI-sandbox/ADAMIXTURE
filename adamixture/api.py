@@ -83,6 +83,7 @@ def run(
     tol = float(extra_kwargs.get("tol", extra_kwargs.get("tole", tol)))
     max_als = int(extra_kwargs.get("max_als", extra_kwargs.get("als_iter", 1000)))
     tol_als = float(extra_kwargs.get("tol_als", extra_kwargs.get("als_tole", 1e-4)))
+    beta_als = float(extra_kwargs.get("beta_als", 0.8))
     power = int(extra_kwargs.get("power", 5))
     tol_svd = float(extra_kwargs.get("tol_svd", 1e-1))
     chunk_size = int(extra_kwargs.get("chunk_size", extra_kwargs.get("chunk", 8192)))
@@ -177,6 +178,7 @@ def run(
             init_original="als",
             em_init_steps=5,
             q_block=q_block,
+            beta_als=beta_als,
         )
 
         P_np = P.cpu().numpy() if hasattr(P, "cpu") else np.asarray(P)

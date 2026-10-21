@@ -10,7 +10,7 @@ from ..src.utils_c import tools
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
 log = logging.getLogger(__name__)
 
-def eigSVD(X: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+def eigSVD(X: np.ndarray, k: int | None = None) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Description:
     Computes the Singular Value Decomposition (SVD) of a matrix X using
@@ -18,14 +18,22 @@ def eigSVD(X: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
 
     Args:
         X (np.ndarray): Input matrix of shape (m, n).
+        k (int | None): Optional number of singular components to retain.
 
     Returns:
         tuple[np.ndarray, np.ndarray, np.ndarray]: (U, S, V) matrices from SVD.
     """
     D, V = np.linalg.eigh(X.T @ X)
-    S = np.sqrt(D)
-    U = X @ (V * (1.0 / S))
-    return np.ascontiguousarray(U[:, ::-1]), np.ascontiguousarray(S[::-1]), np.ascontiguousarray(V[:, ::-1])
+    if k is not None:
+        D = D[::-1][:k]
+        V = np.ascontiguousarray(V[:, ::-1][:, :k])
+    else:
+        D = D[::-1]
+        V = np.ascontiguousarray(V[:, ::-1])
+
+    S = np.sqrt(np.maximum(D, 0.0))
+    U = X @ (V * (1.0 / np.maximum(S, 1e-12)))
+    return U, S, V
 
 def _RSVD_once(G: np.ndarray, N: int, M: int, f: np.ndarray, k: int, seed: int,
                power: int, tol: float, chunk: int) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -53,30 +61,39 @@ def _RSVD_once(G: np.ndarray, N: int, M: int, f: np.ndarray, k: int, seed: int,
 
     # Execution parameters
     n_batches = int(np.ceil(M / chunk))
-    alpha = 0.0
+    alpha = np.float32(0.0)
     k_prime = max(k + 10, 20)
 
     # Internal buffers
     accum_mat = np.zeros((N, k_prime), dtype=np.float32)
-    gen_buffer = np.zeros((chunk, N), dtype=np.float32)
+    temp_accum = np.empty((N, k_prime), dtype=np.float32)
+    gen_buffer = np.empty((chunk, N), dtype=np.float32)
+    proj_chunk = np.empty((chunk, k_prime), dtype=np.float32)
     proj_basis = rng.standard_normal(size=(M, k_prime), dtype=np.float32)
 
-    # 1) Prime iteration:
+    # Patterson-Price genetic PCA weighting for ancestral individual subspace V
+    w_patterson = np.ascontiguousarray(
+        1.0 / np.sqrt(2.0 * np.maximum(f * (1.0 - f), 1e-4)),
+        dtype=np.float32,
+    )
+
+    # 1) Prime iteration
     log.info("    1) Prime iteration...")
     t_prime = time.time()
     for w in range(n_batches):
         start_idx = w * chunk
         n_active = min(chunk, M - start_idx)
-        if gen_buffer.shape[0] != n_active:
-            gen_buffer = np.zeros((n_active, N), dtype=np.float32)
-        tools.decompress_block(G, gen_buffer, f, start_idx)
-        accum_mat += gen_buffer.T @ proj_basis[start_idx : (start_idx + n_active)]
+        buf = gen_buffer[:n_active]
+        tools.decompress_block(G, buf, f, start_idx)
+        buf *= w_patterson[start_idx : start_idx + n_active, None]
+        np.matmul(buf.T, proj_basis[start_idx : (start_idx + n_active)], out=temp_accum)
+        accum_mat += temp_accum
 
     orth_matrix, _, _ = eigSVD(accum_mat)
     accum_mat.fill(0.0)
     log.info(f"        time={time.time() - t_prime:.4f}s")
 
-    # 2) Power iterations:
+    # 2) Power iterations
     log.info("    2) Power iterations...")
     t_power = time.time()
     singular_vals = np.zeros(k_prime, dtype=np.float32)
@@ -84,11 +101,13 @@ def _RSVD_once(G: np.ndarray, N: int, M: int, f: np.ndarray, k: int, seed: int,
         for w in range(n_batches):
             start_idx = w * chunk
             n_active = min(chunk, M - start_idx)
-            if gen_buffer.shape[0] != n_active:
-                gen_buffer = np.zeros((n_active, N), dtype=np.float32)
-            tools.decompress_block(G, gen_buffer, f, start_idx)
-            proj_basis[start_idx : (start_idx + n_active)] = gen_buffer @ orth_matrix
-            accum_mat += gen_buffer.T @ proj_basis[start_idx : (start_idx + n_active)]
+            buf = gen_buffer[:n_active]
+            p_buf = proj_chunk[:n_active]
+            tools.decompress_block(G, buf, f, start_idx)
+            buf *= w_patterson[start_idx : start_idx + n_active, None]
+            np.matmul(buf, orth_matrix, out=p_buf)
+            np.matmul(buf.T, p_buf, out=temp_accum)
+            accum_mat += temp_accum
 
         accum_mat -= alpha * orth_matrix
         orth_matrix, s_vals, _ = eigSVD(accum_mat)
@@ -107,32 +126,29 @@ def _RSVD_once(G: np.ndarray, N: int, M: int, f: np.ndarray, k: int, seed: int,
 
         # Dynamic shift update
         if s_vals[-1] > alpha:
-            alpha = 0.5 * (s_vals[-1] + alpha)
+            alpha = np.float32(0.5 * (s_vals[-1] + alpha))
 
     log.info(f"        time={time.time() - t_power:.4f}s")
 
-    # 3) Build projection:
+    # 3) Build projection
     log.info("    3) Build small matrix...")
     t_build = time.time()
     for w in range(n_batches):
         start_idx = w * chunk
         n_active = min(chunk, M - start_idx)
-        if gen_buffer.shape[0] != n_active:
-            gen_buffer = np.zeros((n_active, N), dtype=np.float32)
-        tools.decompress_block(G, gen_buffer, f, start_idx)
-        proj_basis[start_idx : (start_idx + n_active)] = gen_buffer @ orth_matrix
+        buf = gen_buffer[:n_active]
+        tools.decompress_block(G, buf, f, start_idx)
+        np.matmul(buf, orth_matrix, out=proj_basis[start_idx : (start_idx + n_active)])
     log.info(f"        time={time.time() - t_build:.4f}s")
 
-    # 4) SVD of condensed matrix:
+    # 4) SVD of condensed matrix
     log.info("    4) SVD of small matrix...")
     t_svd = time.time()
-    u_cond, s_all, v_cond = eigSVD(proj_basis)
+    U, S, v_cond = eigSVD(proj_basis, k=k)
     log.info(f"        time={time.time() - t_svd:.4f}s")
 
-    # Truncate and rotate to final basis
-    S = np.ascontiguousarray(s_all[:k])
-    U = np.ascontiguousarray(u_cond[:, :k])
-    V = np.ascontiguousarray(np.dot(orth_matrix, v_cond[:, :k]))
+    # Rotate right singular vectors
+    V = np.matmul(orth_matrix, v_cond)
 
     total_time = time.time() - t0
     log.info(f"\n    Total time for SVD={total_time:.3f}s")

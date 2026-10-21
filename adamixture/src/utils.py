@@ -555,9 +555,10 @@ def manage_gpu_memory(
     # Total required with some buffer
     total_required_MB = memory_data_MB + peak_memory_MB + memory_chunk_MB
 
+    dev_target = device.torch_device if hasattr(device, "torch_device") else device
     if memory_GPU * 0.95 - total_required_MB > 0:
         log.info("    Moving genotype matrix to GPU...")
-        G = G.to(device)
+        G = G.to(dev_target)
     else:
         log.info("    Genotype matrix too large for GPU, keeping on CPU...")
 
@@ -878,10 +879,11 @@ def get_centering_unpacker(device: "torch.device | Any", threads_per_block: int)
         Returns:
             torch.Tensor: Centered float32 genotype chunk on CUDA.
         """
+        dev_target = device.torch_device if hasattr(device, "torch_device") else device
         if G.device.type == 'cpu':
             byte_start = start_idx // 4
             byte_end = (start_idx + actual_chunk_size + 3) // 4
-            G_sub = G[byte_start:byte_end, :].to(device, non_blocking=True)
+            G_sub = G[byte_start:byte_end, :].to(dev_target, non_blocking=True)
             return torch.ops.pack2bit.unpack2bit_gpu_chunk_center(G_sub, f, start_idx, actual_chunk_size, M, byte_start, threads_per_block)
         return torch.ops.pack2bit.unpack2bit_gpu_chunk_center(G, f, start_idx, actual_chunk_size, M, 0, threads_per_block)
 

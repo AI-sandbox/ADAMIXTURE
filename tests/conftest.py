@@ -21,7 +21,7 @@ np = pytest.importorskip("numpy")
 from adamixture.model.als import ALS
 from adamixture.model.svd import RSVD
 from adamixture.src import utils
-from tests.config import CHUNK_SIZE, DATA_DIR, K, MAX_ALS, POWER, SEED, TOL_ALS, TOL_SVD
+from tests.config import BETA_ALS, CHUNK_SIZE, DATA_DIR, K, MAX_ALS, POWER, SEED, TOL_ALS, TOL_SVD
 
 
 @pytest.fixture(scope="session")
@@ -51,4 +51,4 @@ def als_step(
 ) -> tuple[np.ndarray, np.ndarray]:
     _, N, M = demo_bed_data
     f, U, S, V = svd_step
-    return ALS(U, S, V, f, SEED, M, N, K, MAX_ALS, TOL_ALS)
+    return ALS(U, S, V, f, SEED, M, N, K, MAX_ALS, TOL_ALS, beta=BETA_ALS)

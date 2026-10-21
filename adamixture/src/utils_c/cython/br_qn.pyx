@@ -7,23 +7,23 @@ from libc.stdlib cimport calloc, free, malloc
 
 # ZAL Quasi-Newton: update U and V history matrices
 cpdef void update_UV_ZAL(double[::1] U_flat, double[::1] V_flat, const double[::1] x, const double[::1] x_next,
-                        const double[::1] x_next2, const int iteration, const int Q_hist, const int dim) noexcept nogil:
+                         const double[::1] x_next2, const int iteration, const int Q_hist, const Py_ssize_t dim) noexcept nogil:
     """
-    Updates U and V history matrices.
+    Updates U and V history matrices in parallel.
     """
     cdef:
-        int col = (iteration - 1) % Q_hist
-        int offset = col * dim
-        size_t i
+        Py_ssize_t col = (iteration - 1) % Q_hist
+        Py_ssize_t offset = col * dim
+        Py_ssize_t i
 
-    for i in range(dim):
+    for i in prange(dim, schedule='static'):
         U_flat[offset + i] = x_next[i] - x[i]
         V_flat[offset + i] = x_next2[i] - x_next[i]
 
 # ZAL Quasi-Newton: compute the QN extrapolated point
 cpdef void qn_extrapolate_ZAL(double[::1] x_qn, const double[::1] x_next, const double[::1] x, 
-                            const double[::1] U_flat, const double[::1] V_flat, const int n_cols,
-                            const int dim, double[::1] UtUmV_workspace, double[::1] coeff_workspace) noexcept nogil:
+                              const double[::1] U_flat, const double[::1] V_flat, const int n_cols,
+                              const Py_ssize_t dim, double[::1] UtUmV_workspace, double[::1] coeff_workspace) noexcept nogil:
     """
     Computes the ZAL quasi-Newton extrapolation using pre-allocated workspaces
     to avoid malloc/free and parallelizing vector operations.
@@ -112,22 +112,9 @@ cpdef void qn_extrapolate_ZAL(double[::1] x_qn, const double[::1] x_next, const 
 
 # Computing the sum of squared binomial deviance residuals
 cpdef double deviance_squared_sum(uint8_t[::1] geno_values, long[::1] flat_entries, double[:,::1] P, 
-                                    double[:,::1] Q, Py_ssize_t N) noexcept nogil:
+                                  double[:,::1] Q, Py_ssize_t N) noexcept nogil:
     """
-    Description:
-    Computes the sum of squared binomial deviance residuals using
-    pre-extracted genotype values. Identical math to deviance_squared_sum
-    but receives genotype values directly instead of indexing into G_flat.
-
-    Args:
-        geno_values (uint8_t[::1]): 1-D array of genotype values for each held-out entry.
-        flat_entries (long[::1]): 1-D array of flat indices (for P/Q row/col mapping).
-        P (double[:,::1]): Polished P matrix (M x K).
-        Q (double[:,::1]): Polished Q matrix (N x K).
-        N (Py_ssize_t): Number of individuals.
-
-    Returns:
-        double: Sum of squared deviance residuals.
+    Computes the sum of squared binomial deviance residuals using pre-extracted genotype values.
     """
     cdef:
         Py_ssize_t n_entries = flat_entries.shape[0]
@@ -135,94 +122,83 @@ cpdef double deviance_squared_sum(uint8_t[::1] geno_values, long[::1] flat_entri
         Py_ssize_t i, k
         long idx
         Py_ssize_t row, col
-        double g, mu, term_a, term_b, rem, dev
+        uint8_t g_u8
+        double mu, dev
         double total = 0.0
         double eps = 1e-10
 
-    with nogil, parallel():
-        for i in prange(n_entries, schedule='guided'):
-            idx = flat_entries[i]
-            row = idx // N
-            col = idx % N
-            g = <double>geno_values[i]
+    for i in prange(n_entries, schedule='static'):
+        idx = flat_entries[i]
+        row = idx // N
+        col = idx % N
+        g_u8 = geno_values[i]
 
-            mu = 0.0
-            for k in range(K):
-                mu = mu + Q[col, k] * P[row, k]
-            mu = 2.0 * mu
+        mu = 0.0
+        for k in range(K):
+            mu = mu + Q[col, k] * P[row, k]
+        mu = 2.0 * mu
 
-            if mu < eps:
-                mu = eps
-            elif mu > 2.0 - eps:
-                mu = 2.0 - eps
+        if mu < eps:
+            mu = eps
+        elif mu > 2.0 - eps:
+            mu = 2.0 - eps
 
-            term_a = 0.0
-            if g > 0.0:
-                term_a = g * log(g / mu)
+        if g_u8 == 0:
+            dev = 2.0 * log(2.0 / (2.0 - mu))
+        elif g_u8 == 1:
+            dev = -log(mu * (2.0 - mu))
+        else:
+            dev = 2.0 * log(2.0 / mu)
 
-            rem = 2.0 - g
-            term_b = 0.0
-            if rem > 0.0:
-                term_b = rem * log(rem / (2.0 - mu))
-
-            dev = term_a + term_b
-            total += dev
+        total += dev
 
     return total
 
 cpdef void mask_entries_i32(uint8_t[:, ::1] G, int32_t[:] flat_entries, uint8_t[::1] saved_values, Py_ssize_t N) noexcept nogil:
     cdef:
         Py_ssize_t n_entries = flat_entries.shape[0]
-        Py_ssize_t i, row, col
+        Py_ssize_t i
         int32_t idx
+        uint8_t* g_flat = &G[0, 0]
 
-    with nogil, parallel():
-        for i in prange(n_entries, schedule='guided'):
-            idx = flat_entries[i]
-            row = idx // N
-            col = idx % N
-            saved_values[i] = G[row, col]
-            G[row, col] = 3
+    for i in prange(n_entries, schedule='static'):
+        idx = flat_entries[i]
+        saved_values[i] = g_flat[idx]
+        g_flat[idx] = 3
 
 cpdef void restore_entries_i32(uint8_t[:, ::1] G, int32_t[:] flat_entries, uint8_t[::1] saved_values, Py_ssize_t N) noexcept nogil:
     cdef:
         Py_ssize_t n_entries = flat_entries.shape[0]
-        Py_ssize_t i, row, col
+        Py_ssize_t i
         int32_t idx
+        uint8_t* g_flat = &G[0, 0]
 
-    with nogil, parallel():
-        for i in prange(n_entries, schedule='guided'):
-            idx = flat_entries[i]
-            row = idx // N
-            col = idx % N
-            G[row, col] = saved_values[i]
+    for i in prange(n_entries, schedule='static'):
+        idx = flat_entries[i]
+        g_flat[idx] = saved_values[i]
 
 cpdef void mask_entries_i64(uint8_t[:, ::1] G, long[:] flat_entries, uint8_t[::1] saved_values, Py_ssize_t N) noexcept nogil:
     cdef:
         Py_ssize_t n_entries = flat_entries.shape[0]
-        Py_ssize_t i, row, col
+        Py_ssize_t i
         long idx
+        uint8_t* g_flat = &G[0, 0]
 
-    with nogil, parallel():
-        for i in prange(n_entries, schedule='guided'):
-            idx = flat_entries[i]
-            row = idx // N
-            col = idx % N
-            saved_values[i] = G[row, col]
-            G[row, col] = 3
+    for i in prange(n_entries, schedule='static'):
+        idx = flat_entries[i]
+        saved_values[i] = g_flat[idx]
+        g_flat[idx] = 3
 
 cpdef void restore_entries_i64(uint8_t[:, ::1] G, long[:] flat_entries, uint8_t[::1] saved_values, Py_ssize_t N) noexcept nogil:
     cdef:
         Py_ssize_t n_entries = flat_entries.shape[0]
-        Py_ssize_t i, row, col
+        Py_ssize_t i
         long idx
+        uint8_t* g_flat = &G[0, 0]
 
-    with nogil, parallel():
-        for i in prange(n_entries, schedule='guided'):
-            idx = flat_entries[i]
-            row = idx // N
-            col = idx % N
-            G[row, col] = saved_values[i]
+    for i in prange(n_entries, schedule='static'):
+        idx = flat_entries[i]
+        g_flat[idx] = saved_values[i]
 
 cpdef double deviance_squared_sum_i32(uint8_t[::1] geno_values, int32_t[:] flat_entries, double[:,::1] P,
                                       double[:,::1] Q, Py_ssize_t N) noexcept nogil:
@@ -232,37 +208,34 @@ cpdef double deviance_squared_sum_i32(uint8_t[::1] geno_values, int32_t[:] flat_
         Py_ssize_t i, k
         int32_t idx
         Py_ssize_t row, col
-        double g, mu, term_a, term_b, rem, dev
+        uint8_t g_u8
+        double mu, dev
         double total = 0.0
         double eps = 1e-10
 
-    with nogil, parallel():
-        for i in prange(n_entries, schedule='guided'):
-            idx = flat_entries[i]
-            row = idx // N
-            col = idx % N
-            g = <double>geno_values[i]
+    for i in prange(n_entries, schedule='static'):
+        idx = flat_entries[i]
+        row = idx // N
+        col = idx % N
+        g_u8 = geno_values[i]
 
-            mu = 0.0
-            for k in range(K):
-                mu = mu + Q[col, k] * P[row, k]
-            mu = 2.0 * mu
+        mu = 0.0
+        for k in range(K):
+            mu = mu + Q[col, k] * P[row, k]
+        mu = 2.0 * mu
 
-            if mu < eps:
-                mu = eps
-            elif mu > 2.0 - eps:
-                mu = 2.0 - eps
+        if mu < eps:
+            mu = eps
+        elif mu > 2.0 - eps:
+            mu = 2.0 - eps
 
-            term_a = 0.0
-            if g > 0.0:
-                term_a = g * log(g / mu)
+        if g_u8 == 0:
+            dev = 2.0 * log(2.0 / (2.0 - mu))
+        elif g_u8 == 1:
+            dev = -log(mu * (2.0 - mu))
+        else:
+            dev = 2.0 * log(2.0 / mu)
 
-            rem = 2.0 - g
-            term_b = 0.0
-            if rem > 0.0:
-                term_b = rem * log(rem / (2.0 - mu))
-
-            dev = term_a + term_b
-            total += dev
+        total += dev
 
     return total

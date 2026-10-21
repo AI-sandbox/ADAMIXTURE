@@ -12,6 +12,7 @@ from adamixture.src.adamixture import setup
 
 from tests.config import (
     CHUNK_SIZE,
+    BETA_ALS,
     DATA_DIR,
     EXPECTED_ATOL,
     EXPECTED_LOGL_ATOL,
@@ -94,6 +95,7 @@ def _mps_steps(mps_bed_data, *, algorithm: str):
         MAX_ALS,
         TOL_ALS,
         device_obj,
+        BETA_ALS,
     )
     if is_brqn:
         P_opt, Q_opt = optimize_original_gpu(

@@ -74,6 +74,10 @@ def _SVD_gpu_once(G: torch.Tensor, N: int, M: int, f: torch.Tensor, k: int, seed
     n_batches = math.ceil(M / chunk_size)
     unpacker = utils.get_centering_unpacker(device, threads_per_block)
 
+    # Patterson-Price genetic PCA weighting for ancestral individual subspace V
+    f_work = f.to(device=device, dtype=torch.float32)
+    w_patterson = 1.0 / torch.sqrt(2.0 * torch.clamp(f_work * (1.0 - f_work), min=1e-4))
+
     # 1) Prime iteration
     log.info("    1) Prime iteration...")
     ts = time.time()
@@ -82,6 +86,7 @@ def _SVD_gpu_once(G: torch.Tensor, N: int, M: int, f: torch.Tensor, k: int, seed
         end_idx = min(start_idx + chunk_size, M)
         actual_chunk_size = end_idx - start_idx
         X = unpacker(G, f, start_idx, actual_chunk_size, M)
+        X = X * w_patterson[start_idx:end_idx].unsqueeze(1)
 
         accum_mat.addmm_(X.T, proj_basis[start_idx:end_idx])
 
@@ -102,6 +107,7 @@ def _SVD_gpu_once(G: torch.Tensor, N: int, M: int, f: torch.Tensor, k: int, seed
             actual_chunk_size = end_idx - start_idx
 
             X = unpacker(G, f, start_idx, actual_chunk_size, M)
+            X = X * w_patterson[start_idx:end_idx].unsqueeze(1)
 
             proj_basis[start_idx:end_idx] = X @ orth_matrix
             accum_mat.addmm_(X.T, proj_basis[start_idx:end_idx])
