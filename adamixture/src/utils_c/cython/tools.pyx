@@ -39,85 +39,91 @@ cdef inline double _row_loglike(const uint8_t* g_row, const double* p, const dou
 cdef enum:
     LL_CHUNK = 256
 
-# Row log-likelihood with Q transposed (K x N): loops run over contiguous
-# individuals, and each genotype contributes a single branch-free log.
-cdef double _row_loglike_t(const uint8_t* g_row, const double* p, const double* Qt,
-                           Py_ssize_t N, Py_ssize_t K, double* r_buf) noexcept nogil:
+# Log-likelihood of up to LL_CHUNK consecutive individuals of one SNP, with Q
+# transposed (K x N) so the loops run over contiguous individuals and each genotype
+# contributes a single branch-free log.
+cdef double _chunk_loglike_t(const uint8_t* g_c, const double* p, const double* Qt,
+                             Py_ssize_t i0, Py_ssize_t n, Py_ssize_t N, Py_ssize_t K,
+                             double* r_buf) noexcept nogil:
     cdef:
-        Py_ssize_t i0 = 0, n, li, k
-        int chunk = LL_CHUNK
+        Py_ssize_t li, k
         uint8_t g_val
-        double row_ll = 0.0, r, x, pk
+        double ll = 0.0, r, x, pk
         const double* qk
-        const uint8_t* g_c
 
-    while i0 < N:
-        n = N - i0
-        if n > chunk:
-            n = chunk
-        g_c = g_row + i0
+    for li in range(n):
+        r_buf[li] = 0.0
+    for k in range(K):
+        pk = p[k]
+        qk = Qt + k * N + i0
         for li in range(n):
-            r_buf[li] = 0.0
-        for k in range(K):
-            pk = p[k]
-            qk = Qt + k * N + i0
-            for li in range(n):
-                r_buf[li] += pk * qk[li]
-        for li in range(n):
-            r = r_buf[li]
-            if r < 1e-15:
-                r = 1e-15
-            elif r > 1.0 - 1e-15:
-                r = 1.0 - 1e-15
-            g_val = g_c[li]
-            if g_val == 0:
-                x = (1.0 - r) * (1.0 - r)
-            elif g_val == 1:
-                x = r * (1.0 - r)
-            elif g_val == 2:
-                x = r * r
-            else:
-                x = 1.0
-            r_buf[li] = x
-        # Every factor is in [1e-30, 1], so a product of 8 cannot underflow.
-        li = 0
-        while li + 8 <= n:
-            row_ll += log(r_buf[li] * r_buf[li + 1] * r_buf[li + 2] * r_buf[li + 3]
-                          * r_buf[li + 4] * r_buf[li + 5] * r_buf[li + 6] * r_buf[li + 7])
-            li = li + 8
-        while li < n:
-            row_ll += log(r_buf[li])
-            li = li + 1
-        i0 = i0 + chunk
-    return row_ll
-
-cdef inline double _row_loglike_packed(const uint8_t* packed_row, uint8_t shift, const double* p, const double* Q, Py_ssize_t N, Py_ssize_t K) noexcept nogil:
-    cdef:
-        Py_ssize_t i, k
-        uint8_t g_val
-        double row_ll = 0.0, r
-        const double *q
-
-    for i in range(N):
-        g_val = (packed_row[i] >> shift) & 0x03
-        if g_val == 3:
-            continue
-        q = &Q[i * K]
-        r = 0.0
-        for k in range(K):
-            r += p[k] * q[k]
+            r_buf[li] += pk * qk[li]
+    for li in range(n):
+        r = r_buf[li]
         if r < 1e-15:
             r = 1e-15
         elif r > 1.0 - 1e-15:
             r = 1.0 - 1e-15
-
+        g_val = g_c[li]
         if g_val == 0:
-            row_ll += 2.0 * log(1.0 - r)
+            x = (1.0 - r) * (1.0 - r)
         elif g_val == 1:
-            row_ll += log(r * (1.0 - r))
+            x = r * (1.0 - r)
+        elif g_val == 2:
+            x = r * r
         else:
-            row_ll += 2.0 * log(r)
+            x = 1.0
+        r_buf[li] = x
+    # Every factor is in [1e-30, 1], so a product of 8 cannot underflow.
+    li = 0
+    while li + 8 <= n:
+        ll += log(r_buf[li] * r_buf[li + 1] * r_buf[li + 2] * r_buf[li + 3]
+                  * r_buf[li + 4] * r_buf[li + 5] * r_buf[li + 6] * r_buf[li + 7])
+        li = li + 8
+    while li < n:
+        ll += log(r_buf[li])
+        li = li + 1
+    return ll
+
+cdef double _row_loglike_t(const uint8_t* g_row, const double* p, const double* Qt,
+                           Py_ssize_t N, Py_ssize_t K, double* r_buf) noexcept nogil:
+    cdef:
+        Py_ssize_t i0 = 0, n
+        double row_ll = 0.0
+    while i0 < N:
+        n = N - i0
+        if n > LL_CHUNK:
+            n = LL_CHUNK
+        row_ll += _chunk_loglike_t(g_row + i0, p, Qt, i0, n, N, K, r_buf)
+        i0 = i0 + n
     return row_ll
+
+cdef double _row_loglike_packed_t(const uint8_t* packed_row, uint8_t shift, const double* p,
+                                  const double* Qt, Py_ssize_t N, Py_ssize_t K,
+                                  double* r_buf, uint8_t* g_buf) noexcept nogil:
+    cdef:
+        Py_ssize_t i0 = 0, n, li
+        double row_ll = 0.0
+    while i0 < N:
+        n = N - i0
+        if n > LL_CHUNK:
+            n = LL_CHUNK
+        for li in range(n):
+            g_buf[li] = (packed_row[i0 + li] >> shift) & 0x03
+        row_ll += _chunk_loglike_t(g_buf, p, Qt, i0, n, N, K, r_buf)
+        i0 = i0 + n
+    return row_ll
+
+cdef double* _transpose_q(double[:,::1] Q) noexcept nogil:
+    cdef:
+        Py_ssize_t N = Q.shape[0]
+        Py_ssize_t K = Q.shape[1]
+        Py_ssize_t i, k
+        double* Qt = <double*>malloc(<size_t>K * N * sizeof(double))
+    for k in range(K):
+        for i in range(N):
+            Qt[k * N + i] = Q[i, k]
+    return Qt
 
 # Calculate total log-likelihood
 cpdef double loglikelihood(uint8_t[:,::1] G, double[:,::1] P, double[:,::1] Q) noexcept nogil:
@@ -137,14 +143,10 @@ cpdef double loglikelihood(uint8_t[:,::1] G, double[:,::1] P, double[:,::1] Q) n
         Py_ssize_t M = G.shape[0]
         Py_ssize_t N = G.shape[1]
         Py_ssize_t K = Q.shape[1]
-        Py_ssize_t i, j, k
+        Py_ssize_t j
         double ll = 0.0
-        double* Qt = <double*>malloc(<size_t>K * N * sizeof(double))
+        double* Qt = _transpose_q(Q)
         double* ws
-
-    for k in range(K):
-        for i in range(N):
-            Qt[k * N + i] = Q[i, k]
 
     with nogil, parallel():
         ws = <double*>malloc(LL_CHUNK * sizeof(double))
@@ -166,18 +168,20 @@ cpdef double loglikelihood_packed(uintptr_t G_ptr, size_t M, size_t N, double[:,
         uint8_t* G = <uint8_t*>G_ptr
         Py_ssize_t K = Q.shape[1]
         Py_ssize_t j
-        size_t byte_idx
-        uint8_t shift
-        uint8_t* packed_row
         double ll = 0.0
-        const double* Q_ptr = &Q[0, 0]
+        double* Qt = _transpose_q(Q)
+        double* ws
+        uint8_t* gs
 
     with nogil, parallel():
-        for j in prange(M, schedule='guided'):
-            byte_idx = j >> 2
-            shift = <uint8_t>((j & 3) << 1)
-            packed_row = &G[byte_idx * N]
-            ll += _row_loglike_packed(packed_row, shift, &P[j, 0], Q_ptr, N, K)
+        ws = <double*>malloc(LL_CHUNK * sizeof(double))
+        gs = <uint8_t*>malloc(LL_CHUNK * sizeof(uint8_t))
+        for j in prange(<Py_ssize_t>M, schedule='guided'):
+            ll += _row_loglike_packed_t(&G[(j >> 2) * N], <uint8_t>((j & 3) << 1),
+                                        &P[j, 0], Qt, N, K, ws, gs)
+        free(gs)
+        free(ws)
+    free(Qt)
     return ll
 
 cdef inline float _snp_af(const uint8_t* r, size_t N) noexcept nogil:

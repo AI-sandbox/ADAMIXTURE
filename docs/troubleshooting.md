@@ -38,7 +38,7 @@ $ adamixture \
     --name test
 ```
 
-Adam-EM-specific parameters (hidden from `adamixture --help`; run `adamixture --help-adam` to list them):
+Adam-EM-specific parameters (hidden from `--help`; run `adamixture --help-adam` or `adamixture-supervised --help-adam` to list them):
 
 | Argument | Default | Description |
 |---|---|---|

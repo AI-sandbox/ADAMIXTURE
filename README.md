@@ -181,7 +181,7 @@ $ adamixture-supervised \
     --name supervised_run
 ```
 
-K is the number of distinct population names in the labels file, so `-k` is not passed. As with `adamixture`, the Adam-EM tuning options are listed only by `adamixture-supervised --help-adam`.
+K is the number of distinct population names in the labels file, so `-k` is not passed.
 
 ## Other options
 
@@ -191,11 +191,7 @@ All hyperparameters and flags can be explored with:
 $ adamixture --help
 ```
 
-The help groups the options by purpose (required arguments, number of populations, general, input filtering, optimization, initialization and plotting). The Adam-EM tuning options are only relevant with `--algorithm adamem`, so they are hidden from `--help`; list them with:
-
-```console
-$ adamixture --help-adam
-```
+The help groups the options by purpose (required arguments, number of populations, general, input filtering, optimization, initialization and plotting).
 
 Key arguments:
 
@@ -220,7 +216,7 @@ Key arguments:
 
 The ADAMIXTURE [paper](https://doi.org/10.1093/bioinformatics/btag236) introduced Adam-EM as an adaptive first-order optimizer for admixture inference. The package still includes this solver via `--algorithm adamem`.
 
-In the current implementation, the default is `--algorithm brqn`. Empirical benchmarking showed that block relaxation with ZAL quasi-Newton acceleration, when paired with our improved SVD+ALS initialization, reaches high-quality solutions in fewer iterations and better wall-clock time. For that reason, BR-QN is the default solver, while Adam-EM remains available for experimentation and reproducibility. Adam-EM tuning parameters are listed by `adamixture --help-adam` and documented in [Troubleshooting and Tips](docs/troubleshooting.md).
+In the current implementation, the default is `--algorithm brqn`. Empirical benchmarking showed that block relaxation with ZAL quasi-Newton acceleration, when paired with our improved SVD+ALS initialization, reaches high-quality solutions in fewer iterations and better wall-clock time. For that reason, BR-QN is the default solver, while Adam-EM remains available for experimentation and reproducibility. Adam-EM tuning parameters are documented in [Troubleshooting and Tips](docs/troubleshooting.md).
 
 
 ## Troubleshooting and Tips
@@ -229,6 +225,7 @@ Common issues and platform notes:
 - **macOS**: Install `libomp` via Homebrew (`brew install libomp`) before compiling.
 - **Windows**: Pre-compiled wheels are provided on PyPI (`pip install adamixture`). If compiling from source (`pip install -e .`), install [Build Tools for Visual Studio](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022) with **Desktop development with C++**.
 - **CUDA**: Set `CUDA_HOME` or install `nvcc` via Conda (`conda install -c nvidia nvcc`).
+- **Adam-EM options**: only relevant with `--algorithm adamem`, so they are hidden from `--help`; list them with `adamixture --help-adam` (or `adamixture-supervised --help-adam`).
 
 → [Full documentation](docs/troubleshooting.md)
 

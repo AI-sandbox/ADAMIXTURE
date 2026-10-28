@@ -64,4 +64,4 @@ K is not passed on the command line: it is the number of distinct population nam
 
 Outputs: a `.Q` file (all samples) and optionally a `.P` file. All `--plot`, `--labels`, `--labels2`, `--labels3`, and `--colors` flags are supported.
 
-Run `adamixture-supervised --help` for all options. The Adam-EM tuning options (`--algorithm adamem`) are hidden from it; list them with `adamixture-supervised --help-adam`.
+Run `adamixture-supervised --help` for all options.

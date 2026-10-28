@@ -69,10 +69,12 @@ def _grad_hess_q_chunk(
     P_chunk: torch.Tensor,
     Q: torch.Tensor,
     dtype: torch.dtype,
-) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+) -> tuple[torch.Tensor, torch.Tensor]:
     """
     Description:
-    Computes Q-side gradient and Hessian contributions for one genotype chunk.
+    Computes Q-side gradient and Hessian contributions for one genotype chunk. The
+    per-individual Hessians are one matrix product of the stacked weights against the
+    flattened outer products p p^T and (1-p)(1-p)^T of every SNP.
 
     Args:
         G_chunk (torch.Tensor): Unpacked genotype chunk (chunk_size x N).
@@ -81,27 +83,29 @@ def _grad_hess_q_chunk(
         dtype (torch.dtype): Floating-point dtype for calculations.
 
     Returns:
-        tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]: Gradient and Hessian components.
+        tuple[torch.Tensor, torch.Tensor]: Gradient (N x K) and Hessian (N x K x K) contributions.
     """
+    C, K = P_chunk.shape
     qp = torch.matmul(P_chunk, Q.T)
     qp = torch.clamp(qp, min=1e-10, max=1.0 - 1e-10)
 
     mask = (G_chunk != 3).to(dtype)
-    g = G_chunk.to(dtype)
-
-    coeff_a = (g / qp) * mask
-    coeff_b = ((2.0 - g) / (1.0 - qp)) * mask
+    g = G_chunk.to(dtype) * mask
+    inv_a = 1.0 / qp
+    inv_b = 1.0 / (1.0 - qp)
+    coeff_a = g * inv_a
+    coeff_b = (2.0 * mask - g) * inv_b
     one_minus_p = 1.0 - P_chunk
 
-    Xtz_a = torch.matmul(coeff_a.T, P_chunk)
-    Xtz_b = torch.matmul(coeff_b.T, one_minus_p)
+    Xtz = torch.matmul(coeff_a.T, P_chunk) + torch.matmul(coeff_b.T, one_minus_p)
 
-    H_coeff_a = (g / (qp * qp)) * mask
-    H_coeff_b = ((2.0 - g) / ((1.0 - qp) * (1.0 - qp))) * mask
-
-    XtX_a = torch.einsum('ji,jk,jl->ikl', H_coeff_a, P_chunk, P_chunk)
-    XtX_b = torch.einsum('ji,jk,jl->ikl', H_coeff_b, one_minus_p, one_minus_p)
-    return Xtz_a, Xtz_b, XtX_a, XtX_b
+    outer = torch.cat([
+        (P_chunk[:, :, None] * P_chunk[:, None, :]).reshape(C, K * K),
+        (one_minus_p[:, :, None] * one_minus_p[:, None, :]).reshape(C, K * K),
+    ], 0)
+    H_coeff = torch.cat([coeff_a * inv_a, coeff_b * inv_b], 0)
+    XtX = torch.matmul(H_coeff.T, outer).view(-1, K, K)
+    return Xtz, XtX
 
 
 def _grad_hess_p_chunk(
@@ -133,6 +137,8 @@ def _grad_hess_p_chunk(
     coeff_b = ((2.0 - g) / (1.0 - qp)) * mask
     Xtz = torch.matmul(coeff_a - coeff_b, Q)
 
+    # Contracting the individuals of every SNP as a single (C x N) @ (N x K*K)
+    # product loses about 20x float32 accuracy on MPS, which moves the optimum.
     H_coeff = (g / (qp * qp) + (2.0 - g) / ((1.0 - qp) * (1.0 - qp))) * mask
     XtX = torch.einsum('ji,ik,il->jkl', H_coeff, Q, Q)
     return Xtz, XtX
@@ -171,12 +177,10 @@ def compute_grad_hess_Q_gpu(G: torch.Tensor, Q: torch.Tensor, P: torch.Tensor,
         actual_chunk_size = end - i
         G_chunk = unpacker(G, i, actual_chunk_size, M) # (C, N)
         P_chunk = P[i:end] # (C, K)
-        Xtz_a, Xtz_b, XtX_a, XtX_b = _grad_hess_q_chunk_compiled(G_chunk, P_chunk, Q, dtype)
+        Xtz_chunk, XtX_chunk = _grad_hess_q_chunk_compiled(G_chunk, P_chunk, Q, dtype)
 
-        Xtz_q.add_(Xtz_a)
-        Xtz_q.add_(Xtz_b)
-        XtX_q.add_(XtX_a)
-        XtX_q.add_(XtX_b)
+        Xtz_q.add_(Xtz_chunk)
+        XtX_q.add_(XtX_chunk)
 
 
 def compute_grad_hess_P_gpu(G: torch.Tensor, Q: torch.Tensor, P: torch.Tensor,
