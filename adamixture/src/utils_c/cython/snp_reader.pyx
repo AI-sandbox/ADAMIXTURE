@@ -1,7 +1,8 @@
 # cython: language_level=3, boundscheck=False, wraparound=False, initializedcheck=False, cdivision=True
 from cython.parallel import parallel, prange
 from libc.stdlib cimport calloc, free, malloc, realloc, atoi
-from libc.stdint cimport uint8_t, uint16_t, uint32_t, uintptr_t, int8_t, int16_t, int32_t, uint64_t
+from libc.stdint cimport uint8_t, uint16_t, uint32_t, uintptr_t, int8_t, int16_t, int32_t, int64_t, uint64_t
+from libc.string cimport memcpy, memset
 
 import gzip
 import io
@@ -15,21 +16,6 @@ def _open_vcf_file(str filepath):
         import zstandard as zstd
         return io.BufferedReader(zstd.open(filepath, 'rb'))
     return open(filepath, 'rb')
-
-cpdef void replace_missing_with_three(signed char[:, ::1] G) noexcept nogil:
-    """
-    Replace pgenlib missing genotype values (-9) with ADAMIXTURE's missing code (3).
-    """
-    cdef:
-        size_t M = G.shape[0]
-        size_t N = G.shape[1]
-        size_t i, j
-
-    with nogil, parallel():
-        for i in prange(M, schedule='guided'):
-            for j in range(N):
-                if G[i, j] < 0:
-                    G[i, j] = 3
 
 # Decompress PLINK BED to uint8
 cpdef void read_bed(unsigned char[:,::1] bed_source, unsigned char[:,::1] geno_target) noexcept nogil:
@@ -1085,208 +1071,340 @@ def read_bcf_file_packed(bytes bcf_bytes, str chrom_mode, int autosomes, specifi
     return np.asarray(G_packed), n_samples, n_variants
 
 
+# ── PLINK 2 PGEN ──────────────────────────────────────────────────────────────
+# Only the main data track (biallelic hard-call categories 0/1/2, 3 = missing)
+# is decoded; auxiliary tracks (multiallelic patches, phase, dosages) are skipped
+# using the record lengths from the header. Multiallelic variants therefore give
+# the number of non-REF alleles.
+
+cdef enum:
+    PGEN_VBLOCK = 65536
+    PGEN_DECODE_CHUNK = 256
+
+cdef inline Py_ssize_t _pgen_varint(const uint8_t* data, Py_ssize_t pos, Py_ssize_t end, uint32_t* out) noexcept nogil:
+    cdef uint32_t val = 0
+    cdef int shift = 0
+    cdef uint8_t b
+    while pos < end:
+        b = data[pos]
+        pos += 1
+        val |= (<uint32_t>(b & 0x7f)) << shift
+        if b < 128:
+            out[0] = val
+            return pos
+        shift += 7
+        if shift > 28:
+            return -1
+    return -1
+
+cdef inline uint32_t _pgen_load_id(const uint8_t* p, int nbytes) noexcept nogil:
+    cdef uint32_t v = p[0]
+    if nbytes > 1:
+        v |= (<uint32_t>p[1]) << 8
+    if nbytes > 2:
+        v |= (<uint32_t>p[2]) << 16
+    if nbytes > 3:
+        v |= (<uint32_t>p[3]) << 24
+    return v
+
+cdef Py_ssize_t _pgen_apply_difflist(const uint8_t* data, Py_ssize_t pos, Py_ssize_t end, uint8_t* row,
+                                     uint32_t n_samples, int id_bytes) noexcept nogil:
+    """
+    Description:
+    Parses a (sample ID, 2-bit category) difflist and writes its entries into row.
+    Returns the position after the difflist, or -1 if it is malformed.
+    """
+    cdef:
+        uint32_t L, n_groups, sid = 0, delta
+        Py_ssize_t ids_pos, rare_pos, k
+    pos = _pgen_varint(data, pos, end, &L)
+    if pos < 0:
+        return -1
+    if L == 0:
+        return pos
+    if L > n_samples:
+        return -1
+    n_groups = (L + 63) // 64
+    ids_pos = pos
+    pos += <Py_ssize_t>n_groups * (id_bytes + 1) - 1
+    rare_pos = pos
+    pos += (L + 3) // 4
+    if pos > end:
+        return -1
+    for k in range(L):
+        if (k & 63) == 0:
+            sid = _pgen_load_id(data + ids_pos + (k >> 6) * id_bytes, id_bytes)
+        else:
+            pos = _pgen_varint(data, pos, end, &delta)
+            if pos < 0:
+                return -1
+            sid += delta
+        if sid >= n_samples:
+            return -1
+        row[sid] = (data[rare_pos + (k >> 2)] >> ((k & 3) * 2)) & 3
+    return pos
+
+cdef int _pgen_decode_record(const uint8_t* data, Py_ssize_t start, Py_ssize_t end, uint8_t vrtype,
+                             const uint8_t* ld_base, uint8_t* row, uint32_t n_samples, int id_bytes) noexcept nogil:
+    """
+    Description:
+    Decodes the main data track of one PGEN record into row (one byte per sample).
+    ld_base is the decoded row of the most recent non-LD-compressed variant.
+    Returns 0 on success, 1 if the record is malformed.
+    """
+    cdef:
+        int t = vrtype & 7
+        Py_ssize_t i, nbytes, pos
+        uint8_t b, c_lo, c_delta
+        const uint8_t* bits
+    if t == 0:
+        nbytes = (n_samples + 3) // 4
+        if start + nbytes > end:
+            return 1
+        for i in range(n_samples // 4):
+            b = data[start + i]
+            row[4 * i] = b & 3
+            row[4 * i + 1] = (b >> 2) & 3
+            row[4 * i + 2] = (b >> 4) & 3
+            row[4 * i + 3] = b >> 6
+        for i in range((n_samples // 4) * 4, n_samples):
+            row[i] = (data[start + (i >> 2)] >> ((i & 3) * 2)) & 3
+        return 0
+    if t == 1:
+        nbytes = (n_samples + 7) // 8
+        if start + 1 + nbytes > end:
+            return 1
+        c_lo = data[start] >> 2
+        c_delta = data[start] & 3
+        bits = data + start + 1
+        for i in range(n_samples):
+            row[i] = c_lo + c_delta * ((bits[i >> 3] >> (i & 7)) & 1)
+        pos = start + 1 + nbytes
+    elif t == 2 or t == 3:
+        if ld_base == NULL:
+            return 1
+        memcpy(row, ld_base, n_samples)
+        pos = start
+    elif t == 5:
+        memset(row, 0, n_samples)
+        return 0
+    else:
+        memset(row, t & 3, n_samples)
+        pos = start
+    if _pgen_apply_difflist(data, pos, end, row, n_samples, id_bytes) < 0:
+        return 1
+    if t == 3:
+        for i in range(n_samples):
+            b = row[i]
+            row[i] = b ^ (((b & 1) ^ 1) << 1)
+    return 0
+
+cdef int _pgen_id_bytes(uint32_t n_samples) noexcept nogil:
+    if n_samples <= 256:
+        return 1
+    if n_samples <= 65536:
+        return 2
+    if n_samples <= 16777216:
+        return 3
+    return 4
+
+cdef void _pgen_decode_range(const uint8_t* data, const uint8_t* vrtypes, const int64_t* fstart, const int64_t* fend,
+                             Py_ssize_t v0, Py_ssize_t v1, uint8_t* out, uint32_t n_samples, int* n_errors) noexcept nogil:
+    """
+    Description:
+    Decodes variants [v0, v1) into out (row-major, n_samples bytes per variant).
+    Work is split into chunks; a chunk that starts with an LD-compressed record
+    decodes its LD base privately, so chunks are independent.
+    """
+    cdef:
+        int id_bytes = _pgen_id_bytes(n_samples)
+        Py_ssize_t n_chunks = (v1 - v0 + PGEN_DECODE_CHUNK - 1) // PGEN_DECODE_CHUNK
+        Py_ssize_t c, s, e, v, j
+        uint8_t* base_buf
+        const uint8_t* ld_base
+        uint8_t* row
+        int err = 0
+
+    with parallel():
+        base_buf = <uint8_t*>malloc(n_samples)
+        for c in prange(n_chunks, schedule='dynamic'):
+            s = v0 + c * PGEN_DECODE_CHUNK
+            e = s + PGEN_DECODE_CHUNK
+            if e > v1:
+                e = v1
+            ld_base = NULL
+            if (vrtypes[s] & 6) == 2:
+                j = s - 1
+                while j >= 0 and (vrtypes[j] & 6) == 2:
+                    j = j - 1
+                if j >= 0 and base_buf != NULL:
+                    if _pgen_decode_record(data, fstart[j], fend[j], vrtypes[j], NULL, base_buf, n_samples, id_bytes) == 0:
+                        ld_base = base_buf
+            for v in range(s, e):
+                row = out + (v - v0) * <Py_ssize_t>n_samples
+                if _pgen_decode_record(data, fstart[v], fend[v], vrtypes[v], ld_base, row, n_samples, id_bytes) != 0:
+                    err += 1
+                elif (vrtypes[v] & 6) != 2:
+                    ld_base = row
+        free(base_buf)
+    n_errors[0] = err
+
+def _pgen_index(const uint8_t[::1] data, str pgi_path):
+    """
+    Description:
+    Parses a PGEN header (or its external .pgi index) into per-variant record
+    types and byte ranges within the .pgen file.
+
+    Returns:
+        tuple (vrtypes, fstart, fend, N, M).
+    """
+    cdef Py_ssize_t file_size = data.shape[0]
+    if file_size < 3 or data[0] != 0x6c or data[1] != 0x1b:
+        raise ValueError("Not a PGEN file (bad magic number).")
+    cdef int mode = data[2]
+    if mode == 0x01:
+        raise ValueError("PGEN storage mode 0x01 (PLINK 1 .bed inside .pgen) is not supported; read the .bed fileset instead.")
+
+    if mode in (0x20, 0x21):
+        if pgi_path is None or not __import__("os").path.exists(pgi_path):
+            raise FileNotFoundError(f"PGEN index file not found: {pgi_path}")
+        hdr = np.fromfile(pgi_path, dtype=np.uint8)
+        if hdr.shape[0] < 12 or hdr[0] != 0x6c or hdr[1] != 0x1b or (hdr[2] & 0xfe) != 0x30:
+            raise ValueError(f"{pgi_path} is not a PGEN index (.pgi) file.")
+    else:
+        hdr = np.asarray(data)
+    if hdr.shape[0] < 12:
+        raise ValueError("PGEN header is truncated.")
+
+    M = int(hdr[3:7].view("<u4")[0])
+    N = int(hdr[7:11].view("<u4")[0])
+    ctrl = int(hdr[11])
+    nonref_storage = ctrl >> 6
+    if N == 0:
+        raise ValueError("PGEN file contains no samples.")
+
+    if 0x02 <= mode <= 0x04:
+        if ctrl & 63:
+            raise ValueError("Malformed fixed-width PGEN header.")
+        offset = 12 + ((M + 7) // 8 if nonref_storage == 3 else 0)
+        geno_bytes = (N + 3) // 4
+        width = geno_bytes + (2 * N if mode == 0x03 else (4 * N if mode == 0x04 else 0))
+        if offset + M * width != file_size:
+            raise ValueError("Unexpected PGEN file size for a fixed-width storage mode.")
+        fstart = offset + np.arange(M, dtype=np.int64) * width
+        return np.zeros(M, dtype=np.uint8), fstart, fstart + geno_bytes, N, M
+
+    if mode not in (0x10, 0x11, 0x20, 0x21):
+        raise ValueError(f"Unsupported PGEN storage mode 0x{mode:02x}.")
+    low = ctrl & 15
+    if low >= 8:
+        raise ValueError("Unsupported PGEN header layout (special single-sample modes).")
+    alt_bytes = (ctrl >> 4) & 3
+    len_bytes = (low & 3) + 1
+    n_blocks = (M + PGEN_VBLOCK - 1) // PGEN_VBLOCK
+    pos = 12
+    header_size = 12 + 8 * n_blocks
+    for b in range(n_blocks):
+        cnt = min(PGEN_VBLOCK, M - b * PGEN_VBLOCK)
+        header_size += ((cnt + 1) // 2 if low < 4 else cnt) + cnt * (len_bytes + alt_bytes)
+        if nonref_storage == 3:
+            header_size += (cnt + 7) // 8
+    if header_size > hdr.shape[0]:
+        raise ValueError("PGEN header is truncated.")
+    block_offsets = hdr[pos:pos + 8 * n_blocks].view("<u8").astype(np.int64)
+    pos += 8 * n_blocks
+
+    vrtypes = np.empty(M, dtype=np.uint8)
+    fstart = np.empty(M, dtype=np.int64)
+    fend = np.empty(M, dtype=np.int64)
+    weights = (256 ** np.arange(len_bytes, dtype=np.int64))
+    for b in range(n_blocks):
+        v0 = b * PGEN_VBLOCK
+        cnt = min(PGEN_VBLOCK, M - v0)
+        if low < 4:
+            nb = (cnt + 1) // 2
+            packed = hdr[pos:pos + nb]
+            nyb = np.empty(2 * nb, dtype=np.uint8)
+            nyb[0::2] = packed & 15
+            nyb[1::2] = packed >> 4
+            vrtypes[v0:v0 + cnt] = nyb[:cnt]
+        else:
+            nb = cnt
+            vrtypes[v0:v0 + cnt] = hdr[pos:pos + nb]
+        pos += nb
+        lens = hdr[pos:pos + cnt * len_bytes].reshape(cnt, len_bytes).astype(np.int64) @ weights
+        pos += cnt * len_bytes
+        pos += cnt * alt_bytes
+        if nonref_storage == 3:
+            pos += (cnt + 7) // 8
+        ends = block_offsets[b] + np.cumsum(lens)
+        fend[v0:v0 + cnt] = ends
+        fstart[v0:v0 + cnt] = ends - lens
+
+    if M > 0 and (fstart.min() < 0 or fend.max() > file_size):
+        raise ValueError("PGEN variant records extend beyond the end of the file.")
+    if M > 0 and (vrtypes[np.arange(0, M, PGEN_VBLOCK)] & 6 == 2).any():
+        raise ValueError("Malformed PGEN: a variant block starts with an LD-compressed record.")
+    return vrtypes, fstart, fend, N, M
+
+def _pgen_pgi_path(str filepath, str orig_filepath):
+    path = orig_filepath if orig_filepath else filepath
+    for ext in (".zst", ".gz"):
+        if path.endswith(ext):
+            path = path[:-len(ext)]
+    return path + ".pgi"
+
+def _pgen_decode_into(const uint8_t[::1] data, const uint8_t[::1] vrtypes, const int64_t[::1] fstart,
+                      const int64_t[::1] fend, Py_ssize_t v0, Py_ssize_t v1, uint8_t[:, ::1] out, uint32_t n_samples):
+    cdef int n_errors = 0
+    if v1 <= v0:
+        return
+    with nogil:
+        _pgen_decode_range(&data[0], &vrtypes[0], &fstart[0], &fend[0], v0, v1, &out[0, 0], n_samples, &n_errors)
+    if n_errors:
+        raise ValueError(f"Malformed PGEN file: {n_errors} variant record(s) could not be decoded.")
+
 # Read PGEN to uint8 matrix
 def read_pgen_file(str filepath, int chunk_size, str chromosome_mode, int autosome_count, str orig_filepath=None):
     """
     Description:
-    Reads a PLINK 2 PGEN file (plain, .zst, or .gz) into a uint8 NumPy matrix.
-    Uses pgenlib if available; otherwise uses native binary decoding via Cython.
+    Reads a PLINK 2 PGEN file into a uint8 NumPy matrix (variants x samples)
+    with values 0/1/2 (ALT allele count) and 3 for missing.
+
+    Args:
+        filepath (str): Path to an uncompressed .pgen file.
+        chunk_size (int): Unused; kept for API compatibility.
+        chromosome_mode (str): Unused; filtering is applied by the caller.
+        autosome_count (int): Unused; filtering is applied by the caller.
+        orig_filepath (str): Original (possibly compressed) path, used to locate a .pgen.pgi index.
+
+    Returns:
+        tuple (G, N, M).
     """
-    cdef:
-        signed char[:, ::1] G_raw
-        uint8_t[:, ::1] G
-        uint8_t[:, ::1] G_out
-        Py_ssize_t v_ct, s_ct
-
-    try:
-        import pgenlib as pg
-        with pg.PgenReader(filepath.encode()) as r:
-            v_ct = r.get_variant_ct()
-            s_ct = r.get_raw_sample_ct()
-            G_raw_np = np.empty((v_ct, s_ct), dtype=np.int8)
-            G_raw = G_raw_np
-            if v_ct > 0:
-                r.read_list(np.arange(v_ct, dtype=np.uint32), G_raw_np)
-            replace_missing_with_three(G_raw)
-            return G_raw_np.view(np.uint8), s_ct, v_ct
-    except Exception:
-        pass
-
-    import os
-    from pathlib import Path
-    target_path = orig_filepath if orig_filepath else filepath
-    p = Path(target_path)
-    base_stem = p.name
-    for ext in ['.pgen.zst', '.pgen.gz', '.pgen']:
-        if base_stem.endswith(ext):
-            base_stem = base_stem[:-len(ext)]
-            break
-
-    parent = p.parent
-    bed_file = None
-    for b_ext in ['.bed', '.bed.gz', '.bed.zst']:
-        cand = parent / (base_stem + b_ext)
-        if cand.exists():
-            bed_file = str(cand)
-            break
-        cand_demo = parent / ('demo_data' + b_ext)
-        if cand_demo.exists():
-            bed_file = str(cand_demo)
-            break
-
-    if bed_file is not None:
-        fam_file = str(parent / (base_stem + '.fam'))
-        if not os.path.exists(fam_file):
-            fam_file = str(parent / 'demo_data.fam')
-
-        with open(fam_file) as fam:
-            N = sum(1 for _ in fam)
-        N_bytes = (N + 3) // 4
-
-        with open(bed_file, 'rb') as bed:
-            if bed_file.endswith('.zst'):
-                import zstandard as zstd
-                B_raw = np.frombuffer(zstd.decompress(bed.read()), dtype=np.uint8, offset=3)
-            elif bed_file.endswith('.gz'):
-                import gzip
-                B_raw = np.frombuffer(gzip.decompress(bed.read()), dtype=np.uint8, offset=3)
-            else:
-                B_raw = np.fromfile(bed, dtype=np.uint8, offset=3)
-
-        M = B_raw.shape[0] // N_bytes
-        B_raw = B_raw.reshape(M, N_bytes)
-        B = np.ascontiguousarray(B_raw)
-        G_out = np.zeros((M, N), dtype=np.uint8)
-        read_bed(B, G_out)
-        return np.asarray(G_out), N, M
-
-    import struct
-    fh = _open_vcf_file(filepath)
-    try:
-        data = fh.read()
-    finally:
-        fh.close()
-
-    v_ct = struct.unpack('<I', data[3:7])[0] & 0xFFFFFF
-    s_ct = struct.unpack('<I', data[7:11])[0] & 0xFFFFFF
-    G = np.zeros((v_ct, s_ct), dtype=np.uint8)
-    return np.asarray(G), s_ct, v_ct
-
+    data = np.fromfile(filepath, dtype=np.uint8)
+    vrtypes, fstart, fend, N, M = _pgen_index(data, _pgen_pgi_path(filepath, orig_filepath))
+    G = np.empty((M, N), dtype=np.uint8)
+    _pgen_decode_into(data, vrtypes, fstart, fend, 0, M, G, N)
+    return G, N, M
 
 # Read PGEN to 2-bit packed matrix
 def read_pgen_file_packed(str filepath, int chunk_size, str chromosome_mode, int autosome_count, str orig_filepath=None):
     """
     Description:
-    Reads a PLINK 2 PGEN file into a 2-bit packed format matrix.
-    Uses pgenlib if available; otherwise uses native binary decoding via Cython.
+    Reads a PLINK 2 PGEN file into a 2-bit packed matrix (ceil(M/4) x N),
+    decoding chunk_size variants at a time to bound memory use.
+
+    Returns:
+        tuple (G_packed, N, M).
     """
-    cdef:
-        uint8_t[:, ::1] G_packed
-        uint8_t[:, ::1] G_packed_out
-        signed char[:, ::1] G_chunk
-        Py_ssize_t v_ct, s_ct, M_bytes, variants_per_chunk, start, stop, chunk_len, packed_start, packed_len
-
-    try:
-        import pgenlib as pg
-        with pg.PgenReader(filepath.encode()) as r:
-            v_ct = r.get_variant_ct()
-            s_ct = r.get_raw_sample_ct()
-            M_bytes = (v_ct + 3) // 4
-            G_packed = np.zeros((M_bytes, s_ct), dtype=np.uint8)
-            variants_per_chunk = max(4, (chunk_size // 4) * 4)
-            G_chunk_np = np.empty((variants_per_chunk, s_ct), dtype=np.int8)
-
-            for start in range(0, v_ct, variants_per_chunk):
-                stop = min(start + variants_per_chunk, v_ct)
-                chunk_len = stop - start
-                packed_start = start // 4
-                packed_len = (chunk_len + 3) // 4
-                G_chunk_sub = G_chunk_np[:chunk_len]
-                G_chunk_view = G_chunk_sub
-
-                r.read_list(np.arange(start, stop, dtype=np.uint32), G_chunk_sub)
-                replace_missing_with_three(G_chunk_view)
-                pack_genotypes(
-                    G_chunk_view.view(np.uint8).ctypes.data,
-                    <uintptr_t>&G_packed[packed_start, 0],
-                    chunk_len,
-                    s_ct,
-                    packed_len,
-                )
-            return np.asarray(G_packed), s_ct, v_ct
-    except Exception:
-        pass
-
-    import os
-    from pathlib import Path
-    target_path = orig_filepath if orig_filepath else filepath
-    p = Path(target_path)
-    base_stem = p.name
-    for ext in ['.pgen.zst', '.pgen.gz', '.pgen']:
-        if base_stem.endswith(ext):
-            base_stem = base_stem[:-len(ext)]
-            break
-
-    parent = p.parent
-    bed_file = None
-    for b_ext in ['.bed', '.bed.gz', '.bed.zst']:
-        cand = parent / (base_stem + b_ext)
-        if cand.exists():
-            bed_file = str(cand)
-            break
-        cand_demo = parent / ('demo_data' + b_ext)
-        if cand_demo.exists():
-            bed_file = str(cand_demo)
-            break
-
-    if bed_file is not None:
-        fam_file = str(parent / (base_stem + '.fam'))
-        if not os.path.exists(fam_file):
-            fam_file = str(parent / 'demo_data.fam')
-
-        with open(fam_file) as fam:
-            N = sum(1 for _ in fam)
-        N_bytes = (N + 3) // 4
-
-        with open(bed_file, 'rb') as bed:
-            if bed_file.endswith('.zst'):
-                import zstandard as zstd
-                buffer = bytearray(zstd.decompress(bed.read())[3:])
-            elif bed_file.endswith('.gz'):
-                import gzip
-                buffer = bytearray(gzip.decompress(bed.read())[3:])
-            else:
-                bed.seek(3)
-                buffer = bytearray(bed.read())
-
-        B_raw = np.frombuffer(buffer, dtype=np.uint8)
-        M = B_raw.shape[0] // N_bytes
-        B_raw = B_raw.reshape(M, N_bytes)
-        B_raw = np.ascontiguousarray(B_raw)
-        M_bytes = (M + 3) // 4
-        G_packed_out = np.zeros((M_bytes, N), dtype=np.uint8)
-        read_bed_packed(
-            <uintptr_t>B_raw.ctypes.data,
-            <uintptr_t>&G_packed_out[0, 0],
-            M,
-            N_bytes,
-            N,
-            M_bytes,
-        )
-        return np.asarray(G_packed_out), N, M
-
-    import struct
-    fh = _open_vcf_file(filepath)
-    try:
-        data = fh.read()
-    finally:
-        fh.close()
-
-    v_ct = struct.unpack('<I', data[3:7])[0] & 0xFFFFFF
-    s_ct = struct.unpack('<I', data[7:11])[0] & 0xFFFFFF
-    M_bytes = (v_ct + 3) // 4
-    G_packed = np.zeros((M_bytes, s_ct), dtype=np.uint8)
-    return np.asarray(G_packed), s_ct, v_ct
-
-
-
+    data = np.fromfile(filepath, dtype=np.uint8)
+    vrtypes, fstart, fend, N, M = _pgen_index(data, _pgen_pgi_path(filepath, orig_filepath))
+    M_bytes = (M + 3) // 4
+    G_packed = np.zeros((M_bytes, N), dtype=np.uint8)
+    step = max(4, (chunk_size // 4) * 4)
+    buf = np.empty((min(step, max(M, 1)), N), dtype=np.uint8)
+    for start in range(0, M, step):
+        stop = min(start + step, M)
+        _pgen_decode_into(data, vrtypes, fstart, fend, start, stop, buf, N)
+        pack_genotypes(buf.ctypes.data, G_packed[start // 4:].ctypes.data, stop - start, N, (stop - start + 3) // 4)
+    return G_packed, N, M

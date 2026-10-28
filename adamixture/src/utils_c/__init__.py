@@ -22,7 +22,6 @@ from .cython.snp_reader import (
     read_pgen_file_packed,
     read_vcf_file,
     read_vcf_file_packed,
-    replace_missing_with_three,
 )
 from .cython.tools import (
     KL,
@@ -61,7 +60,6 @@ __all__ = [
     "read_pgen_file_packed",
     "read_vcf_file",
     "read_vcf_file_packed",
-    "replace_missing_with_three",
     "restore_entries_i32",
     "restore_entries_i64",
     "rmse_d",
