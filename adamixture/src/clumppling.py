@@ -1090,6 +1090,33 @@ def reorder_ind_within_group(Q: np.ndarray, lbs: list) -> tuple[np.ndarray, dict
     return ind_sorted_indices, mbsp_sort_indices
 
 
+def _fill_stacked(ax, start: int, Q: np.ndarray, colors: list) -> None:
+    """
+    Description:
+    Draws consecutive individuals as stacked bars of unit width, one rasterized filled
+    step polygon per cluster instead of one rectangle per individual and cluster.
+
+    Args:
+        ax: Axes to draw on.
+        start (int): Position of the first individual along the x axis.
+        Q (np.ndarray): Membership values to stack, of shape (n, K).
+        colors (list): Colour of each column of Q.
+
+    Returns:
+        None
+    """
+    n = Q.shape[0]
+    x = np.arange(start, start + n + 1) - 0.5
+    lower = np.zeros(n + 1)
+    upper = np.empty(n + 1)
+    for k in range(Q.shape[1]):
+        np.add(lower[:-1], Q[:, k], out=upper[:-1])
+        upper[-1] = upper[-2]
+        ax.fill_between(x, lower, upper, step='post', facecolor=colors[k],
+                        edgecolor='none', linewidth=0, rasterized=True)
+        lower, upper = upper, lower
+
+
 def plot_membership(Q: np.ndarray, cmap: list, ax=None, ylab: str = "", title: str = "",
                     fontsize: float = 14):
     """
@@ -1111,10 +1138,7 @@ def plot_membership(Q: np.ndarray, cmap: list, ax=None, ylab: str = "", title: s
         _, ax = plt.subplots()
 
     N, K = Q.shape
-    Q_aug = np.hstack((np.zeros((N, 1)), Q))
-    for k in range(K):
-        ax.bar(range(N), Q_aug[:, k + 1], bottom=np.sum(Q_aug[:, 0:k + 1], axis=1),
-               width=1.0, edgecolor='w', linewidth=0, facecolor=cmap[k])
+    _fill_stacked(ax, 0, Q, cmap[:K])
     ax.set_xlim(-0.5, N - 0.5)
     ax.set_xticks([])
     ax.set_ylim(0, 1)
@@ -1150,14 +1174,16 @@ def plot_membership_reordered(Q: np.ndarray, lbs: list, mbsp_sort_indices: dict,
         _, ax = plt.subplots()
 
     N, K = Q.shape
-    for lb in np.unique(lbs):
-        lb_indices = [i for i, val in enumerate(lbs) if val == lb]
+    uniq_lbs, inverse = np.unique(np.asarray(lbs), return_inverse=True)
+    for i_lb, lb in enumerate(uniq_lbs):
+        lb_indices = np.flatnonzero(inverse == i_lb)
         mbsp_sortidx = mbsp_sort_indices[lb]
-        lb_P_sorted = Q[lb_indices, :][:, mbsp_sortidx]
-        lb_P_aug = np.hstack((np.zeros((lb_P_sorted.shape[0], 1)), lb_P_sorted))
-        for k in range(K):
-            ax.bar(lb_indices, lb_P_aug[:, k + 1], bottom=np.sum(lb_P_aug[:, 0:k + 1], axis=1),
-                   width=1.0, edgecolor='w', linewidth=0, facecolor=cmap[mbsp_sortidx[k]])
+        colors = [cmap[c] for c in mbsp_sortidx]
+        # Labels are grouped, but a group may still be split when individuals follow a
+        # reference ordering; every contiguous run becomes its own polygon.
+        breaks = np.flatnonzero(np.diff(lb_indices) != 1) + 1
+        for run in np.split(lb_indices, breaks):
+            _fill_stacked(ax, int(run[0]), Q[run][:, mbsp_sortidx], colors)
     ax.set_xlim(-0.5, N - 0.5)
     ax.set_xticks([])
     ax.set_ylim(0, 1)
