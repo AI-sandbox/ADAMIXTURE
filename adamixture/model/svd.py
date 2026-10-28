@@ -84,8 +84,7 @@ def _RSVD_once(G: np.ndarray, N: int, M: int, f: np.ndarray, k: int, seed: int,
         start_idx = w * chunk
         n_active = min(chunk, M - start_idx)
         buf = gen_buffer[:n_active]
-        tools.decompress_block(G, buf, f, start_idx)
-        buf *= w_patterson[start_idx : start_idx + n_active, None]
+        tools.decompress_block_scaled(G, buf, f, w_patterson, start_idx)
         np.matmul(buf.T, proj_basis[start_idx : (start_idx + n_active)], out=temp_accum)
         accum_mat += temp_accum
 
@@ -103,8 +102,7 @@ def _RSVD_once(G: np.ndarray, N: int, M: int, f: np.ndarray, k: int, seed: int,
             n_active = min(chunk, M - start_idx)
             buf = gen_buffer[:n_active]
             p_buf = proj_chunk[:n_active]
-            tools.decompress_block(G, buf, f, start_idx)
-            buf *= w_patterson[start_idx : start_idx + n_active, None]
+            tools.decompress_block_scaled(G, buf, f, w_patterson, start_idx)
             np.matmul(buf, orth_matrix, out=p_buf)
             np.matmul(buf.T, p_buf, out=temp_accum)
             accum_mat += temp_accum

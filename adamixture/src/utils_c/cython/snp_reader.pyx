@@ -95,31 +95,27 @@ cpdef void read_bed_packed(uintptr_t B_bed_ptr, uintptr_t G_packed_ptr, Py_ssize
     cdef:
         const uint8_t* B_bed = <const uint8_t*> B_bed_ptr
         uint8_t* G_packed = <uint8_t*> G_packed_ptr
-        Py_ssize_t i, j, k, byte_idx
-        Py_ssize_t snp_idx
-        int bit_in
-        uint8_t byte_in, val
-        uint8_t mask = 3
+        Py_ssize_t i, j, k, n_valid
+        uint8_t val
         unsigned char[4] lookup_table = [2, 3, 1, 0]
+        const uint8_t* in_row
         uint8_t* out_row
 
+    # One packed row (4 SNPs) per iteration: reads 4 BED rows and writes one
+    # output row, both sequentially.
     with nogil, parallel():
-        for i in prange(N, schedule='guided'):
-            for j in range(M_bytes):
-                out_row = G_packed + j * N + i
-                out_row[0] = 0
-                
-                for k in range(4):
-                    snp_idx = j * 4 + k
-                    if snp_idx >= M:
-                        break
-                    
-                    byte_idx = i // 4
-                    bit_in = (i % 4) * 2
-                    byte_in = B_bed[snp_idx * N_bytes + byte_idx]
-                    val = lookup_table[(byte_in >> bit_in) & mask]
-                    
-                    out_row[0] |= (val & 0x03) << (2 * k)
+        for j in prange(M_bytes, schedule='static'):
+            out_row = G_packed + j * N
+            n_valid = M - j * 4
+            if n_valid > 4:
+                n_valid = 4
+            for i in range(N):
+                out_row[i] = 0
+            for k in range(n_valid):
+                in_row = B_bed + (j * 4 + k) * N_bytes
+                for i in range(N):
+                    val = lookup_table[(in_row[i >> 2] >> ((i & 3) << 1)) & 3]
+                    out_row[i] |= val << (k << 1)
 
 # Pack uint8 matrix to 2-bit
 cpdef void pack_genotypes(uintptr_t G_ptr, uintptr_t G_packed_ptr, Py_ssize_t M, Py_ssize_t N, Py_ssize_t M_bytes) noexcept nogil:
@@ -142,20 +138,22 @@ cpdef void pack_genotypes(uintptr_t G_ptr, uintptr_t G_packed_ptr, Py_ssize_t M,
     cdef:
         const uint8_t* G = <const uint8_t*> G_ptr
         uint8_t* G_packed = <uint8_t*> G_packed_ptr
-        Py_ssize_t i, j, k, snp_idx
-        uint8_t val
-        uint8_t* p_packed
-    
+        Py_ssize_t i, j, k, n_valid
+        const uint8_t* in_row
+        uint8_t* out_row
+
     with nogil, parallel():
-        for i in prange(N, schedule='guided'):
-            for j in range(M_bytes):
-                p_packed = &G_packed[j * N + i]
-                p_packed[0] = 0
-                for k in range(4):
-                    snp_idx = (j << 2) | k
-                    if snp_idx < M:
-                        val = G[snp_idx * N + i]
-                        p_packed[0] |= (val & 0x03) << (k << 1)
+        for j in prange(M_bytes, schedule='static'):
+            out_row = G_packed + j * N
+            n_valid = M - j * 4
+            if n_valid > 4:
+                n_valid = 4
+            for i in range(N):
+                out_row[i] = 0
+            for k in range(n_valid):
+                in_row = G + (j * 4 + k) * N
+                for i in range(N):
+                    out_row[i] |= (in_row[i] & 0x03) << (k << 1)
 
 # Mean of unpacked genotypes
 cpdef double get_mean_unpacked(uint8_t[:, ::1] G) noexcept nogil:
@@ -231,22 +229,26 @@ cpdef double get_mean_packed(uintptr_t G_ptr, size_t M, size_t N, size_t M_bytes
     """
     cdef:
         const uint8_t* G = <const uint8_t*> G_ptr
-        size_t i, j, k, snp_idx
+        size_t i, j, k, n_valid
         uint64_t total_sum = 0
         uint64_t total_count = 0
-        uint8_t packed_val, v
-    
+        uint64_t row_sum, row_count
+        uint8_t v
+        const uint8_t* row
+
     with nogil, parallel():
-        for i in prange(N, schedule='guided'):
-            for j in range(M_bytes):
-                packed_val = G[j * N + i]
-                for k in range(4):
-                    snp_idx = (j << 2) | k
-                    if snp_idx < M:
-                        v = (packed_val >> (k << 1)) & 0x03
-                        if v != 3:
-                            total_sum += v
-                            total_count += 2
+        for j in prange(M_bytes, schedule='static'):
+            row = G + j * N
+            n_valid = M - j * 4 if M - j * 4 < 4 else 4
+            row_sum = 0
+            row_count = 0
+            for k in range(n_valid):
+                for i in range(N):
+                    v = (row[i] >> (k << 1)) & 0x03
+                    row_sum = row_sum + (v if v != 3 else 0)
+                    row_count = row_count + (2 if v != 3 else 0)
+            total_sum += row_sum
+            total_count += row_count
     
     if total_count == 0:
         return 0.0
@@ -296,11 +298,12 @@ cpdef void flip_packed(uintptr_t G_ptr, size_t M, size_t N, size_t M_bytes) noex
         last_mask |= (0x03 << (k << 1))
 
     with nogil, parallel():
-        for i in prange(N, schedule='guided'):
-            for j in range(M_bytes):
-                if j == M_bytes - 1:
+        for j in prange(M_bytes, schedule='static'):
+            if j == M_bytes - 1:
+                for i in range(N):
                     G[j * N + i] = flip_tab[G[j * N + i]] & last_mask
-                else:
+            else:
+                for i in range(N):
                     G[j * N + i] = flip_tab[G[j * N + i]]
 
 # Parse VCF allele digit
@@ -552,6 +555,99 @@ cdef inline bint _keep_chromosome_line(
 
     return 1 <= chrom_num <= autosomes
 
+cdef object _grow_rows(object G, Py_ssize_t needed_rows, Py_ssize_t n_cols, Py_ssize_t initial_rows):
+    """
+    Description:
+    Ensures G has at least needed_rows rows. Growth goes through ndarray.resize
+    (realloc), which avoids holding two copies of the matrix.
+    """
+    cdef Py_ssize_t new_rows
+    if G is None:
+        new_rows = needed_rows if needed_rows > initial_rows else initial_rows
+        return np.empty((new_rows, n_cols), dtype=np.uint8)
+    if needed_rows > G.shape[0]:
+        new_rows = G.shape[0] + G.shape[0] // 2
+        if new_rows < needed_rows:
+            new_rows = needed_rows
+        G.resize((new_rows, n_cols), refcheck=False)
+    return G
+
+def _log_vcf_skipped(Py_ssize_t skipped_variants, bint has_specific, specific_chrom, str chrom_mode, int autosomes):
+    if skipped_variants <= 0:
+        return
+    import logging
+    if has_specific:
+        logging.getLogger(__name__).warning(f"        Warning: Skipped {skipped_variants} SNPs outside specific chromosomes {specific_chrom}.")
+    elif chrom_mode == "autosomes":
+        logging.getLogger(__name__).warning(f"        Warning: Skipped {skipped_variants} SNPs outside autosomes 1..{autosomes}.")
+    else:
+        logging.getLogger(__name__).warning(f"        Warning: Skipped {skipped_variants} SNPs excluded by chromosome filter.")
+
+def _read_vcf_single_pass(str filepath, int chunk_size, bint packed, bint keep_all, int autosomes,
+                          bint has_specific, set allowed_nums, set allowed_strs):
+    """
+    Description:
+    Reads and parses a VCF in a single pass over the (possibly compressed) file,
+    growing the output matrix as chunks are parsed.
+
+    Returns:
+        tuple (G, N, M, skipped): G is uint8 (M x N), or packed (ceil(M/4) x N) if packed.
+    """
+    cdef:
+        Py_ssize_t n_samples = 0
+        Py_ssize_t start_var_idx = 0
+        Py_ssize_t skipped_variants = 0
+        Py_ssize_t n_chunk
+        list chunk_bytes = []
+        object G = None
+
+    fh = _open_vcf_file(filepath)
+    try:
+        for line in fh:
+            if line.startswith(b'#'):
+                if line.startswith(b'#CHROM') or line.startswith(b'#chrom'):
+                    parts = line.rstrip(b'\n').split(b'\t')
+                    n_samples = len(parts) - 9
+                continue
+            if not _keep_chromosome_line(line, keep_all, autosomes, has_specific, allowed_nums, allowed_strs):
+                skipped_variants += 1
+                continue
+            if n_samples <= 0:
+                raise ValueError("Invalid or empty VCF file")
+
+            chunk_bytes.append(line)
+            if len(chunk_bytes) == chunk_size:
+                n_chunk = len(chunk_bytes)
+                if packed:
+                    G = _grow_rows(G, (start_var_idx + n_chunk + 3) // 4, n_samples, chunk_size)
+                    _process_chunk_packed(chunk_bytes, G, start_var_idx, n_samples)
+                else:
+                    G = _grow_rows(G, start_var_idx + n_chunk, n_samples, 4 * chunk_size)
+                    _process_chunk_standard(chunk_bytes, G, start_var_idx, n_samples)
+                start_var_idx += n_chunk
+                chunk_bytes = []
+
+        if chunk_bytes:
+            n_chunk = len(chunk_bytes)
+            if packed:
+                G = _grow_rows(G, (start_var_idx + n_chunk + 3) // 4, n_samples, chunk_size)
+                _process_chunk_packed(chunk_bytes, G, start_var_idx, n_samples)
+            else:
+                G = _grow_rows(G, start_var_idx + n_chunk, n_samples, 4 * chunk_size)
+                _process_chunk_standard(chunk_bytes, G, start_var_idx, n_samples)
+            start_var_idx += n_chunk
+    finally:
+        fh.close()
+
+    if n_samples <= 0 or start_var_idx <= 0:
+        raise ValueError("Invalid or empty VCF file")
+
+    if packed:
+        G.resize(((start_var_idx + 3) // 4, n_samples), refcheck=False)
+    else:
+        G.resize((start_var_idx, n_samples), refcheck=False)
+    return G, n_samples, start_var_idx, skipped_variants
+
 # Read VCF to uint8 matrix
 def read_vcf_file(str filepath, int chunk_size, str chrom_mode, int autosomes, specific_chrom=None):
     """
@@ -574,7 +670,6 @@ def read_vcf_file(str filepath, int chunk_size, str chrom_mode, int autosomes, s
     cdef:
         Py_ssize_t n_samples = 0
         Py_ssize_t n_variants = 0
-        Py_ssize_t start_var_idx = 0
         Py_ssize_t skipped_variants = 0
         bint keep_all = chrom_mode == "all"
         bint has_specific = False
@@ -606,64 +701,11 @@ def read_vcf_file(str filepath, int chunk_size, str chrom_mode, int autosomes, s
     elif chrom_mode == "autosomes" and autosomes < 1:
         raise ValueError("autosomes must be at least 1")
 
-    fh = _open_vcf_file(filepath)
-    try:
-        for line in fh:
-            if line.startswith(b'#'):
-                if line.startswith(b'#CHROM') or line.startswith(b'#chrom'):
-                    parts = line.rstrip(b'\n').split(b'\t')
-                    n_samples = len(parts) - 9
-                continue
-            if not _keep_chromosome_line(line, keep_all, autosomes, has_specific, allowed_nums, allowed_strs):
-                skipped_variants += 1
-                continue
-            n_variants += 1
-    finally:
-        fh.close()
-
-    if n_samples <= 0 or n_variants <= 0:
-        raise ValueError("Invalid or empty VCF file")
-
-    if skipped_variants > 0:
-        import logging
-        if has_specific:
-            logging.getLogger(__name__).warning(f"        Warning: Skipped {skipped_variants} SNPs outside specific chromosomes {specific_chrom}.")
-        elif chrom_mode == "autosomes":
-            logging.getLogger(__name__).warning(f"        Warning: Skipped {skipped_variants} SNPs outside autosomes 1..{autosomes}.")
-        else:
-            logging.getLogger(__name__).warning(f"        Warning: Skipped {skipped_variants} SNPs excluded by chromosome filter.")
-
-    cdef uint8_t[:, ::1] G = np.empty((n_variants, n_samples), dtype=np.uint8)
-
-    fh = _open_vcf_file(filepath)
-    cdef list chunk_bytes = []
-    
-    try:
-        for line in fh:
-            if line.startswith(b'#'):
-                continue
-                
-            if not _keep_chromosome_line(line, keep_all, autosomes, has_specific, allowed_nums, allowed_strs):
-                continue
-
-            chunk_bytes.append(line)
-            
-            if len(chunk_bytes) == chunk_size:
-                _process_chunk_standard(chunk_bytes, G, start_var_idx, n_samples)
-                start_var_idx += len(chunk_bytes)
-                chunk_bytes = []
-                
-        if chunk_bytes:
-            _process_chunk_standard(chunk_bytes, G, start_var_idx, n_samples)
-            start_var_idx += len(chunk_bytes)
-            
-    finally:
-        fh.close()
-
-    if start_var_idx != n_variants:
-        raise ValueError(f"VCF variant count mismatch: expected {n_variants}, parsed {start_var_idx}")
-
-    return np.asarray(G), n_samples, n_variants
+    G, n_samples, n_variants, skipped_variants = _read_vcf_single_pass(
+        filepath, chunk_size, False, keep_all, autosomes, has_specific, allowed_nums, allowed_strs
+    )
+    _log_vcf_skipped(skipped_variants, has_specific, specific_chrom, chrom_mode, autosomes)
+    return G, n_samples, n_variants
 
 # Process VCF chunk to 2-bit
 cdef void _process_chunk_packed(
@@ -730,8 +772,6 @@ def read_vcf_file_packed(str filepath, int chunk_size, str chrom_mode, int autos
     cdef:
         Py_ssize_t n_samples = 0
         Py_ssize_t n_variants = 0
-        Py_ssize_t M_bytes
-        Py_ssize_t start_var_idx = 0
         Py_ssize_t skipped_variants = 0
         bint keep_all = chrom_mode == "all"
         bint has_specific = False
@@ -763,80 +803,29 @@ def read_vcf_file_packed(str filepath, int chunk_size, str chrom_mode, int autos
     elif chrom_mode == "autosomes" and autosomes < 1:
         raise ValueError("autosomes must be at least 1")
 
-    fh = _open_vcf_file(filepath)
-    try:
-        for line in fh:
-            if line.startswith(b'#'):
-                if line.startswith(b'#CHROM') or line.startswith(b'#chrom'):
-                    parts = line.rstrip(b'\n').split(b'\t')
-                    n_samples = len(parts) - 9
-                continue
-            if not _keep_chromosome_line(line, keep_all, autosomes, has_specific, allowed_nums, allowed_strs):
-                skipped_variants += 1
-                continue
-            n_variants += 1
-    finally:
-        fh.close()
-
-    if n_samples <= 0 or n_variants <= 0:
-        raise ValueError("Invalid or empty VCF file")
-
-    if skipped_variants > 0:
-        import logging
-        if has_specific:
-            logging.getLogger(__name__).warning(f"        Warning: Skipped {skipped_variants} SNPs outside specific chromosomes {specific_chrom}.")
-        elif chrom_mode == "autosomes":
-            logging.getLogger(__name__).warning(f"        Warning: Skipped {skipped_variants} SNPs outside autosomes 1..{autosomes}.")
-        else:
-            logging.getLogger(__name__).warning(f"        Warning: Skipped {skipped_variants} SNPs excluded by chromosome filter.")
-
-    M_bytes = (n_variants + 3) // 4
-    cdef uint8_t[:, ::1] G_packed = np.zeros((M_bytes, n_samples), dtype=np.uint8)
-
     if chunk_size % 4 != 0:
         chunk_size += 4 - (chunk_size % 4)
 
-    fh = _open_vcf_file(filepath)
-    cdef list chunk_bytes = []
-    
-    try:
-        for line in fh:
-            if line.startswith(b'#'):
-                continue
-                
-            if not _keep_chromosome_line(line, keep_all, autosomes, has_specific, allowed_nums, allowed_strs):
-                continue
-
-            chunk_bytes.append(line)
-            
-            if len(chunk_bytes) == chunk_size:
-                _process_chunk_packed(chunk_bytes, G_packed, start_var_idx, n_samples)
-                start_var_idx += len(chunk_bytes)
-                chunk_bytes = []
-                
-        if chunk_bytes:
-            _process_chunk_packed(chunk_bytes, G_packed, start_var_idx, n_samples)
-            start_var_idx += len(chunk_bytes)
-            
-    finally:
-        fh.close()
-
-    if start_var_idx != n_variants:
-        raise ValueError(f"VCF variant count mismatch: expected {n_variants}, parsed {start_var_idx}")
-
-    return np.asarray(G_packed), n_samples, n_variants
+    G_packed, n_samples, n_variants, skipped_variants = _read_vcf_single_pass(
+        filepath, chunk_size, True, keep_all, autosomes, has_specific, allowed_nums, allowed_strs
+    )
+    _log_vcf_skipped(skipped_variants, has_specific, specific_chrom, chrom_mode, autosomes)
+    return G_packed, n_samples, n_variants
 
 
 # Read BCF to uint8 matrix
-cdef inline tuple _bcf_parse_typed_int(const uint8_t* data, Py_ssize_t pos) noexcept:
+cdef inline uint32_t _bcf_u32(const uint8_t* data, Py_ssize_t pos) noexcept nogil:
+    return (<uint32_t>data[pos] | (<uint32_t>data[pos + 1] << 8)
+            | (<uint32_t>data[pos + 2] << 16) | (<uint32_t>data[pos + 3] << 24))
+
+cdef Py_ssize_t _bcf_parse_typed_int(const uint8_t* data, Py_ssize_t pos, int* out) noexcept nogil:
     cdef uint8_t b = data[pos]
     cdef uint8_t t = b & 0x0f
     cdef int l = (b >> 4) & 0x0f
+    cdef int val = 0
     pos += 1
     if l == 15:
-        l_val, pos = _bcf_parse_typed_int(data, pos)
-        l = l_val
-    cdef int val = 0
+        pos = _bcf_parse_typed_int(data, pos, &l)
     if t == 1:
         val = <int8_t>data[pos]
         pos += 1
@@ -846,17 +835,82 @@ cdef inline tuple _bcf_parse_typed_int(const uint8_t* data, Py_ssize_t pos) noex
     elif t == 3:
         val = <int32_t>(data[pos] | (data[pos+1] << 8) | (data[pos+2] << 16) | (data[pos+3] << 24))
         pos += 4
-    return val, pos
+    out[0] = val
+    return pos
 
-cdef inline tuple _bcf_parse_descriptor(const uint8_t* data, Py_ssize_t pos) noexcept:
+cdef Py_ssize_t _bcf_parse_descriptor(const uint8_t* data, Py_ssize_t pos, int* n_out, int* sz_out) noexcept nogil:
     cdef uint8_t b = data[pos]
     cdef uint8_t t = b & 0x0f
     cdef int l = (b >> 4) & 0x0f
     pos += 1
     if l == 15:
-        l, pos = _bcf_parse_typed_int(data, pos)
-    cdef int sz = 1 if (t == 1 or t == 7) else (2 if t == 2 else 4)
-    return l, t, sz, pos
+        pos = _bcf_parse_typed_int(data, pos, &l)
+    n_out[0] = l
+    sz_out[0] = 1 if (t == 1 or t == 7) else (2 if t == 2 else 4)
+    return pos
+
+cdef void _bcf_decode_variant(const uint8_t* c_data, Py_ssize_t data_len, Py_ssize_t rec_offset,
+                              int target_gt_idx, Py_ssize_t n_samples, uint8_t* out) noexcept nogil:
+    """
+    Description:
+    Decodes the GT field of one BCF record into allele dosages (3 = missing).
+    """
+    cdef:
+        Py_ssize_t l_shared = _bcf_u32(c_data, rec_offset)
+        Py_ssize_t base = rec_offset + 8
+        uint32_t n_fmt = _bcf_u32(c_data, base + 20) >> 24
+        Py_ssize_t fmt_pos = base + l_shared
+        Py_ssize_t values_pos, gt_offset = -1, s
+        uint32_t f
+        int fmt_idx, n_v, t_sz
+        int n_vals = 2, type_sz = 1
+        int a1, a2
+        const int8_t* p8
+        const int16_t* p16
+        const int32_t* p32
+
+    for f in range(n_fmt):
+        fmt_pos = _bcf_parse_typed_int(c_data, fmt_pos, &fmt_idx)
+        values_pos = _bcf_parse_descriptor(c_data, fmt_pos, &n_v, &t_sz)
+        if fmt_idx == target_gt_idx or target_gt_idx < 0:  # GT field
+            gt_offset = values_pos
+            n_vals = n_v
+            type_sz = t_sz
+            break
+        fmt_pos = values_pos + n_samples * n_v * t_sz
+
+    if gt_offset < 0 or gt_offset + n_samples * n_vals * type_sz > data_len:
+        for s in range(n_samples):
+            out[s] = 3
+        return
+
+    if type_sz == 1:
+        p8 = <const int8_t*>(c_data + gt_offset)
+        for s in range(n_samples):
+            a1 = (p8[s * n_vals] >> 1) - 1
+            if n_vals >= 2:
+                a2 = (p8[s * n_vals + 1] >> 1) - 1
+                out[s] = 3 if (a1 < 0 or a2 < 0) else <uint8_t>(a1 + a2)
+            else:
+                out[s] = 3 if a1 < 0 else <uint8_t>a1
+    elif type_sz == 2:
+        p16 = <const int16_t*>(c_data + gt_offset)
+        for s in range(n_samples):
+            a1 = (p16[s * n_vals] >> 1) - 1
+            if n_vals >= 2:
+                a2 = (p16[s * n_vals + 1] >> 1) - 1
+                out[s] = 3 if (a1 < 0 or a2 < 0) else <uint8_t>(a1 + a2)
+            else:
+                out[s] = 3 if a1 < 0 else <uint8_t>a1
+    else:
+        p32 = <const int32_t*>(c_data + gt_offset)
+        for s in range(n_samples):
+            a1 = (p32[s * n_vals] >> 1) - 1
+            if n_vals >= 2:
+                a2 = (p32[s * n_vals + 1] >> 1) - 1
+                out[s] = 3 if (a1 < 0 or a2 < 0) else <uint8_t>(a1 + a2)
+            else:
+                out[s] = 3 if a1 < 0 else <uint8_t>a1
 
 def read_bcf_file(bytes bcf_bytes, str chrom_mode, int autosomes, specific_chrom=None):
     """
@@ -940,26 +994,30 @@ def read_bcf_file(bytes bcf_bytes, str chrom_mode, int autosomes, specific_chrom
     elif chrom_mode == "autosomes" and autosomes < 1:
         raise ValueError("autosomes must be at least 1")
 
-    # Pass 1: scan records and filter chromosomes
+    # Pass 1: scan records and filter chromosomes (decision cached per contig)
     cdef Py_ssize_t offset = 9 + l_text
     cdef Py_ssize_t l_shared, l_indiv, base
     cdef int32_t chrom_id
     cdef list kept_offsets = []
+    cdef dict keep_by_contig = {}
     cdef Py_ssize_t skipped_variants = 0
 
     while offset + 8 <= data_len:
-        l_shared = struct.unpack("<I", bcf_bytes[offset:offset+4])[0]
-        l_indiv = struct.unpack("<I", bcf_bytes[offset+4:offset+8])[0]
+        l_shared = _bcf_u32(c_data, offset)
+        l_indiv = _bcf_u32(c_data, offset + 4)
         base = offset + 8
 
         if base + 4 > data_len:
             break
 
-        chrom_id = struct.unpack("<i", bcf_bytes[base:base+4])[0]
-        chrom_name = contigs.get(chrom_id, str(chrom_id))
-
-        chrom_bytes = chrom_name.encode("utf-8")
-        if _keep_chromosome_line(chrom_bytes, keep_all, autosomes, has_specific, allowed_nums, allowed_strs):
+        chrom_id = <int32_t>_bcf_u32(c_data, base)
+        keep = keep_by_contig.get(chrom_id)
+        if keep is None:
+            chrom_name = contigs.get(chrom_id, str(chrom_id))
+            keep = _keep_chromosome_line(chrom_name.encode("utf-8"), keep_all, autosomes,
+                                         has_specific, allowed_nums, allowed_strs)
+            keep_by_contig[chrom_id] = keep
+        if keep:
             kept_offsets.append(offset)
         else:
             skipped_variants += 1
@@ -990,94 +1048,13 @@ def read_bcf_file(bytes bcf_bytes, str chrom_mode, int autosomes, specific_chrom
             break
 
     cdef uint8_t[:, ::1] G = np.empty((n_variants, n_samples), dtype=np.uint8)
+    cdef Py_ssize_t[::1] offsets = np.asarray(kept_offsets, dtype=np.intp)
+    cdef Py_ssize_t var_idx
 
     # Pass 2: decode genotypes for kept variants
-    cdef Py_ssize_t var_idx, rec_offset, indiv_offset, fmt_pos, values_pos
-    cdef uint32_t n_fmt
-    cdef int fmt_idx, n_v, t_code, t_sz
-    cdef Py_ssize_t gt_offset
-    cdef int n_vals, type_sz
-    cdef Py_ssize_t s
-    cdef int a1, a2
-    cdef const int8_t* p8
-    cdef const int16_t* p16
-    cdef const int32_t* p32
-
-    for var_idx in range(n_variants):
-        rec_offset = kept_offsets[var_idx]
-        l_shared = struct.unpack("<I", bcf_bytes[rec_offset:rec_offset+4])[0]
-        base = rec_offset + 8
-        n_fmt = struct.unpack("<I", bcf_bytes[base+20:base+24])[0] >> 24
-        indiv_offset = base + l_shared
-        fmt_pos = indiv_offset
-
-        gt_offset = -1
-        n_vals = 2
-        type_sz = 1
-
-        for _ in range(n_fmt):
-            fmt_idx, fmt_pos = _bcf_parse_typed_int(c_data, fmt_pos)
-            n_v, t_code, t_sz, values_pos = _bcf_parse_descriptor(c_data, fmt_pos)
-            if fmt_idx == target_gt_idx or target_gt_idx < 0:  # GT field
-                gt_offset = values_pos
-                n_vals = n_v
-                type_sz = t_sz
-                break
-            fmt_pos = values_pos + n_samples * n_v * t_sz
-
-        if gt_offset < 0 or gt_offset + n_samples * n_vals * type_sz > data_len:
-            for s in range(n_samples):
-                G[var_idx, s] = 3
-            continue
-
-        if type_sz == 1:
-            p8 = <const int8_t*>(c_data + gt_offset)
-            for s in range(n_samples):
-                if n_vals >= 2:
-                    a1 = (p8[s * n_vals] >> 1) - 1
-                    a2 = (p8[s * n_vals + 1] >> 1) - 1
-                    if a1 < 0 or a2 < 0:
-                        G[var_idx, s] = 3
-                    else:
-                        G[var_idx, s] = <uint8_t>(a1 + a2)
-                else:
-                    a1 = (p8[s * n_vals] >> 1) - 1
-                    if a1 < 0:
-                        G[var_idx, s] = 3
-                    else:
-                        G[var_idx, s] = <uint8_t>a1
-        elif type_sz == 2:
-            p16 = <const int16_t*>(c_data + gt_offset)
-            for s in range(n_samples):
-                if n_vals >= 2:
-                    a1 = (p16[s * n_vals] >> 1) - 1
-                    a2 = (p16[s * n_vals + 1] >> 1) - 1
-                    if a1 < 0 or a2 < 0:
-                        G[var_idx, s] = 3
-                    else:
-                        G[var_idx, s] = <uint8_t>(a1 + a2)
-                else:
-                    a1 = (p16[s * n_vals] >> 1) - 1
-                    if a1 < 0:
-                        G[var_idx, s] = 3
-                    else:
-                        G[var_idx, s] = <uint8_t>a1
-        else:
-            p32 = <const int32_t*>(c_data + gt_offset)
-            for s in range(n_samples):
-                if n_vals >= 2:
-                    a1 = (p32[s * n_vals] >> 1) - 1
-                    a2 = (p32[s * n_vals + 1] >> 1) - 1
-                    if a1 < 0 or a2 < 0:
-                        G[var_idx, s] = 3
-                    else:
-                        G[var_idx, s] = <uint8_t>(a1 + a2)
-                else:
-                    a1 = (p32[s * n_vals] >> 1) - 1
-                    if a1 < 0:
-                        G[var_idx, s] = 3
-                    else:
-                        G[var_idx, s] = <uint8_t>a1
+    with nogil, parallel():
+        for var_idx in prange(n_variants, schedule='static'):
+            _bcf_decode_variant(c_data, data_len, offsets[var_idx], target_gt_idx, n_samples, &G[var_idx, 0])
 
     return np.asarray(G), n_samples, n_variants
 

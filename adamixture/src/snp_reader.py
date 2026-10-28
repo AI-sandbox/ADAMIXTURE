@@ -20,6 +20,7 @@ from .utils_c import (
     flip_unpacked,
     get_mean_packed,
     get_mean_unpacked,
+    pack_genotypes,
     read_bcf_file,
     read_bcf_file_packed,
     read_bed,
@@ -299,6 +300,45 @@ class SNPReader:
         chrom_num = self._parse_chromosome_number(chrom)
         return chrom_num is not None and 1 <= chrom_num <= autosomes
 
+    def _chromosome_keep_mask(
+        self,
+        lines,
+        chrom_mode: str,
+        autosomes: int,
+        specific_chrom: list | tuple | str | int | set | None = None,
+        skip_comments: bool = False,
+    ) -> np.ndarray:
+        """
+        Description:
+        Builds the per-variant keep mask from variant metadata lines (.bim/.pvar),
+        evaluating the chromosome filter once per distinct chromosome label.
+
+        Args:
+            lines: Iterable of variant metadata lines; the first column is the chromosome.
+            chrom_mode (str): Chromosome filter mode ("all" or "autosomes").
+            autosomes (int): Number of autosomes kept when chrom_mode is "autosomes".
+            specific_chrom: Specific chromosomes to keep when chrom_mode is "autosomes".
+            skip_comments (bool): If True, ignore lines starting with '#'.
+
+        Returns:
+            np.ndarray: Boolean keep mask, one entry per variant.
+        """
+        decisions: dict[str, bool] = {}
+        keep_mask = []
+        for line in lines:
+            if skip_comments and line.startswith("#"):
+                continue
+            parts = line.split(None, 1)
+            if not parts:
+                continue
+            chrom = parts[0]
+            keep = decisions.get(chrom)
+            if keep is None:
+                keep = self._keep_chromosome(chrom, chrom_mode, autosomes, specific_chrom)
+                decisions[chrom] = keep
+            keep_mask.append(keep)
+        return np.array(keep_mask, dtype=bool)
+
     def _log_chromosome_filter(
         self,
         skipped: int,
@@ -387,16 +427,9 @@ class SNPReader:
             N = sum(1 for _ in fam)
         N_bytes = ceil(N / 4)
 
-        keep_mask = []
         with self._open_text(bim_file) as bim:
-            for line in bim:
-                parts = line.strip().split()
-                if not parts:
-                    continue
-                keep_mask.append(
-                    self._keep_chromosome(parts[0], chrom_mode, autosomes, specific_chrom)
-                )
-        keep_mask = np.array(keep_mask, dtype=bool)
+            keep_mask = self._chromosome_keep_mask(bim, chrom_mode, autosomes, specific_chrom)
+        keep_all = bool(keep_mask.all())
 
         with self._materialize_binary(bed_file) as readable_bed_file:
             file_size = readable_bed_file.stat().st_size
@@ -415,7 +448,7 @@ class SNPReader:
                 M = B_raw.shape[0] // N_bytes
                 B_raw = B_raw.reshape(M, N_bytes)
 
-                B = np.ascontiguousarray(B_raw[keep_mask])
+                B = B_raw if keep_all else np.ascontiguousarray(B_raw[keep_mask])
                 M = B.shape[0]
 
                 G = np.zeros((M, N), dtype=np.uint8)
@@ -433,7 +466,8 @@ class SNPReader:
                 M = B_raw.shape[0] // N_bytes
 
                 B_raw = B_raw.reshape(M, N_bytes)
-                B_raw = np.ascontiguousarray(B_raw[keep_mask])
+                if not keep_all:
+                    B_raw = np.ascontiguousarray(B_raw[keep_mask])
                 M = B_raw.shape[0]
 
                 torch = require_torch()
@@ -539,32 +573,37 @@ class SNPReader:
             log.error(f"    Error: Variant file (.pvar or .bim) not found for {base_path}")
             raise FileNotFoundError(f"Variant file (.pvar or .bim) not found for {base_path}")
 
-        keep_mask = []
         with self._open_text(var_file) as vf:
-            for line in vf:
-                if line.startswith("#"):
-                    continue
-                parts = line.strip().split()
-                if not parts:
-                    continue
-                keep_mask.append(
-                    self._keep_chromosome(parts[0], chrom_mode, autosomes, specific_chrom)
-                )
-        keep_mask = np.array(keep_mask, dtype=bool)
+            keep_mask = self._chromosome_keep_mask(
+                vf, chrom_mode, autosomes, specific_chrom, skip_comments=True
+            )
 
         with self._materialize_binary(pgen_file) as readable_pgen_file:
             if packed:
                 log.info("        Reading PGEN in packed 2-bit format for GPU use.")
-                G_packed, N, M = read_pgen_file_packed(
-                    str(readable_pgen_file),
-                    chunk_size,
-                    chrom_mode,
-                    autosomes,
-                    orig_filepath=str(pgen_file),
-                )
-                if not np.all(keep_mask):
-                    G_packed = G_packed[keep_mask]
-                    M = G_packed.shape[0]
+                if np.all(keep_mask):
+                    G_packed, N, M = read_pgen_file_packed(
+                        str(readable_pgen_file),
+                        chunk_size,
+                        chrom_mode,
+                        autosomes,
+                        orig_filepath=str(pgen_file),
+                    )
+                else:
+                    # Packed rows hold 4 SNPs each, so filter before packing.
+                    G_np, N, _ = read_pgen_file(
+                        str(readable_pgen_file),
+                        chunk_size,
+                        chrom_mode,
+                        autosomes,
+                        orig_filepath=str(pgen_file),
+                    )
+                    G_np = np.ascontiguousarray(G_np[keep_mask])
+                    M = G_np.shape[0]
+                    G_packed = np.zeros(((M + 3) // 4, N), dtype=np.uint8)
+                    if M > 0:
+                        pack_genotypes(G_np.ctypes.data, G_packed.ctypes.data, M, N, G_packed.shape[0])
+                    del G_np
                 if M == 0:
                     log.error(
                         "    Error: No variants found in dataset matching chromosome filters.\n"

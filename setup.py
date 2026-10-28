@@ -54,6 +54,13 @@ elif system == "Windows":
 else:
     log.info(f"System not recognized: {system}")
 
+# Opt-in: tune for the build machine (binaries may not run on older CPUs).
+if os.environ.get("ADAMIXTURE_NATIVE", "0") == "1" and system in ("Linux", "Darwin"):
+    if platform.machine().lower() in ("arm64", "aarch64"):
+        compile_args.append('-mcpu=native')
+    else:
+        compile_args.append('-march=native')
+
 
 class build_ext_openmp(build_ext):
     openmp_compile_args = {

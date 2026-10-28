@@ -36,6 +36,61 @@ cdef inline double _row_loglike(const uint8_t* g_row, const double* p, const dou
             row_ll += 2.0 * log(r)
     return row_ll
 
+cdef enum:
+    LL_CHUNK = 256
+
+# Row log-likelihood with Q transposed (K x N): loops run over contiguous
+# individuals, and each genotype contributes a single branch-free log.
+cdef double _row_loglike_t(const uint8_t* g_row, const double* p, const double* Qt,
+                           Py_ssize_t N, Py_ssize_t K, double* r_buf) noexcept nogil:
+    cdef:
+        Py_ssize_t i0 = 0, n, li, k
+        int chunk = LL_CHUNK
+        uint8_t g_val
+        double row_ll = 0.0, r, x, pk
+        const double* qk
+        const uint8_t* g_c
+
+    while i0 < N:
+        n = N - i0
+        if n > chunk:
+            n = chunk
+        g_c = g_row + i0
+        for li in range(n):
+            r_buf[li] = 0.0
+        for k in range(K):
+            pk = p[k]
+            qk = Qt + k * N + i0
+            for li in range(n):
+                r_buf[li] += pk * qk[li]
+        for li in range(n):
+            r = r_buf[li]
+            if r < 1e-15:
+                r = 1e-15
+            elif r > 1.0 - 1e-15:
+                r = 1.0 - 1e-15
+            g_val = g_c[li]
+            if g_val == 0:
+                x = (1.0 - r) * (1.0 - r)
+            elif g_val == 1:
+                x = r * (1.0 - r)
+            elif g_val == 2:
+                x = r * r
+            else:
+                x = 1.0
+            r_buf[li] = x
+        # Every factor is in [1e-30, 1], so a product of 8 cannot underflow.
+        li = 0
+        while li + 8 <= n:
+            row_ll += log(r_buf[li] * r_buf[li + 1] * r_buf[li + 2] * r_buf[li + 3]
+                          * r_buf[li + 4] * r_buf[li + 5] * r_buf[li + 6] * r_buf[li + 7])
+            li = li + 8
+        while li < n:
+            row_ll += log(r_buf[li])
+            li = li + 1
+        i0 = i0 + chunk
+    return row_ll
+
 cdef inline double _row_loglike_packed(const uint8_t* packed_row, uint8_t shift, const double* p, const double* Q, Py_ssize_t N, Py_ssize_t K) noexcept nogil:
     cdef:
         Py_ssize_t i, k
@@ -82,13 +137,21 @@ cpdef double loglikelihood(uint8_t[:,::1] G, double[:,::1] P, double[:,::1] Q) n
         Py_ssize_t M = G.shape[0]
         Py_ssize_t N = G.shape[1]
         Py_ssize_t K = Q.shape[1]
-        Py_ssize_t j
+        Py_ssize_t i, j, k
         double ll = 0.0
-        const double* Q_ptr = &Q[0, 0]
+        double* Qt = <double*>malloc(<size_t>K * N * sizeof(double))
+        double* ws
+
+    for k in range(K):
+        for i in range(N):
+            Qt[k * N + i] = Q[i, k]
 
     with nogil, parallel():
+        ws = <double*>malloc(LL_CHUNK * sizeof(double))
         for j in prange(M, schedule='guided'):
-            ll += _row_loglike(&G[j, 0], &P[j, 0], Q_ptr, N, K)
+            ll += _row_loglike_t(&G[j, 0], &P[j, 0], Qt, N, K, ws)
+        free(ws)
+    free(Qt)
     return ll
 
 
@@ -320,5 +383,41 @@ cpdef void decompress_block(const uint8_t[:, ::1] G, float[:, ::1] data_block, c
             if gr[i] != 3: # missing
                 val = <float>gr[i] - u
                 ptr[i] = val
+            else:
+                ptr[i] = 0.0
+
+# Decompress, center and scale chunk for SVD
+cpdef void decompress_block_scaled(const uint8_t[:, ::1] G, float[:, ::1] data_block, const float[::1] freq,
+                                   const float[::1] scale, const Py_ssize_t offset) noexcept nogil:
+    """
+    Description:
+    Same as decompress_block, but multiplies each SNP row by scale[SNP] in the same pass.
+
+    Args:
+        G (const uint8_t[:, ::1]): Source genotype matrix (SNPs x samples).
+        data_block (float[:, ::1]): Output buffer for decompressed/centered block (chunk_size x samples).
+        freq (const float[::1]): Allele frequencies for the SNPs in the chunk.
+        scale (const float[::1]): Per-SNP weights.
+        offset (const Py_ssize_t): Starting SNP index for this block in the full matrix G.
+
+    Returns:
+        None
+    """
+    cdef:
+        Py_ssize_t nr = data_block.shape[0]
+        Py_ssize_t nc = data_block.shape[1]
+        Py_ssize_t i, j, l
+        const uint8_t *gr
+        float u, s
+        float *ptr
+    for j in prange(nr, schedule='static'):
+        l = offset + j
+        u = 2.0 * freq[l]
+        s = scale[l]
+        gr = &G[l, 0]
+        ptr = &data_block[j, 0]
+        for i in range(nc):
+            if gr[i] != 3: # missing
+                ptr[i] = (<float>gr[i] - u) * s
             else:
                 ptr[i] = 0.0

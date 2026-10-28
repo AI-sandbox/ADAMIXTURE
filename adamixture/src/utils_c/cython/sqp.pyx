@@ -1,7 +1,9 @@
 # cython: language_level=3, boundscheck=False, wraparound=False, initializedcheck=False, cdivision=True
-from cython.parallel import prange
+from cython.parallel import parallel, prange
+cimport openmp
 from libc.math cimport fabs, fmax, fmin
 from libc.stdint cimport uint8_t
+from libc.stdlib cimport free, malloc
 
 cdef void sweep(double* matrix_a, int sz, int k, double* tmp, bint inverse) noexcept nogil:
     cdef:
@@ -255,57 +257,129 @@ cdef void update_single_p(int j, const double[:,::1] P, double[:,::1] P_next,
         P_next[j, k] = P[j, k] + delta[k]
     project_p_box_row(&P_next[j, 0], K, 1e-5)
 
+cdef void _grad_hess_q_block(const uint8_t* G, const double* Q, const double* P,
+                             double* XtX, double* Xtz, double* ws,
+                             int ib, int i_end, int M, int N, int K) noexcept nogil:
+    cdef:
+        int nb = i_end - ib
+        int npair = K * (K + 1) // 2
+        int i, j, k, k2, li, pr
+        double g, m, q, inv_q, inv_1mq, t1z_v, t2z_v, t2v, pk, c, v
+        double pj[128]
+        const uint8_t* g_row
+        double* qk
+        double* h
+        double* zk
+        double* ak
+        double* xtx
+        double* xtz
+        # Workspace layout (each row has nb entries, one per individual in the block)
+        double* Qt = ws                    # K rows
+        double* H = Qt + K * nb            # npair rows: sum (term1 + term2) p_k p_k2
+        double* Z = H + npair * nb         # K rows: sum (term1_z - term2_z) p_k
+        double* A = Z + K * nb             # K rows: sum term2 p_k
+        double* C = A + K * nb             # sum term2
+        double* Z0 = C + nb                # sum term2_z
+        double* qp = Z0 + nb
+        double* ts = qp + nb
+        double* tdz = ts + nb
+        double* t2 = tdz + nb
+
+    for k in range(K):
+        qk = Qt + k * nb
+        for li in range(nb):
+            qk[li] = Q[<size_t>(ib + li) * K + k]
+    for li in range((npair + 2 * K + 2) * nb):
+        H[li] = 0.0
+
+    for j in range(M):
+        g_row = G + <size_t>j * N + ib
+        for k in range(K):
+            pj[k] = P[<size_t>j * K + k]
+
+        for li in range(nb):
+            qp[li] = 0.0
+        for k in range(K):
+            pk = pj[k]
+            qk = Qt + k * nb
+            for li in range(nb):
+                qp[li] += pk * qk[li]
+
+        # Missing genotypes get zero weight instead of being skipped.
+        for li in range(nb):
+            g = <double>g_row[li]
+            m = 1.0 if g_row[li] != 3 else 0.0
+            q = fmax(fmin(qp[li], 1.0 - 1e-10), 1e-10)
+            inv_q = 1.0 / q
+            inv_1mq = 1.0 / (1.0 - q)
+            t1z_v = m * g * inv_q
+            t2z_v = m * (2.0 - g) * inv_1mq
+            t2v = t2z_v * inv_1mq
+            ts[li] = t1z_v * inv_q + t2v
+            tdz[li] = t1z_v - t2z_v
+            t2[li] = t2v
+            C[li] += t2v
+            Z0[li] += t2z_v
+
+        for k in range(K):
+            pk = pj[k]
+            zk = Z + k * nb
+            ak = A + k * nb
+            for li in range(nb):
+                zk[li] += pk * tdz[li]
+                ak[li] += pk * t2[li]
+
+        pr = 0
+        for k in range(K):
+            for k2 in range(k, K):
+                c = pj[k] * pj[k2]
+                h = H + pr * nb
+                for li in range(nb):
+                    h[li] += c * ts[li]
+                pr = pr + 1
+
+    for li in range(nb):
+        i = ib + li
+        xtx = XtX + <size_t>i * K * K
+        xtz = Xtz + <size_t>i * K
+        pr = 0
+        for k in range(K):
+            xtz[k] = Z[k * nb + li] + Z0[li]
+            for k2 in range(k, K):
+                v = H[pr * nb + li] - A[k * nb + li] - A[k2 * nb + li] + C[li]
+                xtx[k * K + k2] = v
+                xtx[k2 * K + k] = v
+                pr = pr + 1
+
 cpdef void compute_grad_hess_Q(const uint8_t[:,::1] G, const double[:,::1] Q, const double[:,::1] P,
                                double[:,:,::1] XtX_q, double[:,::1] Xtz_q,
                                int M, int N, int K, int B) noexcept nogil:
     cdef:
-        int ib, i, i_end, j, k, k2
-        double qp, g
-        double term1_z, term2_z, term1, term2
-        double pk, t1pk, t2pk
+        int ib, i_end
+        int n_threads = openmp.omp_get_max_threads()
+        int B_par = (N + 2 * n_threads - 1) // (2 * n_threads)
+        double* ws
 
-    # Nearby individuals: G is row-major, so G[j, i:i+B] is contiguous and each
-    # P row is reused across the block.
-    for ib in prange(0, N, B, schedule='static'):
-        i_end = ib + B
-        if i_end > N:
-            i_end = N
+    # Keep at least ~2 blocks per thread; the result does not depend on B.
+    B_par = ((B_par + 7) // 8) * 8
+    if B_par < 16:
+        B_par = 16
+    if B > B_par:
+        B = B_par
 
-        for i in range(ib, i_end):
-            for k in range(K):
-                Xtz_q[i, k] = 0.0
-                for k2 in range(k, K):
-                    XtX_q[i, k, k2] = 0.0
-
-        for j in range(M):
-            for i in range(ib, i_end):
-                g = <double>G[j, i]
-                if g == 3.0:
-                    continue
-                qp = 0.0
-                for k in range(K):
-                    qp += Q[i, k] * P[j, k]
-                qp = fmax(fmin(qp, 1.0 - 1e-10), 1e-10)
-
-                term1_z = g / qp
-                term2_z = (2.0 - g) / (1.0 - qp)
-                term1 = term1_z / qp
-                term2 = term2_z / (1.0 - qp)
-
-                for k in range(K):
-                    pk = P[j, k]
-                    Xtz_q[i, k] += term1_z * pk + term2_z * (1.0 - pk)
-                    t1pk = term1 * pk
-                    t2pk = term2 * (1.0 - pk)
-                    for k2 in range(k, K):
-                        XtX_q[i, k, k2] += (
-                            t1pk * P[j, k2] + t2pk * (1.0 - P[j, k2])
-                        )
-
-        for i in range(ib, i_end):
-            for k in range(K):
-                for k2 in range(k):
-                    XtX_q[i, k, k2] = XtX_q[i, k2, k]
+    # Uses (1-p)(1-p)^T = 11^T - 1p^T - p1^T + pp^T, so per genotype only
+    # (term1 + term2) p p^T is accumulated, plus the rank-one corrections.
+    # Loops run over the B individuals of a block (contiguous in G and in the
+    # workspace) so they vectorize for any K.
+    with nogil, parallel():
+        ws = <double*>malloc(<size_t>B * (K * (K + 1) // 2 + 3 * K + 6) * sizeof(double))
+        for ib in prange(0, N, B, schedule='static'):
+            i_end = ib + B
+            if i_end > N:
+                i_end = N
+            _grad_hess_q_block(&G[0, 0], &Q[0, 0], &P[0, 0], &XtX_q[0, 0, 0], &Xtz_q[0, 0],
+                               ws, ib, i_end, M, N, K)
+        free(ws)
 
 cpdef void compute_grad_hess_P(const uint8_t[:,::1] G, const double[:,::1] Q, const double[:,::1] P,
                                double[:,:,::1] XtX_p, double[:,::1] Xtz_p, int M, int N, int K) noexcept nogil:
@@ -370,54 +444,86 @@ cpdef void update_q_sqp(const uint8_t[:,::1] G, const double[:,::1] Q, double[:,
     for i in prange(N, schedule='static'):
         update_single_q(i, Q, Q_next, XtX_q, Xtz_q, v_kk, K)
 
-cdef void update_single_p_fused(int j, const uint8_t[:,::1] G, const double[:,::1] Q, 
-                                const double[:,::1] P, double[:,::1] P_next, 
-                                int N, int K) noexcept nogil:
+cdef enum:
+    P_CHUNK = 256
+
+cdef void update_single_p_fused(int j, const uint8_t* g_row, const double* Qt,
+                                const double* P, double* P_next,
+                                int N, int K, double* ws) noexcept nogil:
     cdef:
         int sz = K + 1
-        int i, k, k2
-        double qp, g
-        double oneT = 1.0
-        double twoT = 2.0
-        double term1_z, term2_z, term1, term2, term_z_diff, term_sum
-        double tqk
+        int chunk = P_CHUNK
+        int i0, n, li, k, k2
+        double g, m, q, inv_q, inv_1mq, t1z, t2z, pk, s
         double tableau[17000]
         double d_buf[130]
         double tmp_buf[130]
         uint8_t swept_buf[128]
         double delta[128]
         double pj[128]
-        const uint8_t* g_row = &G[j, 0]
-        const double* q_row
+        const uint8_t* g_c
+        const double* qk
+        const double* qk2
+        double* wk
+        # Workspace layout, P_CHUNK entries per row
+        double* qp = ws
+        double* ts = qp + P_CHUNK
+        double* tdz = ts + P_CHUNK
+        double* w = tdz + P_CHUNK          # K rows: ts * Q[:, k]
 
     for k in range(sz * sz):
         tableau[k] = 0.0
 
     for k in range(K):
-        pj[k] = P[j, k]
+        pj[k] = P[<size_t>j * K + k]
 
-    for i in range(N):
-        if g_row[i] == 3:
-            continue
-        g = <double>g_row[i]
-        q_row = &Q[i, 0]
-        qp = 0.0
+    # Qt is Q transposed (K x N), so every loop below runs over contiguous
+    # individuals and vectorizes for any K.
+    i0 = 0
+    while i0 < N:
+        n = N - i0
+        if n > chunk:
+            n = chunk
+        g_c = g_row + i0
+
+        for li in range(n):
+            qp[li] = 0.0
         for k in range(K):
-            qp += q_row[k] * pj[k]
-        qp = fmax(fmin(qp, 1.0 - 1e-10), 1e-10)
+            pk = pj[k]
+            qk = Qt + <size_t>k * N + i0
+            for li in range(n):
+                qp[li] += pk * qk[li]
 
-        term1_z = g / qp
-        term2_z = (twoT - g) / (oneT - qp)
-        term1 = term1_z / qp
-        term2 = term2_z / (oneT - qp)
-        term_z_diff = term1_z - term2_z
-        term_sum = term1 + term2
+        # Missing genotypes get zero weight instead of being skipped.
+        for li in range(n):
+            g = <double>g_c[li]
+            m = 1.0 if g_c[li] != 3 else 0.0
+            q = fmax(fmin(qp[li], 1.0 - 1e-10), 1e-10)
+            inv_q = 1.0 / q
+            inv_1mq = 1.0 / (1.0 - q)
+            t1z = m * g * inv_q
+            t2z = m * (2.0 - g) * inv_1mq
+            ts[li] = t1z * inv_q + t2z * inv_1mq
+            tdz[li] = t1z - t2z
 
         for k in range(K):
-            tableau[k * sz + K] += term_z_diff * q_row[k]
-            tqk = term_sum * q_row[k]
+            qk = Qt + <size_t>k * N + i0
+            wk = w + k * P_CHUNK
+            s = 0.0
+            for li in range(n):
+                wk[li] = ts[li] * qk[li]
+                s += tdz[li] * qk[li]
+            tableau[k * sz + K] += s
+
+        for k in range(K):
+            wk = w + k * P_CHUNK
             for k2 in range(k, K):
-                tableau[k * sz + k2] += tqk * q_row[k2]
+                qk2 = Qt + <size_t>k2 * N + i0
+                s = 0.0
+                for li in range(n):
+                    s += wk[li] * qk2[li]
+                tableau[k * sz + k2] += s
+        i0 = i0 + chunk
 
     for k in range(K):
         tableau[K * sz + k] = tableau[k * sz + K]
@@ -427,14 +533,26 @@ cdef void update_single_p_fused(int j, const uint8_t[:,::1] G, const double[:,::
     quadratic_program_local(delta, tableau, pj, K, 0, d_buf, tmp_buf, swept_buf)
 
     for k in range(K):
-        P_next[j, k] = pj[k] + delta[k]
-    project_p_box_row(&P_next[j, 0], K, 1e-5)
+        P_next[<size_t>j * K + k] = pj[k] + delta[k]
+    project_p_box_row(&P_next[<size_t>j * K], K, 1e-5)
 
 cpdef void update_p_sqp_fused(const uint8_t[:,::1] G, const double[:,::1] Q, const double[:,::1] P, 
                               double[:,::1] P_next, int M, int N, int K) noexcept nogil:
-    cdef int j
-    for j in prange(M, schedule='static'):
-        update_single_p_fused(j, G, Q, P, P_next, N, K)
+    cdef:
+        int i, j, k
+        double* Qt = <double*>malloc(<size_t>K * N * sizeof(double))
+        double* ws
+
+    for k in range(K):
+        for i in range(N):
+            Qt[<size_t>k * N + i] = Q[i, k]
+
+    with nogil, parallel():
+        ws = <double*>malloc(<size_t>(K + 3) * P_CHUNK * sizeof(double))
+        for j in prange(M, schedule='static'):
+            update_single_p_fused(j, &G[j, 0], Qt, &P[0, 0], &P_next[0, 0], N, K, ws)
+        free(ws)
+    free(Qt)
 
 cpdef void update_p_sqp_unfused(const uint8_t[:,::1] G, const double[:,::1] Q, const double[:,::1] P, 
                                 double[:,::1] P_next, double[:,:,::1] XtX_p, double[:,::1] Xtz_p, 

@@ -34,24 +34,33 @@ def ALS(U: np.ndarray, S: np.ndarray, V: np.ndarray, f: np.ndarray,
     t0 = time.time()
     rng = np.random.default_rng(seed)
 
-    Z_half = np.ascontiguousarray(0.5 * (U * S), dtype=np.float64)
-    V_64 = np.ascontiguousarray(V, dtype=np.float64)
-    V_T = np.ascontiguousarray(V_64.T)
     f_64 = np.ascontiguousarray(f, dtype=np.float64)
+
+    # The genotype model is Z_half @ V^T + f 1^T. Appending f to Z and a column
+    # of ones to V turns it into a single product Z_aug @ V_aug^T.
+    k_svd = U.shape[1]
+    Z_aug = np.empty((M, k_svd + 1), dtype=np.float64)
+    Z_aug[:, :k_svd] = 0.5 * (U * S)
+    Z_aug[:, k_svd] = f_64
+    Z_aug_T = np.ascontiguousarray(Z_aug.T)
+    V_aug = np.ones((N, k_svd + 1), dtype=np.float64)
+    V_aug[:, :k_svd] = V
+    V_aug_T = np.ascontiguousarray(V_aug.T)
 
     # Fisher information curvature weights: 1 / max(f * (1 - f), 1e-3)
     w2 = 1.0 / np.maximum(f_64 * (1.0 - f_64), 1e-3)
     w2 /= np.mean(w2)
-    Z_half_w2_T = np.ascontiguousarray((Z_half * w2[:, None]).T)
-    f_w2 = f_64 * w2
+    w2_col = w2[:, None]
 
     P = rng.random(size=(M, K), dtype=np.float64)
     tools.mapP_d(P, M, K)
+    WP = np.empty((M, K), dtype=np.float64)
 
     # Initialize Q with Fisher curvature weighting
-    A_cov_P = np.ascontiguousarray(P.T @ (w2[:, None] * P), dtype=np.float64)
+    np.multiply(P, w2_col, out=WP)
+    A_cov_P = np.ascontiguousarray(P.T @ WP, dtype=np.float64)
     pinv_P = np.linalg.pinv(A_cov_P)
-    Q = V_64 @ ((Z_half_w2_T @ P) @ pinv_P) + ((f_w2 @ P) @ pinv_P)
+    Q = V_aug @ ((Z_aug_T @ WP) @ pinv_P)
     tools.mapQ_d(Q, N, K)
 
     Q_prev = Q.copy()
@@ -71,16 +80,15 @@ def ALS(U: np.ndarray, S: np.ndarray, V: np.ndarray, f: np.ndarray,
 
         # Update P
         A_cov_Q = np.ascontiguousarray(Q_use.T @ Q_use, dtype=np.float64)
-        np.matmul(Z_half, V_T @ Q_use, out=B_target_P)
-        B_target_P += f_64[:, None] * Q_use.sum(axis=0)
+        np.matmul(Z_aug, V_aug_T @ Q_use, out=B_target_P)
 
         batch_bvls_bpp(A_cov_Q, B_target_P, P, 0.0, 1.0)
         tools.mapP_d(P, M, K)
 
         # Update Q (weighted by Fisher curvature)
-        A_cov_P = np.ascontiguousarray(P.T @ (w2[:, None] * P), dtype=np.float64)
-        np.matmul(V_64, Z_half_w2_T @ P, out=B_target_Q)
-        B_target_Q += f_w2 @ P
+        np.multiply(P, w2_col, out=WP)
+        A_cov_P = np.ascontiguousarray(P.T @ WP, dtype=np.float64)
+        np.matmul(V_aug, Z_aug_T @ WP, out=B_target_Q)
 
         batch_bvls_bpp(A_cov_P, B_target_Q, Q_next, 0.0, 1.0)
         tools.mapQ_d(Q_next, N, K)
