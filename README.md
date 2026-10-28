@@ -178,9 +178,10 @@ $ adamixture-supervised \
     --data_path all_samples.bed \
     --labels labels.txt \
     --save_dir supervised_out/ \
-    --name supervised_run \
-    -k 8
+    --name supervised_run
 ```
+
+K is the number of distinct population names in the labels file, so `-k` is not passed. As with `adamixture`, the Adam-EM tuning options are listed only by `adamixture-supervised --help-adam`.
 
 ## Other options
 
@@ -190,13 +191,21 @@ All hyperparameters and flags can be explored with:
 $ adamixture --help
 ```
 
+The help groups the options by purpose (required arguments, number of populations, general, input filtering, optimization, initialization and plotting). The Adam-EM tuning options are only relevant with `--algorithm adamem`, so they are hidden from `--help`; list them with:
+
+```console
+$ adamixture --help-adam
+```
+
 Key arguments:
 
 | Argument &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Default | Description |
 |---|---|---|
+| `--algorithm` | `brqn` | Solver: SQP + ZAL quasi-Newton (`brqn`) or Adam-EM (`adamem`). |
 | `--init` | `als` | Initialization method: SVD+ALS (`als`) or random EM priming (`em`). |
 | `--tol` | `0.1` | Convergence tolerance for log-likelihood changes. |
-| `--max_iter` | `10000` | Maximum optimization iterations. |
+| `--max_iter` | `10000` | Maximum solver iterations (BR-QN or Adam-EM). |
+| `--patience` | `3` | Iterations without log-likelihood improvement before stopping. |
 | `-t` | `1` | Number of CPU threads. |
 | `-s` | `42` | Random seed. |
 | `--device` | `cpu` | Device to use: `cpu`, `gpu`, or `mps`. |
@@ -211,7 +220,7 @@ Key arguments:
 
 The ADAMIXTURE [paper](https://doi.org/10.1093/bioinformatics/btag236) introduced Adam-EM as an adaptive first-order optimizer for admixture inference. The package still includes this solver via `--algorithm adamem`.
 
-In the current implementation, the default is `--algorithm brqn`. Empirical benchmarking showed that block relaxation with ZAL quasi-Newton acceleration, when paired with our improved SVD+ALS initialization, reaches high-quality solutions in fewer iterations and better wall-clock time. For that reason, BR-QN is the default solver, while Adam-EM remains available for experimentation and reproducibility. Adam-EM tuning parameters are documented in [Troubleshooting and Tips](docs/troubleshooting.md).
+In the current implementation, the default is `--algorithm brqn`. Empirical benchmarking showed that block relaxation with ZAL quasi-Newton acceleration, when paired with our improved SVD+ALS initialization, reaches high-quality solutions in fewer iterations and better wall-clock time. For that reason, BR-QN is the default solver, while Adam-EM remains available for experimentation and reproducibility. Adam-EM tuning parameters are listed by `adamixture --help-adam` and documented in [Troubleshooting and Tips](docs/troubleshooting.md).
 
 
 ## Troubleshooting and Tips

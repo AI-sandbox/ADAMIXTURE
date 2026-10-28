@@ -13,7 +13,7 @@ os.environ.setdefault("TORCHDYNAMO_SUPPRESS_ERRORS", "1")
 
 from ._version import __version__
 from .compat import Device, require_torch
-from .entry import _fix_macos_libomp, print_adamixture_banner
+from .entry import AdamHelpAction, _fix_macos_libomp, print_adamixture_banner
 
 _fix_macos_libomp()
 
@@ -21,6 +21,89 @@ import numpy as np
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
 log = logging.getLogger(__name__)
+
+
+def build_parser(show_adam: bool = False) -> configargparse.ArgumentParser:
+    """
+    Description:
+    Builds the adamixture-supervised argument parser.
+
+    Args:
+        show_adam (bool): Whether the Adam-EM tuning options are listed in the help.
+            They are always accepted on the command line.
+
+    Returns:
+        configargparse.ArgumentParser: Configured parser.
+    """
+    parser = configargparse.ArgumentParser(
+        prog="adamixture-supervised",
+        description=(
+            "ADAMIXTURE supervised mode. "
+            "Uses known population assignments for a subset of samples to "
+            "anchor the allele-frequency model while estimating ancestry "
+            "proportions for all samples."
+        ),
+        epilog=None if show_adam else 'Adam-EM tuning options (--algorithm adamem) are hidden; run "adamixture-supervised --help-adam" to list them.',
+        config_file_parser_class=configargparse.YAMLConfigFileParser,
+    )
+    parser.add_argument("--help-adam", action=AdamHelpAction, builder=build_parser, help="Show help including the Adam-EM tuning options and exit.")
+
+    required = parser.add_argument_group("required arguments")
+    required.add_argument("--data_path", required=True, type=str, help="Input genotype file (BED, PGEN, VCF or BCF).")
+    required.add_argument("--save_dir", required=True, type=str, help="Output directory.")
+    required.add_argument("--name", required=True, type=str, help="Experiment/run name used as output file prefix.")
+    required.add_argument(
+        "--labels", required=True, type=str,
+        help=(
+            "Population labels file (one label per sample, one per line). "
+            "Use a population name for labeled samples and '-' for unlabeled. "
+            "Also used as level-1 plot labels."
+        ),
+    )
+
+    supervision = parser.add_argument_group("supervision")
+    supervision.add_argument(
+        "--level", type=int, default=1, choices=[1, 2, 3],
+        help="Labels level to use for supervision: 1 = --labels, 2 = --labels2, 3 = --labels3 (default: 1).",
+    )
+    supervision.add_argument("--labels2", type=str, help="Level-2 grouping labels file (one per sample).")
+    supervision.add_argument("--labels3", type=str, help="Level-3 grouping labels file (one per sample).")
+
+    general = parser.add_argument_group("general")
+    general.add_argument("-t", "--threads", type=int, default=1, help="Number of CPU threads (default: 1).")
+    general.add_argument("-s", "--seed", type=int, default=42, help="Random seed (default: 42).")
+    general.add_argument("--device", type=str, default="cpu", help="Computation device: cpu, cuda, or mps (default: cpu).")
+    general.add_argument("--algorithm", choices=["brqn", "adamem"], default="brqn", help="Solver: brqn (SQP + ZAL quasi-Newton) or adamem (Adam-EM) (default: brqn).")
+    general.add_argument("--chunk_size", type=int, default=4096, help="SNP chunk size for I/O (default: 4096).")
+    general.add_argument("--no_freqs", action="store_true", help="Do not save the P matrix.")
+
+    data = parser.add_argument_group("input filtering")
+    data.add_argument("--chrom_mode", choices=["all", "autosomes"], default="autosomes", help="Chromosome filter for input variants (default: autosomes).")
+    data.add_argument("--autosomes", type=int, default=22, help="Number of autosomes kept when --chrom_mode=autosomes (default: 22).")
+    data.add_argument("--specific_chrom", nargs="+", help="List of specific chromosomes to analyze when --chrom_mode=autosomes (overrides --autosomes).")
+
+    optim = parser.add_argument_group("optimization")
+    optim.add_argument("--max_iter", type=int, default=10000, help="Maximum number of solver iterations (default: 10000).")
+    optim.add_argument("--tol", type=float, default=0.1, help="Convergence tolerance on the log-likelihood change (default: 0.1).")
+    optim.add_argument("--patience", type=int, default=3, help="Iterations without log-likelihood improvement before stopping; with adamem, checks before decaying the learning rate (default: 3).")
+    optim.add_argument("--Q_hist", type=int, default=3, help=argparse.SUPPRESS)
+
+    plot = parser.add_argument_group("plotting")
+    plot.add_argument("--plot", nargs="*", default=[], help="Generate a plot after training (optional: [format] [dpi]) (default: png 300).")
+    plot.add_argument("--colors", type=str, help="Custom colors file (one per line).")
+
+    adam = parser.add_argument_group("Adam-EM tuning (only with --algorithm adamem)") if show_adam else parser
+    def adam_help(text: str) -> str:
+        return text if show_adam else argparse.SUPPRESS
+    adam.add_argument("--lr", type=float, default=0.005, help=adam_help("Learning rate (default: 0.005)."))
+    adam.add_argument("--beta1", type=float, default=0.80, help=adam_help("Adam beta1, 1st moment decay (default: 0.80)."))
+    adam.add_argument("--beta2", type=float, default=0.88, help=adam_help("Adam beta2, 2nd moment decay (default: 0.88)."))
+    adam.add_argument("--reg_adam", type=float, default=1e-8, help=adam_help("Adam epsilon for numerical stability (default: 1e-8)."))
+    adam.add_argument("--lr_decay", type=float, default=0.5, help=adam_help("Learning rate decay factor (default: 0.5)."))
+    adam.add_argument("--min_lr", type=float, default=1e-4, help=adam_help("Minimum learning rate (default: 1e-4)."))
+    adam.add_argument("--check", type=int, default=5, help=adam_help("Frequency of log-likelihood checks (default: 5)."))
+
+    return parser
 
 
 def parse_args(argv: list[str]) -> configargparse.Namespace:
@@ -47,77 +130,7 @@ def parse_args(argv: list[str]) -> configargparse.Namespace:
     for arg in argv:
         assert arg not in ("-k", "--k", "--min_k", "--max_k"), "K, min_k, and max_k are not allowed in supervised mode. K is automatically derived from the labels."
 
-    parser = configargparse.ArgumentParser(
-        prog="adamixture-supervised",
-        description=(
-            "ADAMIXTURE supervised mode. "
-            "Uses known population assignments for a subset of samples to "
-            "anchor the allele-frequency model while estimating ancestry "
-            "proportions for all samples."
-        ),
-        config_file_parser_class=configargparse.YAMLConfigFileParser,
-    )
-
-    # ── Required ──────────────────────────────────────────────────────────────
-    parser.add_argument(
-        "--data_path", required=True, type=str,
-        help="Path to the genotype data (BED, VCF or PGEN).",
-    )
-    parser.add_argument(
-        "--save_dir", required=True, type=str,
-        help="Directory where output files will be saved.",
-    )
-    parser.add_argument(
-        "--name", required=True, type=str,
-        help="Experiment/run name used as prefix for output files.",
-    )
-
-
-    # ── Adam-EM hyperparameters ────────────────────────────────────────────────
-    parser.add_argument("--lr",            type=float, default=0.005,  help="[only with --algorithm adamem] Learning rate (default: 0.005).")
-    parser.add_argument("--beta1",         type=float, default=0.80,   help="[only with --algorithm adamem] Adam beta1 (default: 0.80).")
-    parser.add_argument("--beta2",         type=float, default=0.88,   help="[only with --algorithm adamem] Adam beta2 (default: 0.88).")
-    parser.add_argument("--reg_adam",      type=float, default=1e-8,   help="[only with --algorithm adamem] Adam epsilon (default: 1e-8).")
-    parser.add_argument("--lr_decay",      type=float, default=0.5,    help="[only with --algorithm adamem] Learning rate decay factor (default: 0.5).")
-    parser.add_argument("--min_lr",        type=float, default=1e-4,   help="[only with --algorithm adamem] Minimum learning rate (default: 1e-4).")
-    parser.add_argument("--patience",      type=int,   default=3,      help="Patience for lr reduction (default: 3).")
-    parser.add_argument("--tol",           type=float, default=0.1,    help="Convergence tolerance (default: 0.1).")
-    parser.add_argument("--max_iter",      type=int,   default=10000,  help="Maximum Adam-EM iterations (default: 10000).")
-    parser.add_argument("--check",         type=int,   default=5,      help="[only with --algorithm adamem] Log-likelihood check frequency (default: 5).")
-    parser.add_argument('--algorithm', choices=['brqn', 'adamem'], default='brqn', help='Algorithm to use (brqn for SQP+ZAL QN, adamem for Adam-EM) (default: brqn).')
-    parser.add_argument('--Q_hist', type=int, default=3, help=argparse.SUPPRESS)
-
-    # ── Misc ──────────────────────────────────────────────────────────────────
-    parser.add_argument("-s", "--seed",    type=int,   default=42,     help="Random seed (default: 42).")
-    parser.add_argument("-t", "--threads", type=int,   default=1,      help="Number of CPU threads (default: 1).")
-    parser.add_argument("--chunk_size",    type=int,   default=4096,   help="SNP chunk size for I/O (default: 4096).")
-    parser.add_argument("--device",        type=str,   default="cpu",  help="Computation device: cpu, cuda, or mps (default: cpu).")
-    parser.add_argument("--no_freqs",      action="store_true",        help="Do not save the P matrix.")
-    parser.add_argument("--chrom_mode", choices=["all", "autosomes"], default="autosomes", help="Chromosome filter for input variants: all or autosomes (default: autosomes).")
-    parser.add_argument("--autosomes", type=int, default=22, help="Number of autosomes kept when --chrom_mode=autosomes (default: 22).")
-    parser.add_argument("--specific_chrom", nargs="+", help="List of specific chromosomes to analyze when --chrom_mode=autosomes (overrides --autosomes).")
-
-    # ── Labels & plotting ──────────────────────────────────────────────────────
-    parser.add_argument(
-        "--labels", required=True, type=str,
-        help=(
-            "Population labels file (one label per sample, one per line). "
-            "Use a population name for labeled samples and '-' for unlabeled. "
-            "Also used as level-1 plot labels."
-        ),
-    )
-    parser.add_argument("--labels2", type=str, help="Level-2 grouping labels file (one per sample).")
-    parser.add_argument("--labels3", type=str, help="Level-3 grouping labels file (one per sample).")
-    parser.add_argument("--colors",  type=str, help="Custom colors file (one per line).")
-    parser.add_argument(
-        "--level", type=int, default=1, choices=[1, 2, 3],
-        help=(
-            "Labels level to use for supervision (default: 1). "
-            "1 = --labels, 2 = --labels2, 3 = --labels3."
-        ),
-    )
-    parser.add_argument("--plot", nargs="*", default=[], help="Generate a plot after training. Optional: [format] [dpi].")
-
+    parser = build_parser()
     args = parser.parse_args(argv)
 
     # Validate that the labels file for the chosen level was provided.

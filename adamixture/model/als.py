@@ -36,8 +36,6 @@ def ALS(U: np.ndarray, S: np.ndarray, V: np.ndarray, f: np.ndarray,
 
     f_64 = np.ascontiguousarray(f, dtype=np.float64)
 
-    # The genotype model is Z_half @ V^T + f 1^T. Appending f to Z and a column
-    # of ones to V turns it into a single product Z_aug @ V_aug^T.
     k_svd = U.shape[1]
     Z_aug = np.empty((M, k_svd + 1), dtype=np.float64)
     Z_aug[:, :k_svd] = 0.5 * (U * S)

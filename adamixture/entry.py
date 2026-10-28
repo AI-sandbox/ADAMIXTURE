@@ -15,6 +15,101 @@ log = logging.getLogger(__name__)
 os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
 os.environ.setdefault("TORCHDYNAMO_SUPPRESS_ERRORS", "1")
 
+class AdamHelpAction(argparse.Action):
+    """
+    Description:
+    Prints the full help including the Adam-EM tuning options, then exits.
+    ``builder`` is the parser factory, called as ``builder(show_adam=True)``.
+    """
+    def __init__(self, option_strings, builder, dest=argparse.SUPPRESS, default=argparse.SUPPRESS, help=None):
+        super().__init__(option_strings=option_strings, dest=dest, default=default, nargs=0, help=help)
+        self.builder = builder
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        self.builder(show_adam=True).print_help()
+        parser.exit()
+
+def build_parser(show_adam: bool = False) -> configargparse.ArgumentParser:
+    """
+    Description:
+    Builds the ADAMIXTURE argument parser.
+
+    Args:
+        show_adam (bool): Whether the Adam-EM tuning options are listed in the help.
+            They are always accepted on the command line.
+
+    Returns:
+        configargparse.ArgumentParser: Configured parser.
+    """
+    parser = configargparse.ArgumentParser(
+        prog='adamixture',
+        description='Fast Biobank-Scale Population Genetics Clustering.',
+        epilog=None if show_adam else 'Adam-EM tuning options (--algorithm adamem) are hidden; run "adamixture --help-adam" to list them.',
+        config_file_parser_class=configargparse.YAMLConfigFileParser
+    )
+    parser.add_argument('--help-adam', action=AdamHelpAction, builder=build_parser, help='Show help including the Adam-EM tuning options and exit.')
+
+    required = parser.add_argument_group('required arguments')
+    required.add_argument('--data_path', required=True, type=str, help='Input genotype file (BED, PGEN, VCF or BCF).')
+    required.add_argument('--save_dir', required=True, type=str, help='Output directory.')
+    required.add_argument('--name', required=True, type=str, help='Experiment/model name used as output file prefix.')
+
+    k_group = parser.add_argument_group('number of populations (use -k, or --min_k and --max_k)')
+    k_group.add_argument('-k', '--k', required=False, type=int, help='Number of populations/clusters (single run). K=1 is the no-structure null model.')
+    k_group.add_argument('--min_k', required=False, type=int, help='Minimum K for multi-K sweep (inclusive). K=1 is the no-structure null model.')
+    k_group.add_argument('--max_k', required=False, type=int, help='Maximum K for multi-K sweep (inclusive).')
+
+    general = parser.add_argument_group('general')
+    general.add_argument('-t', '--threads', required=False, default=1, type=int, help='Number of CPU threads (default: 1).')
+    general.add_argument('-s', '--seed', required=False, type=int, default=42, help='Random seed (default: 42).')
+    general.add_argument('--device', required=False, default='cpu', choices=['cpu', 'gpu', 'mps'], help='Device to use (default: cpu).')
+    general.add_argument('--algorithm', choices=['brqn', 'adamem'], default='brqn', help='Solver: brqn (SQP + ZAL quasi-Newton) or adamem (Adam-EM) (default: brqn).')
+    general.add_argument('--n_inits', type=int, default=1, help='Number of independent initializations; the run with the best log-likelihood is kept (default: 1).')
+    general.add_argument('--cv', nargs='?', const=5, default=0, type=int, help='Enable V-fold cross-validation on genotype entries; V is 5 if no value is given (default: disabled).')
+    general.add_argument('--no_freqs', action='store_true', default=False, help='Do not save the P (allele frequencies) matrix.')
+
+    data = parser.add_argument_group('input filtering')
+    data.add_argument('--chrom_mode', choices=['all', 'autosomes'], default='autosomes', help='Chromosome filter for input variants (default: autosomes).')
+    data.add_argument('--autosomes', type=int, default=22, help='Number of autosomes kept when --chrom_mode=autosomes (default: 22).')
+    data.add_argument('--specific_chrom', nargs='+', help='List of specific chromosomes to analyze when --chrom_mode=autosomes (overrides --autosomes).')
+
+    optim = parser.add_argument_group('optimization')
+    optim.add_argument('--max_iter', type=int, default=10000, help='Maximum number of solver iterations (default: 10000).')
+    optim.add_argument('--tol', type=float, default=0.1, help='Convergence tolerance on the log-likelihood change (default: 0.1).')
+    optim.add_argument('--patience', type=int, default=3, help='Iterations without log-likelihood improvement before stopping; with adamem, checks before decaying the learning rate (default: 3).')
+    optim.add_argument('--Q_hist', type=int, default=3, help=argparse.SUPPRESS)
+
+    init = parser.add_argument_group('initialization (SVD + ALS)')
+    init.add_argument('--init', choices=['em', 'als'], default='als', help='Initialization method: SVD+ALS (als) or random EM priming (em) (default: als).')
+    init.add_argument('--em_init_steps', type=int, default=5, help=argparse.SUPPRESS)
+    init.add_argument('--max_als', type=int, default=1000, help='Maximum number of ALS iterations (default: 1000).')
+    init.add_argument('--tol_als', type=float, default=1e-4, help='Convergence tolerance for ALS (default: 1e-4).')
+    init.add_argument('--beta_als', type=float, default=0.8, help='Momentum extrapolation factor for ALS, in [0, 1) (default: 0.8).')
+    init.add_argument('--power', type=int, default=5, help='Number of power iterations for SVD (default: 5).')
+    init.add_argument('--tol_svd', type=float, default=1e-1, help='Convergence tolerance for SVD (default: 1e-1).')
+    init.add_argument('--chunk_size', type=int, default=8192, help='Number of SNPs per chunk in SVD (default: 8192).')
+
+    plot = parser.add_argument_group('plotting')
+    plot.add_argument('--plot', nargs='*', help='Plot format and resolution: single plot for -k, combined sweep plot for multi-K (optional: [format] [dpi]) (default: png 300).')
+    plot.add_argument('--plot_single', nargs='*', help='[multi-K only] Individual plot for each K in the sweep (optional: [format] [dpi]) (default: png 300).')
+    plot.add_argument('--labels', type=str, help='Population labels file (level 1, one label per sample).')
+    plot.add_argument('--labels2', type=str, help='Level-2 population grouping file (one label per sample).')
+    plot.add_argument('--labels3', type=str, help='Level-3 population grouping file (one label per sample).')
+    plot.add_argument('--colors', type=str, help='Custom colors file (one color per line).')
+
+    adam = parser.add_argument_group('Adam-EM tuning (only with --algorithm adamem)') if show_adam else parser
+    def adam_help(text: str) -> str:
+        return text if show_adam else argparse.SUPPRESS
+    adam.add_argument('--lr', type=float, default=0.005, help=adam_help('Learning rate (default: 0.005).'))
+    adam.add_argument('--beta1', type=float, default=0.80, help=adam_help('Adam beta1, 1st moment decay (default: 0.80).'))
+    adam.add_argument('--beta2', type=float, default=0.88, help=adam_help('Adam beta2, 2nd moment decay (default: 0.88).'))
+    adam.add_argument('--reg_adam', type=float, default=1e-8, help=adam_help('Adam epsilon for numerical stability (default: 1e-8).'))
+    adam.add_argument('--lr_decay', type=float, default=0.5, help=adam_help('Learning rate decay factor (default: 0.5).'))
+    adam.add_argument('--min_lr', type=float, default=1e-4, help=adam_help('Minimum learning rate (default: 1e-4).'))
+    adam.add_argument('--check', type=int, default=5, help=adam_help('Frequency of log-likelihood checks (default: 5).'))
+
+    return parser
+
 def parse_args(argv: list[str]) -> configargparse.Namespace:
     """
     Description:
@@ -26,59 +121,7 @@ def parse_args(argv: list[str]) -> configargparse.Namespace:
     Returns:
         configargparse.Namespace: Parsed arguments object.
     """
-    parser = configargparse.ArgumentParser(
-        prog='adamixture',
-        description='Fast Biobank-Scale Population Genetics Clustering.',
-        config_file_parser_class=configargparse.YAMLConfigFileParser
-    )
-
-    parser.add_argument('--lr', type=float, default=0.005, help='[only with --algorithm adamem] Learning rate (default: 0.005).')
-    parser.add_argument('--beta1', type=float, default=0.80, help='[only with --algorithm adamem] Adam beta1 (1st moment decay) (default: 0.80).')
-    parser.add_argument('--beta2', type=float, default=0.88, help='[only with --algorithm adamem] Adam beta2 (2nd moment decay) (default: 0.88).')
-    parser.add_argument('--reg_adam', type=float, default=1e-8, help='[only with --algorithm adamem] Adam epsilon for numerical stability (default: 1e-8).')
-    parser.add_argument('--algorithm', choices=['brqn', 'adamem'], default='brqn', help='Algorithm to use (brqn for SQP+ZAL QN, adamem for Adam-EM) (default: brqn).')
-    parser.add_argument('--init', choices=['em', 'als'], default='als', help='Initialization method: random EM priming or SVD+ALS (default: als).')
-    parser.add_argument('--em_init_steps', type=int, default=5, help=argparse.SUPPRESS)
-    parser.add_argument('--Q_hist', type=int, default=3, help=argparse.SUPPRESS)
-
-    parser.add_argument('--lr_decay', type=float, default=0.5, help='[only with --algorithm adamem] Learning rate decay factor (default: 0.5).')
-    parser.add_argument('--min_lr', type=float, default=1e-4, help='[only with --algorithm adamem] Minimum learning rate value (default: 1e-4).')
-    parser.add_argument('--patience', type=int, default=3, help='Patience for Adam-EM learning-rate decay and BR-QN convergence (default: 3).')
-    parser.add_argument('--tol', type=float, default=0.1, help='Convergence tolerance (default: 0.1).')
-
-    parser.add_argument('-s', '--seed', required=False, type=int, default=42, help='Seed (default: 42).')
-    parser.add_argument('-k', '--k', required=False, type=int, help='Number of populations/clusters (single run). K=1 is the no-structure null model.')
-    parser.add_argument('--min_k', required=False, type=int, help='Minimum K for multi-K sweep (inclusive). K=1 is the no-structure null model.')
-    parser.add_argument('--max_k', required=False, type=int, help='Maximum K for multi-K sweep (inclusive).')
-
-    parser.add_argument('--save_dir', required=True, type=str, help='Save model in this directory.')
-    parser.add_argument('--data_path', required=True, type=str, help='Path containing the main data.')
-    parser.add_argument('--name', required=True, type=str, help='Experiment/model name.')
-    parser.add_argument('-t', '--threads', required=False, default=1, type=int, help='Number of threads to be used in the execution (default: 1).')
-    parser.add_argument('--device', required=False, default='cpu', choices=['cpu', 'gpu', 'mps'], help='Device to use (cpu, gpu, mps) (default: cpu).')
-    parser.add_argument('--chrom_mode', choices=['all', 'autosomes'], default='autosomes', help='Chromosome filter for input variants: all or autosomes (default: autosomes).')
-    parser.add_argument('--autosomes', type=int, default=22, help='Number of autosomes kept when --chrom_mode=autosomes (default: 22).')
-    parser.add_argument('--specific_chrom', nargs='+', help='List of specific chromosomes to analyze when --chrom_mode=autosomes (overrides --autosomes).')
-
-    parser.add_argument('--max_iter', type=int, default=10000, help='Maximum number of iterations for Adam EM (default: 10000).')
-    parser.add_argument('--check', type=int, default=5, help='[only with --algorithm adamem] Frequency of log-likelihood checks (default: 5).')
-    parser.add_argument('--no_freqs', action='store_true', default=False, help='Do not save the P (allele frequencies) matrix (default: False).')
-
-    parser.add_argument('--max_als', type=int, default=1000, help='Maximum number of iterations for ALS (default: 1000).')
-    parser.add_argument('--tol_als', type=float, default=1e-4, help='Convergence tolerance for ALS (default: 1e-4).')
-    parser.add_argument('--beta_als', type=float, default=0.8, help='Momentum extrapolation factor beta for ALS (default: 0.8).')
-    parser.add_argument('--power', type=int, default=5, help='Number of power iterations for SVD (default: 5).')
-    parser.add_argument('--tol_svd', type=float, default=1e-1, help='Convergence tolerance for SVD (default: 1e-1).')
-    parser.add_argument('--chunk_size', type=int, default=8192, help='Number of SNPs in chunk operations for SVD (default: 8192).')
-    parser.add_argument('--n_inits', type=int, default=1, help='Number of independent initializations; the run with the best log-likelihood is kept (default: 1).')
-    parser.add_argument('--cv', nargs='?', const=5, default=0, type=int, help='Enable v-fold cross-validation on genotype entries (default: 5).')
-    parser.add_argument('--plot', nargs='*', help='Generate plot (single plot for -k, or combined sweep plot for multi-K) (Optional: [format] [resolution]) (default: png 300).')
-    parser.add_argument('--plot_single', nargs='*', help='[Multi-K mode only] Generate individual plots for each K in the sweep (Optional: [format] [resolution]) (default: png 300).')
-    parser.add_argument('--labels', type=str, help='Path to population labels file (level 1, one label per sample).')
-    parser.add_argument('--labels2', type=str, help='Path to level-2 population grouping file (one label per sample).')
-    parser.add_argument('--labels3', type=str, help='Path to level-3 population grouping file (one label per sample).')
-    parser.add_argument('--colors', type=str, help='Path to custom colors file (one color per line).')
-
+    parser = build_parser()
     args = parser.parse_args(argv)
 
     # Validation: need either --k or both --min_k and --max_k

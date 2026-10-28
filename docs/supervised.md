@@ -7,8 +7,7 @@ $ adamixture-supervised \
     --data_path all_samples.bed \
     --labels labels.txt \
     --save_dir supervised_out/ \
-    --name supervised_run \
-    -k 8
+    --name supervised_run
 ```
 
 ## Labels file format
@@ -46,20 +45,23 @@ This lets you supervise at a coarser or finer grouping without duplicating files
 # Supervise using the coarser level-2 grouping
 $ adamixture-supervised --data_path data.bed \
     --labels fine.txt --labels2 coarse.txt \
-    --level 2 -k 5 --save_dir out/ --name run
+    --level 2 --save_dir out/ --name run
 ```
 
 ## Key arguments
 
 | Argument &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Description |
 |---|---|
-| `--data_path` | Path to genotype data (BED, VCF or PGEN). |
+| `--data_path` | Path to genotype data (BED, PGEN, VCF or BCF). |
 | `--labels` | Labels file (required). Population name or `-` per sample. |
 | `--level` | Labels level to use for supervision: `1`, `2`, or `3` (default: `1`). |
 | `--save_dir` | Output directory. |
 | `--name` | Run name prefix. |
-| `-k` / `--k` | Number of ancestral populations K. |
 | `--device` | Computation device: `cpu`, `cuda`, or `mps` (default: `cpu`). |
 | `--no_freqs` | Skip saving the P matrix. |
 
+K is not passed on the command line: it is the number of distinct population names in the selected labels file.
+
 Outputs: a `.Q` file (all samples) and optionally a `.P` file. All `--plot`, `--labels`, `--labels2`, `--labels3`, and `--colors` flags are supported.
+
+Run `adamixture-supervised --help` for all options. The Adam-EM tuning options (`--algorithm adamem`) are hidden from it; list them with `adamixture-supervised --help-adam`.
