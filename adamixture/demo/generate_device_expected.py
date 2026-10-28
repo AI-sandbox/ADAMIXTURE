@@ -120,6 +120,7 @@ def generate_algorithm(device: str, algorithm: str) -> None:
         init_original="als",
         q_hist=Q_HIST,
     )
+    dev_target = getattr(device_obj, "torch_device", device_obj)
 
     U_save, V_save = _canonicalize_svd(U, V)
     _save(out_dir / "demo_run.svd.U.expected", U_save)
@@ -136,7 +137,7 @@ def generate_algorithm(device: str, algorithm: str) -> None:
         K,
         MAX_ALS,
         TOL_ALS,
-        device_obj,
+        dev_target,
         BETA_ALS,
     )
     _save(out_dir / "demo_run.als.P.expected", P_als)
@@ -154,7 +155,7 @@ def generate_algorithm(device: str, algorithm: str) -> None:
             TOL,
             Q_HIST,
             PATIENCE,
-            device_obj,
+            dev_target,
             CHUNK_SIZE,
             threads_per_block,
         )
@@ -177,7 +178,7 @@ def generate_algorithm(device: str, algorithm: str) -> None:
             MIN_LR,
             PATIENCE,
             TOL,
-            device_obj,
+            dev_target,
             CHUNK_SIZE,
             threads_per_block,
         )

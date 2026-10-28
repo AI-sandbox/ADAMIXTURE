@@ -84,6 +84,7 @@ def _mps_steps(mps_bed_data, *, algorithm: str):
         init_original="als",
         q_hist=Q_HIST,
     )
+    dev_target = getattr(device_obj, "torch_device", device_obj)
     P_als, Q_als = ALS_gpu(
         U.contiguous(),
         S.contiguous(),
@@ -94,7 +95,7 @@ def _mps_steps(mps_bed_data, *, algorithm: str):
         K,
         MAX_ALS,
         TOL_ALS,
-        device_obj,
+        dev_target,
         BETA_ALS,
     )
     if is_brqn:
@@ -109,7 +110,7 @@ def _mps_steps(mps_bed_data, *, algorithm: str):
             TOL,
             Q_HIST,
             PATIENCE,
-            device_obj,
+            dev_target,
             CHUNK_SIZE,
             threads_per_block,
         )
@@ -131,7 +132,7 @@ def _mps_steps(mps_bed_data, *, algorithm: str):
             MIN_LR,
             PATIENCE,
             TOL_ADAM,
-            device_obj,
+            dev_target,
             CHUNK_SIZE,
             threads_per_block,
         )
