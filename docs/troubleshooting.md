@@ -49,7 +49,7 @@ Adam-EM-specific parameters (hidden from `--help`; run `adamixture --help-adam` 
 | `--lr_decay` | `0.5` | Learning-rate decay factor |
 | `--min_lr` | `1e-4` | Minimum learning rate |
 | `--patience` | `3` | Checks without improvement before decaying the learning rate; also used by BR-QN convergence |
-| `--tol` | `0.1` | Convergence tolerance used by the Adam-EM stopping/check logic |
+| `--tol` | `1e-4` | Convergence tolerance used by the Adam-EM stopping/check logic |
 | `--max_iter` | `10000` | Maximum Adam-EM iterations |
 | `--check` | `5` | Log-likelihood evaluation frequency |
 

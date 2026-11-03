@@ -74,7 +74,7 @@ def build_parser(show_adam: bool = False) -> configargparse.ArgumentParser:
 
     optim = parser.add_argument_group('optimization')
     optim.add_argument('--max_iter', type=int, default=10000, help='Maximum number of solver iterations (default: 10000).')
-    optim.add_argument('--tol', type=float, default=0.1, help='Convergence tolerance on the log-likelihood change (default: 0.1).')
+    optim.add_argument('--tol', type=float, default=1e-4, help='Convergence tolerance on the log-likelihood change (default: 1e-4).')
     optim.add_argument('--patience', type=int, default=3, help='Iterations without log-likelihood improvement before stopping; with adamem, checks before decaying the learning rate (default: 3).')
     optim.add_argument('--Q_hist', type=int, default=3, help=argparse.SUPPRESS)
 
