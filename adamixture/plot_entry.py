@@ -1,6 +1,7 @@
 import argparse
 import logging
 import sys
+from collections import Counter
 from pathlib import Path
 
 from ._version import __version__
@@ -11,6 +12,7 @@ _fix_macos_libomp()
 import matplotlib.pyplot as plt
 import numpy as np
 
+from .src import utils
 from .src.plot import align_clusters_clumppling, plot_clumppling_mode_graph
 
 # Global logging configuration
@@ -236,6 +238,9 @@ def main() -> None:
     for run in runs_info:
         Q = np.loadtxt(run['path'])
         all_qs.append({'id': run['id'], 'K': run['K'], 'Q': Q})
+
+    if any(n > 1 for n in Counter(run['K'] for run in all_qs).values()):
+        log.warning(utils.clumppling_replicate_warning("plot"))
 
     custom_colors = None
     max_k = max(run['K'] for run in all_qs)

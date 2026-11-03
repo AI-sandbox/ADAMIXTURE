@@ -5,6 +5,7 @@ import pytest
 
 from adamixture.src import clumppling
 from adamixture.src.plot import align_clusters_clumppling
+from adamixture.src.utils import clumppling_replicate_warning
 from adamixture.src.utils_c.cython import clumppling as kernels
 
 # Published moments of the Tracy-Widom law of index 1.
@@ -52,6 +53,14 @@ def test_align_ilp_recovers_a_permuted_copy() -> None:
 
     assert opt_obj == pytest.approx(0.0, abs=1e-12)
     assert idxQ2P == list(perm)
+
+
+def test_clumppling_replicate_warning_covers_svd_repeats_and_mixed_runs() -> None:
+    for where in ("train", "plot"):
+        message = clumppling_replicate_warning(where)
+        assert "--init em" in message
+        assert "do not mix" in message
+        assert "clumppling" in message
 
 
 def test_align_clusters_clumppling_undoes_a_column_permutation() -> None:

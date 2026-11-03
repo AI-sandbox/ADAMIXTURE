@@ -371,6 +371,35 @@ def get_dtype(device: Any) -> Any:
     return torch.float64
 
 
+def clumppling_replicate_warning(where: str) -> str:
+    """
+    Description:
+    Warning for the two cases where several runs aligned with clumppling do not
+    explore ancestry modes: repeats of an SVD initialization, which land in the
+    same solution, and a mixture of SVD and random initializations, which
+    over-weights the SVD solution.
+
+    Args:
+        where (str): ``train`` when the run itself uses SVD initialization,
+            ``plot`` when several Q matrices of one K are about to be aligned.
+
+    Returns:
+        str: Warning text, already indented for the run log.
+    """
+    if where == "train":
+        lead = "SVD initialization (--init als) returns the same solution across seeds."
+    else:
+        lead = (
+            "if these replicates were started with SVD (--init als, the default), "
+            "they repeat the same solution."
+        )
+    return (
+        f"    Warning: {lead} Aligning those Q matrices with clumppling does not "
+        "explore ancestry modes. Use --init em for those replicates, and do not "
+        "mix SVD and random runs in the same alignment."
+    )
+
+
 def write_outputs(Q: np.ndarray, run_name: str, K: int, out_path: str | Path, P: np.ndarray = None) -> None:
     """
     Description:

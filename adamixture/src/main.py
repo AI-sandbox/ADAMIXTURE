@@ -40,6 +40,9 @@ def main(args: argparse.Namespace, t0: float) -> int:
 
         K_max = max(k_values)
 
+        if args.init == "als":
+            log.warning(utils.clumppling_replicate_warning("train"))
+
         Path(args.save_dir).mkdir(parents=True, exist_ok=True)
 
         training_packed = args.device in ("gpu", "cuda", "mps") or 'cuda' in args.device

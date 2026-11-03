@@ -87,6 +87,8 @@ $ adamixture-plot \
     --format png
 ```
 
+Repeats started with SVD (`--init als`, the default) land in the same solution, so aligning them here does not explore ancestry modes. Replicates meant for clumppling should use `--init em`, and SVD runs should not be mixed with random runs in the same filemap: the SVD solution would be over-weighted. `adamixture-plot` prints this warning when the filemap has more than one run of the same K.
+
 When **`--clumppling`** is enabled, you can fine-tune mode detection using the following parameters:
 
 | Argument &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Description |
