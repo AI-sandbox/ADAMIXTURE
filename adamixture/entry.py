@@ -85,6 +85,7 @@ def build_parser(show_adam: bool = False) -> configargparse.ArgumentParser:
     init.add_argument('--max_als', type=int, default=1000, help='Maximum number of ALS iterations (default: 1000).')
     init.add_argument('--tol_als', type=float, default=1e-4, help='Convergence tolerance for ALS (default: 1e-4).')
     init.add_argument('--beta_als', type=float, default=0.8, help='Momentum extrapolation factor for ALS, in [0, 1) (default: 0.8).')
+    init.add_argument('--als_starts', type=int, default=3, help='ALS starts on the same SVD; the one with the best log-likelihood is kept (default: 3).')
     init.add_argument('--power', type=int, default=5, help='Number of power iterations for SVD (default: 5).')
     init.add_argument('--tol_svd', type=float, default=1e-1, help='Convergence tolerance for SVD (default: 1e-1).')
     init.add_argument('--chunk_size', type=int, default=8192, help='Number of SNPs per chunk in SVD (default: 8192).')
@@ -172,6 +173,8 @@ def parse_args(argv: list[str]) -> configargparse.Namespace:
         parser.error("--tol must be greater than 0.")
     if not (0.0 <= args.beta_als < 1.0):
         parser.error("--beta_als must be in [0, 1).")
+    if args.als_starts < 1:
+        parser.error("--als_starts must be at least 1.")
     if args.Q_hist < 1:
         parser.error("--Q_hist must be at least 1.")
     if args.chrom_mode == "autosomes" and not args.specific_chrom and args.autosomes < 1:

@@ -173,12 +173,54 @@ def initialize_em_gpu(G: Any, seed: int, M: int, N: int, K: int,
     return P, Q
 
 
+def run_als(G: "torch.Tensor | np.ndarray", U: Any, S: Any, V: Any,
+            f: "np.ndarray | torch.Tensor", seed: int, M: int, N: int, K: int,
+            max_als: int, tol_als: float, beta_als: float, als_starts: int,
+            device_obj: "Device | Any", chunk_size: int,
+            threads_per_block: int) -> tuple:
+    """
+    Description:
+    Runs ALS from ``als_starts`` random P initialisations (seeds ``seed``,
+    ``seed + 1000``, ...) on the same SVD factors and keeps the start with the
+    highest log-likelihood. A single ALS start occasionally lands in a poor
+    mode; the SVD is shared, so extra starts only cost ALS iterations.
+
+    Returns:
+        tuple: (P, Q, logl) of the best start.
+    """
+    if device_obj.type == 'cpu':
+        log.info("    Running ALS...")
+    else:
+        from ..model.als_gpu import ALS_gpu
+        dev_target = device_obj.torch_device if hasattr(device_obj, 'torch_device') else device_obj
+        U, S, V = U.contiguous(), S.contiguous(), V.contiguous()
+        logl_calc = utils.get_logl_calculator(device_obj)
+        log.info(f"    Running ALS on GPU ({device_obj})...")
+
+    best = None
+    for start in range(max(1, als_starts)):
+        als_seed = seed + 1000 * start
+        if device_obj.type == 'cpu':
+            P, Q = ALS(U, S, V, f, als_seed, M, N, K, max_als, tol_als, beta=beta_als)
+            logl = tools.loglikelihood(G, P, Q)
+        else:
+            P, Q = ALS_gpu(U, S, V, f, als_seed, M, K, max_als, tol_als, dev_target, beta=beta_als)
+            utils.clear_device_cache(device_obj)
+            logl = logl_calc(G, P, Q, M, N, chunk_size, threads_per_block)
+        if als_starts > 1:
+            log.info(f"        ALS start {start + 1}/{als_starts}: log-likelihood {logl:.1f}.")
+        if best is None or logl > best[2]:
+            best = (P, Q, logl)
+    return best
+
+
 def initialize_k(G: "torch.Tensor | np.ndarray", N: int, M: int, K: int,
                   f: "np.ndarray | torch.Tensor", seed: int, power: int, tol_svd: float,
                   max_als: int, tol_als: float, chunk_size: int,
                   device_obj: "Device | Any", threads_per_block: int,
                   original: bool = False, init_original: str = 'em',
-                  em_init_steps: int = 5, beta_als: float = 0.8) -> tuple:
+                  em_init_steps: int = 5, beta_als: float = 0.8,
+                  als_starts: int = 3) -> tuple:
     """
     Description:
     Run one initialization (SVD + ALS, or random EM) for a single K value.
@@ -202,6 +244,7 @@ def initialize_k(G: "torch.Tensor | np.ndarray", N: int, M: int, K: int,
         init_original (str): Initialization method ('em' or 'als').
         em_init_steps (int): Number of EM priming steps.
         beta_als (float): Momentum extrapolation factor for ALS.
+        als_starts (int): ALS starts on the shared SVD; the best one is kept.
 
     Returns:
         tuple: (P, Q, logl) — initialized matrices and initial log-likelihood.
@@ -222,22 +265,14 @@ def initialize_k(G: "torch.Tensor | np.ndarray", N: int, M: int, K: int,
     if device_obj.type == 'cpu':
         log.info("    Running SVD...\n")
         U, S, V = RSVD(G, N, M, f, K, seed, power, tol_svd, chunk_size)
-        log.info("    Running ALS...")
-        P, Q = ALS(U, S, V, f, seed, M, N, K, max_als, tol_als, beta=beta_als)
-        logl = tools.loglikelihood(G, P, Q)
     else:
         from ..model.svd_gpu import SVD_gpu
-        from ..model.als_gpu import ALS_gpu
         dev_target = device_obj.torch_device if hasattr(device_obj, 'torch_device') else device_obj
         log.info(f"    Running SVD on GPU ({device_obj})...\n")
         U, S, V = SVD_gpu(G, N, M, f, K, seed, power, tol_svd,
                           chunk_size, dev_target, threads_per_block)
-        log.info(f"    Running ALS on GPU ({device_obj})...")
-        P, Q = ALS_gpu(U.contiguous(), S.contiguous(), V.contiguous(),
-                       f, seed, M, K, max_als, tol_als, dev_target, beta=beta_als)
-        utils.clear_device_cache(device_obj)
-        logl_calc = utils.get_logl_calculator(device_obj)
-        logl = logl_calc(G, P, Q, M, N, chunk_size, threads_per_block)
+    P, Q, logl = run_als(G, U, S, V, f, seed, M, N, K, max_als, tol_als, beta_als,
+                         als_starts, device_obj, chunk_size, threads_per_block)
 
     log.info(f"    Initial log-likelihood for K={K}: {logl:.1f}.")
     return P, Q, logl
@@ -251,7 +286,8 @@ def train_k(G: "torch.Tensor | np.ndarray", N: int, M: int, K: int, U_max: "np.n
         P_init: "np.ndarray | torch.Tensor | None" = None,
         Q_init: "np.ndarray | torch.Tensor | None" = None,
         q_block: int | None = None,
-        beta_als: float = 0.8) -> "tuple[np.ndarray, np.ndarray] | tuple[torch.Tensor, torch.Tensor]":
+        beta_als: float = 0.8,
+        als_starts: int = 3) -> "tuple[np.ndarray, np.ndarray] | tuple[torch.Tensor, torch.Tensor]":
     """
     Description:
     Trains ADAMIXTURE for a single K value, using pre-computed SVD results.
@@ -292,6 +328,8 @@ def train_k(G: "torch.Tensor | np.ndarray", N: int, M: int, K: int, U_max: "np.n
             provided with P_init, skip the initialization phase. Defaults to None.
         q_block (int | None): Q-Hessian tile size. Computed once per K in the
             outer run and reused by CV folds. If None, derived from K.
+        beta_als (float): Momentum extrapolation factor for ALS.
+        als_starts (int): ALS starts on the shared SVD; the best one is kept.
 
     Returns:
         tuple: (P, Q) — numpy arrays on CPU, GPU tensors on CUDA/MPS.
@@ -303,31 +341,19 @@ def train_k(G: "torch.Tensor | np.ndarray", N: int, M: int, K: int, U_max: "np.n
         S = S_max[:K] if S_max is not None else None
         V = V_max[:, :K] if V_max is not None else None
 
-        if device_obj.type == 'cpu':
-            if original and init_original == 'em':
+        if original and init_original == 'em':
+            if device_obj.type == 'cpu':
                 P, Q = initialize_em_cpu(G, seed, M, N, K, em_init_steps)
+                logl = tools.loglikelihood(G, P, Q)
             else:
-                log.info("    Running ALS...")
-                P, Q = ALS(U, S, V, f, seed, M, N, K, max_als, tol_als, beta=beta_als)
-            logl = tools.loglikelihood(G, P, Q)
-            log.info(f"    Initial log-likelihood for K={K}: {logl:.1f}.")
-        else:
-            if original and init_original == 'em':
                 P, Q = initialize_em_gpu(G, seed, M, N, K, device_obj, chunk_size, threads_per_block, em_init_steps)
-            else:
-                from ..model.als_gpu import ALS_gpu
-                log.info(f"    Running ALS on GPU ({device_obj})...")
-                U_k = U.contiguous()
-                S_k = S.contiguous()
-                V_k = V.contiguous()
-                dev_target = device_obj.torch_device if hasattr(device_obj, 'torch_device') else device_obj
-                P, Q = ALS_gpu(U_k, S_k, V_k, f, seed, M, K, max_als, tol_als, dev_target, beta=beta_als)
-
-            utils.clear_device_cache(device_obj)
-
-            logl_calc = utils.get_logl_calculator(device_obj)
-            logl = logl_calc(G, P, Q, M, N, chunk_size, threads_per_block)
-            log.info(f"    Initial log-likelihood for K={K}: {logl:.1f}.")
+                utils.clear_device_cache(device_obj)
+                logl_calc = utils.get_logl_calculator(device_obj)
+                logl = logl_calc(G, P, Q, M, N, chunk_size, threads_per_block)
+        else:
+            P, Q, logl = run_als(G, U, S, V, f, seed, M, N, K, max_als, tol_als, beta_als,
+                                 als_starts, device_obj, chunk_size, threads_per_block)
+        log.info(f"    Initial log-likelihood for K={K}: {logl:.1f}.")
 
     if device_obj.type == 'cpu':
         if original:
