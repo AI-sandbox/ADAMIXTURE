@@ -117,7 +117,7 @@ def generate_algorithm(device: str, algorithm: str) -> None:
         CHUNK_SIZE,
         device,
         original=is_brqn,
-        init_original="als",
+        init_original="svd",
         q_hist=Q_HIST,
     )
     dev_target = getattr(device_obj, "torch_device", device_obj)

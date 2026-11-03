@@ -52,7 +52,7 @@ def parse_input() -> argparse.Namespace:
     cfg_group.add_argument("--threads", type=int, default=1, help="CPU cores to use")
     cfg_group.add_argument("--bound", type=float, default=1e-5, help="Numerical stability clip")
     cfg_group.add_argument("--inverse", action="store_true", help="Invert frequency coding (1-P)")
-    cfg_group.add_argument("--chrom_mode", choices=["all", "autosomes"], default="autosomes", help="Chromosome filter for input variants")
+    cfg_group.add_argument("--chrom_mode", choices=["all", "autosomes"], default="all", help="Chromosome filter for input variants (default: all).")
     cfg_group.add_argument("--autosomes", type=int, default=22, help="Number of autosomes kept when --chrom_mode=autosomes")
     cfg_group.add_argument("--specific_chrom", nargs="+", help="List of specific chromosomes to analyze when --chrom_mode=autosomes (overrides --autosomes)")
 

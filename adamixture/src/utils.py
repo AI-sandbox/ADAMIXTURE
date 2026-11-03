@@ -484,7 +484,7 @@ def clumppling_replicate_warning() -> str:
         str: Warning text, already indented for the run log.
     """
     return (
-        "    Warning: if these replicates were started with SVD (--init als, the default), "
+        "    Warning: if these replicates were started with SVD (--init svd, the default), "
         "they repeat the same solution. Aligning those Q matrices with clumppling does not "
         "explore ancestry modes. Use --init em for those replicates, and do not "
         "mix SVD and random runs in the same alignment."

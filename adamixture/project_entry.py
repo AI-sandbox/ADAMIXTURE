@@ -70,7 +70,7 @@ def parse_args(argv: list[str]) -> configargparse.Namespace:
     parser.add_argument("-t", "--threads", type=int,   default=1,      help="Number of CPU threads (default: 1).")
     parser.add_argument("--chunk_size",    type=int,   default=4096,   help="SNP chunk size for I/O (default: 4096).")
     parser.add_argument("--device",        type=str,   default="cpu",  help="Computation device: cpu, cuda, or mps (default: cpu).")
-    parser.add_argument("--chrom_mode", choices=["all", "autosomes"], default="autosomes", help="Chromosome filter for input variants: all or autosomes (default: autosomes).")
+    parser.add_argument("--chrom_mode", choices=["all", "autosomes"], default="all", help="Chromosome filter for input variants: all or autosomes (default: all).")
     parser.add_argument("--autosomes", type=int, default=22, help="Number of autosomes kept when --chrom_mode=autosomes (default: 22).")
     parser.add_argument("--specific_chrom", nargs="+", help="List of specific chromosomes to analyze when --chrom_mode=autosomes (overrides --autosomes).")
 

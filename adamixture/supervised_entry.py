@@ -78,7 +78,7 @@ def build_parser(show_adam: bool = False) -> configargparse.ArgumentParser:
     general.add_argument("--no_freqs", action="store_true", help="Do not save the P matrix.")
 
     data = parser.add_argument_group("input filtering")
-    data.add_argument("--chrom_mode", choices=["all", "autosomes"], default="autosomes", help="Chromosome filter for input variants (default: autosomes).")
+    data.add_argument("--chrom_mode", choices=["all", "autosomes"], default="all", help="Chromosome filter for input variants (default: all).")
     data.add_argument("--autosomes", type=int, default=22, help="Number of autosomes kept when --chrom_mode=autosomes (default: 22).")
     data.add_argument("--specific_chrom", nargs="+", help="List of specific chromosomes to analyze when --chrom_mode=autosomes (overrides --autosomes).")
 

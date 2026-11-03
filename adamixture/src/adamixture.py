@@ -38,7 +38,7 @@ def setup(G: Any, N: int, M: int, K_max: int, seed: int, power: int,
         chunk_size (int): Chunk size for batched operations.
         device (str): Target device string ('cpu', 'cuda', 'mps').
         original (bool): If True, run original ADMIXTURE after initialization.
-        init_original (str): Initialization used by --original ('em' or 'als').
+        init_original (str): Initialization method ('em' or 'svd').
         q_hist (int): ZAL-QN history depth used when original is True.
 
     Returns:
@@ -280,7 +280,7 @@ def train_k(G: "torch.Tensor | np.ndarray", N: int, M: int, K: int, U_max: "np.n
         original (bool): If True, run original ADMIXTURE algorithm.
         rtol (float): Convergence tolerance for original ADMIXTURE.
         Q_hist (int): History depth for original ADMIXTURE.
-        init_original (str): Initialization used by --original ('em' or 'als').
+        init_original (str): Initialization method ('em' or 'svd').
         P_init (np.ndarray | torch.Tensor | None): Pre-initialized P matrix. If
             provided with Q_init, skip the initialization phase. Defaults to None.
         Q_init (np.ndarray | torch.Tensor | None): Pre-initialized Q matrix. If

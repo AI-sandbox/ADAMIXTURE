@@ -10,7 +10,7 @@ echo "Using command: ${ADAMIXTURE_CMD}"
 command -v "${ADAMIXTURE_CMD}" 2>/dev/null || true
 
 if "${ADAMIXTURE_CMD}" --help 2>&1 | grep -q -- "--algorithm"; then
-  BRQN_ARGS="--algorithm brqn --init als"
+  BRQN_ARGS="--algorithm brqn --init svd"
 else
   BRQN_ARGS="--original"
 fi

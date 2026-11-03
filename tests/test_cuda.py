@@ -81,7 +81,7 @@ def _cuda_steps(cuda_bed_data, *, algorithm: str):
         CHUNK_SIZE,
         "cuda",
         original=is_brqn,
-        init_original="als",
+        init_original="svd",
         q_hist=Q_HIST,
     )
     dev_target = getattr(device_obj, "torch_device", device_obj)

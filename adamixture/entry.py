@@ -68,7 +68,7 @@ def build_parser(show_adam: bool = False) -> configargparse.ArgumentParser:
     general.add_argument('--no_freqs', action='store_true', default=False, help='Do not save the P (allele frequencies) matrix.')
 
     data = parser.add_argument_group('input filtering')
-    data.add_argument('--chrom_mode', choices=['all', 'autosomes'], default='autosomes', help='Chromosome filter for input variants (default: autosomes).')
+    data.add_argument('--chrom_mode', choices=['all', 'autosomes'], default='all', help='Chromosome filter for input variants (default: all).')
     data.add_argument('--autosomes', type=int, default=22, help='Number of autosomes kept when --chrom_mode=autosomes (default: 22).')
     data.add_argument('--specific_chrom', nargs='+', help='List of specific chromosomes to analyze when --chrom_mode=autosomes (overrides --autosomes).')
 
@@ -79,7 +79,7 @@ def build_parser(show_adam: bool = False) -> configargparse.ArgumentParser:
     optim.add_argument('--Q_hist', type=int, default=3, help=argparse.SUPPRESS)
 
     init = parser.add_argument_group('initialization (SVD + ALS)')
-    init.add_argument('--init', choices=['em', 'als'], default='als', help='Initialization method: SVD+ALS (als) or random EM priming (em) (default: als).')
+    init.add_argument('--init', choices=['em', 'svd'], default='svd', help='Initialization method: SVD+ALS (svd) or random EM priming (em) (default: svd).')
     init.add_argument('--em_init_steps', type=int, default=5, help=argparse.SUPPRESS)
     init.add_argument('--max_als', type=int, default=1000, help='Maximum number of ALS iterations (default: 1000).')
     init.add_argument('--tol_als', type=float, default=1e-4, help='Convergence tolerance for ALS (default: 1e-4).')

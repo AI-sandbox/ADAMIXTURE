@@ -126,7 +126,7 @@ def run(
         chunk_size,
         device,
         original=True,
-        init_original="als",
+        init_original="svd",
         q_hist=3,
     )
 
@@ -164,7 +164,7 @@ def run(
             original=True,
             rtol=tol,
             Q_hist=3,
-            init_original="als",
+            init_original="svd",
             em_init_steps=5,
             q_block=q_block,
             beta_als=beta_als,
