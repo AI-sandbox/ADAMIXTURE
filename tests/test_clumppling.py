@@ -57,7 +57,7 @@ def test_align_ilp_recovers_a_permuted_copy() -> None:
 
 def test_clumppling_replicate_warning_covers_svd_repeats_and_mixed_runs() -> None:
     message = clumppling_replicate_warning()
-    assert "--init em" in message
+    assert "--init random" in message
     assert "do not mix" in message
     assert "clumppling" in message
 

@@ -20,7 +20,7 @@ log = logging.getLogger(__name__)
 
 def setup(G: Any, N: int, M: int, K_max: int, seed: int, power: int,
           tol_svd: float, chunk_size: int, device: str | Any, original: bool = False,
-          init_original: str = 'em', q_hist: int = 3) -> tuple:
+          init_original: str = 'random', q_hist: int = 3) -> tuple:
     """
     Description:
     One-time initialisation shared across all K values in a sweep:
@@ -38,7 +38,7 @@ def setup(G: Any, N: int, M: int, K_max: int, seed: int, power: int,
         chunk_size (int): Chunk size for batched operations.
         device (str): Target device string ('cpu', 'cuda', 'mps').
         original (bool): If True, run original ADMIXTURE after initialization.
-        init_original (str): Initialization method ('em' or 'svd').
+        init_original (str): Initialization method ('random' or 'svd').
         q_hist (int): ZAL-QN history depth used when original is True.
 
     Returns:
@@ -59,7 +59,7 @@ def setup(G: Any, N: int, M: int, K_max: int, seed: int, power: int,
     utils.load_extensions(device_obj)
     threads_per_block = utils.get_tuning_params(device_obj)
 
-    if original and init_original == 'em':
+    if original and init_original == 'random':
         if device_obj.type != 'cpu':
             G = utils.manage_gpu_memory(
                 G,
@@ -72,7 +72,7 @@ def setup(G: Any, N: int, M: int, K_max: int, seed: int, power: int,
                 q_hist,
                 include_initialization=False,
             )
-        log.info("    Skipping SVD; --original uses random + EM initialization.\n")
+        log.info("    Skipping SVD; --init random uses random + EM initialization.\n")
         return device_obj, threads_per_block, None, None, None, None, G
 
     if device_obj.type == 'cpu':
@@ -241,7 +241,7 @@ def train_k(G: "torch.Tensor | np.ndarray", N: int, M: int, K: int, U_max: "np.n
         V_max: "np.ndarray | torch.Tensor", f: "np.ndarray | torch.Tensor", seed: int, lr: float, beta1: float, beta2: float, reg_adam: float,
         max_iter: int, check: int, max_als: int, tol_als: float, lr_decay: float, min_lr: float, chunk_size: int, patience: int, tol_adam: float,
         device_obj: "Device | Any", threads_per_block: int, original: bool = False, rtol: float = 1e-7, Q_hist: int = 3,
-        init_original: str = 'em', em_init_steps: int = 5,
+        init_original: str = 'random', em_init_steps: int = 5,
         P_init: "np.ndarray | torch.Tensor | None" = None,
         Q_init: "np.ndarray | torch.Tensor | None" = None,
         q_block: int | None = None,
@@ -280,7 +280,7 @@ def train_k(G: "torch.Tensor | np.ndarray", N: int, M: int, K: int, U_max: "np.n
         original (bool): If True, run original ADMIXTURE algorithm.
         rtol (float): Convergence tolerance for original ADMIXTURE.
         Q_hist (int): History depth for original ADMIXTURE.
-        init_original (str): Initialization method ('em' or 'svd').
+        init_original (str): Initialization method ('random' or 'svd').
         P_init (np.ndarray | torch.Tensor | None): Pre-initialized P matrix. If
             provided with Q_init, skip the initialization phase. Defaults to None.
         Q_init (np.ndarray | torch.Tensor | None): Pre-initialized Q matrix. If
@@ -301,7 +301,7 @@ def train_k(G: "torch.Tensor | np.ndarray", N: int, M: int, K: int, U_max: "np.n
         S = S_max[:K] if S_max is not None else None
         V = V_max[:, :K] if V_max is not None else None
 
-        if original and init_original == 'em':
+        if original and init_original == 'random':
             P, Q, logl = run_em_init(G, seed, M, N, K, em_init_steps, n_inits,
                                      device_obj, chunk_size, threads_per_block)
         else:

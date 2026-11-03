@@ -198,7 +198,7 @@ Key arguments:
 | Argument &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Default | Description |
 |---|---|---|
 | `--algorithm` | `brqn` | Solver: SQP + ZAL quasi-Newton (`brqn`) or Adam-EM (`adamem`). |
-| `--init` | `svd` | Initialization method: SVD+ALS (`svd`) or random EM priming (`em`). |
+| `--init` | `svd` | Initialization: SVD+ALS (`svd`) or random EM priming (`random`). For a given K the likelihood is highly multimodal, with one majority mode and minority modes for different population substructure; with multiple seeds, `svd` repeats the optimal mode and `random` explores the others. |
 | `--tol` | `0.1` | BR-QN convergence tolerance on the log-likelihood change. Adam-EM uses `--tol_adam` (default `0.1`). |
 | `--max_iter` | `10000` | Maximum solver iterations (BR-QN or Adam-EM). |
 | `--patience` | `3` | Iterations without log-likelihood improvement before stopping. |
@@ -206,7 +206,7 @@ Key arguments:
 | `-s` | `42` | Random seed. |
 | `--device` | `cpu` | Device to use: `cpu`, `gpu`, or `mps`. |
 | `--chunk_size` | `8192` | Number of SNPs in chunk operations. |
-| `--n_inits` | `3` | Number of initializations: ALS starts on the same SVD (or random EM primings with `--init em`); keeps the one with best log-likelihood. |
+| `--n_inits` | `3` | Number of initializations: ALS starts on the same SVD (or random EM primings with `--init random`); keeps the one with best log-likelihood. |
 | `--chrom_mode` | `all` | Chromosome filter: `all` keeps every chromosome; `autosomes` keeps autosomes `1 to --autosomes`. |
 | `--autosomes` | `22` | Number of autosomes kept when `--chrom_mode autosomes` (equivalent to `--specific_chrom 1 2 ... 22`). |
 | `--specific_chrom` | `None` | List of specific chromosomes to analyze when `--chrom_mode autosomes` (overrides `--autosomes`). |
