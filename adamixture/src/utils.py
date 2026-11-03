@@ -92,12 +92,18 @@ def _loaded_thread_libraries() -> list[str]:
     elif sys.platform == "win32":
         try:
             kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+            kernel32.GetModuleHandleW.argtypes = [ctypes.c_wchar_p]
+            kernel32.GetModuleHandleW.restype = ctypes.c_void_p
+            kernel32.GetModuleFileNameW.argtypes = [ctypes.c_void_p, ctypes.c_wchar_p, ctypes.c_uint32]
+            kernel32.GetModuleFileNameW.restype = ctypes.c_uint32
             for cand in ["vcomp140.dll", "vcomp.dll", "libomp.dll", "libgomp-1.dll", "libiomp5md.dll", "openblas.dll", "mkl_rt.dll"]:
                 h = kernel32.GetModuleHandleW(cand)
                 if h:
                     buf = ctypes.create_unicode_buffer(1024)
                     if kernel32.GetModuleFileNameW(h, buf, 1024):
                         paths.append(buf.value)
+                    else:
+                        paths.append(cand)
         except Exception:
             pass
     found: list[str] = []
