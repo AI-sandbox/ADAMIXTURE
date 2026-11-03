@@ -1,4 +1,3 @@
-import ctypes
 import subprocess
 import sys
 import textwrap
@@ -8,10 +7,11 @@ def test_set_cpu_threads_overrides_an_already_started_runtime() -> None:
     script = textwrap.dedent(
         """
         import ctypes
-        import torch
+        import adamixture.src.utils_c.cython.tools  # loads the OpenMP runtime
         lib = ctypes.CDLL(None)
         get = lib.omp_get_max_threads
         get.restype = ctypes.c_int
+        get()
         from adamixture.src.utils import set_cpu_threads
         set_cpu_threads(1)
         assert get() == 1
