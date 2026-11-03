@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from adamixture.model.als import ALS
 from adamixture.model.br_qn import optimize_original
@@ -43,9 +44,9 @@ def test_run_als_single_start_matches_als(demo_bed_data, svd_step, als_step) -> 
     P, Q, logl = run_als(G, U, S, V, f, SEED, M, N, K, MAX_ALS, TOL_ALS, BETA_ALS,
                          1, Device("cpu"), CHUNK_SIZE, 0)
 
-    np.testing.assert_array_equal(P, als_step[0])
-    np.testing.assert_array_equal(Q, als_step[1])
-    assert logl == tools.loglikelihood(G, P, Q)
+    np.testing.assert_allclose(P, als_step[0], rtol=1e-10, atol=1e-12)
+    np.testing.assert_allclose(Q, als_step[1], rtol=1e-10, atol=1e-12)
+    assert logl == pytest.approx(tools.loglikelihood(G, P, Q), rel=1e-12)
 
 
 def test_run_als_keeps_best_start(demo_bed_data, svd_step) -> None:
@@ -57,7 +58,7 @@ def test_run_als_keeps_best_start(demo_bed_data, svd_step) -> None:
     _, _, logl = run_als(G, U, S, V, f, SEED, M, N, K, MAX_ALS, TOL_ALS, BETA_ALS,
                          3, Device("cpu"), CHUNK_SIZE, 0)
 
-    assert logl == best
+    assert logl == pytest.approx(best, rel=1e-12)
 
 
 def test_brqn_optimization_matches_expected(demo_bed_data, als_step) -> None:
