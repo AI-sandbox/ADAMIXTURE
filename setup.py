@@ -1,6 +1,7 @@
 import logging
 import os
 import platform
+import re
 import sys
 
 import numpy
@@ -113,64 +114,65 @@ class build_ext_openmp(build_ext):
         return super().build_extension(ext)
 
 
+CYTHON_DIR = "adamixture/src/utils_c/cython"
+AVX2_DIR = "adamixture/src/utils_c/cython_avx2"
+# Kernels that are also built with AVX2 + FMA; cython/__init__.py picks that
+# build at import time when the CPU supports it.
+AVX2_MODULES = ("tools", "em", "br_qn", "bvls", "sqp")
+
+
+def avx2_compile_args() -> list[str] | None:
+    """Flags for the AVX2 + FMA kernel variants, or None when the wheel does
+    not target x86-64 (or a native build was requested)."""
+    if os.environ.get("ADAMIXTURE_NATIVE", "0") == "1" or os.environ.get("ADAMIXTURE_NO_AVX2", "0") == "1":
+        return None
+    machine = platform.machine().lower()
+    # cibuildwheel cross-compiles macOS x86_64 wheels on arm64 runners.
+    archs = re.findall(r"-arch\s+(\S+)", os.environ.get("ARCHFLAGS", ""))
+    if system == "Darwin" and archs:
+        machine = archs[0] if len(archs) == 1 else "universal"
+    if machine not in ("x86_64", "amd64"):
+        return None
+    if system == "Windows" and not os.environ.get("CC", "").endswith("gcc"):
+        return ["/arch:AVX2"]
+    return ["-mavx2", "-mfma"]
+
+
+def avx2_stub(name: str) -> str:
+    """Writes cython_avx2/<name>.pyx, which includes the kernel source with
+    its compiler directives, so both builds share one implementation."""
+    with open(f"{CYTHON_DIR}/{name}.pyx") as fh:
+        header = fh.readline()
+    content = (header if header.startswith("# cython:") else "") + f'include "../cython/{name}.pyx"\n'
+    os.makedirs(AVX2_DIR, exist_ok=True)
+    init = f"{AVX2_DIR}/__init__.py"
+    if not os.path.exists(init):
+        open(init, "w").close()
+    stub = f"{AVX2_DIR}/{name}.pyx"
+    if not os.path.exists(stub) or open(stub).read() != content:
+        with open(stub, "w") as fh:
+            fh.write(content)
+    return stub
+
+
+def kernel_extension(package: str, name: str, source: str, extra_args: list[str] = ()) -> Extension:
+    return Extension(
+        name=f"adamixture.src.utils_c.{package}.{name}",
+        sources=[source],
+        extra_compile_args=compile_args + list(extra_args),
+        extra_link_args=link_args,
+        include_dirs=[numpy.get_include()] + mac_include,
+        define_macros=common_macros,
+    )
+
+
 extensions = [
-    Extension(
-        name="adamixture.src.utils_c.cython.tools",
-        sources=["adamixture/src/utils_c/cython/tools.pyx"],
-        extra_compile_args=compile_args,
-        extra_link_args=link_args,
-        include_dirs=[numpy.get_include()] + mac_include,
-        define_macros=common_macros
-    ),
-    Extension(
-        name="adamixture.src.utils_c.cython.em",
-        sources=["adamixture/src/utils_c/cython/em.pyx"],
-        extra_compile_args=compile_args,
-        extra_link_args=link_args,
-        include_dirs=[numpy.get_include()] + mac_include,
-        define_macros=common_macros
-    ),
-    Extension(
-        name="adamixture.src.utils_c.cython.br_qn",
-        sources=["adamixture/src/utils_c/cython/br_qn.pyx"],
-        extra_compile_args=compile_args,
-        extra_link_args=link_args,
-        include_dirs=[numpy.get_include()] + mac_include,
-        define_macros=common_macros
-    ),
-    Extension(
-        name="adamixture.src.utils_c.cython.clumppling",
-        sources=["adamixture/src/utils_c/cython/clumppling.pyx"],
-        extra_compile_args=compile_args,
-        extra_link_args=link_args,
-        include_dirs=[numpy.get_include()] + mac_include,
-        define_macros=common_macros
-    ),
-    Extension(
-        name="adamixture.src.utils_c.cython.snp_reader",
-        sources=["adamixture/src/utils_c/cython/snp_reader.pyx"],
-        extra_compile_args=compile_args,
-        extra_link_args=link_args,
-        include_dirs=[numpy.get_include()] + mac_include,
-        define_macros=common_macros
-    ),
-    Extension(
-        name="adamixture.src.utils_c.cython.bvls",
-        sources=["adamixture/src/utils_c/cython/bvls.pyx"],
-        extra_compile_args=compile_args,
-        extra_link_args=link_args,
-        include_dirs=[numpy.get_include()] + mac_include,
-        define_macros=common_macros
-    ),
-    Extension(
-        name="adamixture.src.utils_c.cython.sqp",
-        sources=["adamixture/src/utils_c/cython/sqp.pyx"],
-        extra_compile_args=compile_args,
-        extra_link_args=link_args,
-        include_dirs=[numpy.get_include()] + mac_include,
-        define_macros=common_macros
-    ),
+    kernel_extension("cython", name, f"{CYTHON_DIR}/{name}.pyx")
+    for name in ("tools", "em", "br_qn", "clumppling", "snp_reader", "bvls", "sqp")
 ]
+avx2_args = avx2_compile_args()
+if avx2_args is not None:
+    extensions += [kernel_extension("cython_avx2", name, avx2_stub(name), avx2_args) for name in AVX2_MODULES]
 
 
 setup(
