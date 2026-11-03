@@ -469,23 +469,16 @@ cpdef void update_q_sqp(const uint8_t[:,::1] G, const double[:,::1] Q, double[:,
 cdef enum:
     P_CHUNK = 256
 
-cdef void update_single_p_fused(int j, const uint8_t* g_row, const double* Qt,
-                                const double* P, double* P_next,
-                                int N, int K, double* ws) noexcept nogil:
+cdef inline void _p_chunk_terms(const uint8_t* g_c, const double* Qt, const double* pj,
+                                int i0, int n, int N, int K, double* ws,
+                                double* tableau) noexcept nogil:
+    """Fills ts * Q[:, k] rows of ``ws`` for one chunk of individuals and adds
+    the gradient column of the tableau."""
     cdef:
         int sz = K + 1
-        int chunk = P_CHUNK
-        int i0, n, li, k, k2
+        int li, k
         double g, m, q, inv_q, inv_1mq, t1z, t2z, pk, s
-        double tableau[17000]
-        double d_buf[130]
-        double tmp_buf[130]
-        uint8_t swept_buf[128]
-        double delta[128]
-        double pj[128]
-        const uint8_t* g_c
         const double* qk
-        const double* qk2
         double* wk
         # Workspace layout, P_CHUNK entries per row
         double* qp = ws
@@ -493,59 +486,44 @@ cdef void update_single_p_fused(int j, const uint8_t* g_row, const double* Qt,
         double* tdz = ts + P_CHUNK
         double* w = tdz + P_CHUNK          # K rows: ts * Q[:, k]
 
-    for k in range(sz * sz):
-        tableau[k] = 0.0
+    for li in range(n):
+        qp[li] = 0.0
+    for k in range(K):
+        pk = pj[k]
+        qk = Qt + <size_t>k * N + i0
+        for li in range(n):
+            qp[li] += pk * qk[li]
+
+    # Missing genotypes get zero weight instead of being skipped.
+    for li in range(n):
+        g = <double>g_c[li]
+        m = 1.0 if g_c[li] != 3 else 0.0
+        q = fmax(fmin(qp[li], 1.0 - 1e-10), 1e-10)
+        inv_q = 1.0 / q
+        inv_1mq = 1.0 / (1.0 - q)
+        t1z = m * g * inv_q
+        t2z = m * (2.0 - g) * inv_1mq
+        ts[li] = t1z * inv_q + t2z * inv_1mq
+        tdz[li] = t1z - t2z
 
     for k in range(K):
-        pj[k] = P[<size_t>j * K + k]
-
-    # Qt is Q transposed (K x N), so every loop below runs over contiguous
-    # individuals and vectorizes for any K.
-    i0 = 0
-    while i0 < N:
-        n = N - i0
-        if n > chunk:
-            n = chunk
-        g_c = g_row + i0
-
+        qk = Qt + <size_t>k * N + i0
+        wk = w + k * P_CHUNK
+        s = 0.0
         for li in range(n):
-            qp[li] = 0.0
-        for k in range(K):
-            pk = pj[k]
-            qk = Qt + <size_t>k * N + i0
-            for li in range(n):
-                qp[li] += pk * qk[li]
+            wk[li] = ts[li] * qk[li]
+            s += tdz[li] * qk[li]
+        tableau[k * sz + K] += s
 
-        # Missing genotypes get zero weight instead of being skipped.
-        for li in range(n):
-            g = <double>g_c[li]
-            m = 1.0 if g_c[li] != 3 else 0.0
-            q = fmax(fmin(qp[li], 1.0 - 1e-10), 1e-10)
-            inv_q = 1.0 / q
-            inv_1mq = 1.0 / (1.0 - q)
-            t1z = m * g * inv_q
-            t2z = m * (2.0 - g) * inv_1mq
-            ts[li] = t1z * inv_q + t2z * inv_1mq
-            tdz[li] = t1z - t2z
-
-        for k in range(K):
-            qk = Qt + <size_t>k * N + i0
-            wk = w + k * P_CHUNK
-            s = 0.0
-            for li in range(n):
-                wk[li] = ts[li] * qk[li]
-                s += tdz[li] * qk[li]
-            tableau[k * sz + K] += s
-
-        for k in range(K):
-            wk = w + k * P_CHUNK
-            for k2 in range(k, K):
-                qk2 = Qt + <size_t>k2 * N + i0
-                s = 0.0
-                for li in range(n):
-                    s += wk[li] * qk2[li]
-                tableau[k * sz + k2] += s
-        i0 = i0 + chunk
+cdef inline void _p_solve(int j, double* tableau, const double* pj, double* P_next,
+                          int K) noexcept nogil:
+    cdef:
+        int sz = K + 1
+        int k, k2
+        double d_buf[130]
+        double tmp_buf[130]
+        uint8_t swept_buf[128]
+        double delta[128]
 
     for k in range(K):
         tableau[K * sz + k] = tableau[k * sz + K]
@@ -558,10 +536,97 @@ cdef void update_single_p_fused(int j, const uint8_t* g_row, const double* Qt,
         P_next[<size_t>j * K + k] = pj[k] + delta[k]
     project_p_box_row(&P_next[<size_t>j * K], K, 1e-5)
 
+cdef void update_single_p_fused(int j, const uint8_t* g_row, const double* Qt,
+                                const double* P, double* P_next,
+                                int N, int K, double* ws) noexcept nogil:
+    cdef:
+        int sz = K + 1
+        int i0, n, li, k, k2
+        double s
+        double tableau[17000]
+        double pj[128]
+        const double* qk2
+        double* wk
+        double* w = ws + 3 * P_CHUNK
+
+    for k in range(sz * sz):
+        tableau[k] = 0.0
+    for k in range(K):
+        pj[k] = P[<size_t>j * K + k]
+
+    # Qt is Q transposed (K x N), so every loop below runs over contiguous
+    # individuals and vectorizes for any K.
+    i0 = 0
+    while i0 < N:
+        n = min(N - i0, <int>P_CHUNK)
+        _p_chunk_terms(g_row + i0, Qt, pj, i0, n, N, K, ws, tableau)
+        for k in range(K):
+            wk = w + k * P_CHUNK
+            for k2 in range(k, K):
+                qk2 = Qt + <size_t>k2 * N + i0
+                s = 0.0
+                for li in range(n):
+                    s += wk[li] * qk2[li]
+                tableau[k * sz + k2] += s
+        i0 = i0 + P_CHUNK
+
+    _p_solve(j, tableau, pj, P_next, K)
+
+cdef void update_pair_p_fused(int j, const uint8_t* g_row, const double* Qt,
+                              const double* P, double* P_next,
+                              int N, int K, double* ws) noexcept nogil:
+    """Updates loci j and j + 1 together so each row of Qt read by the
+    Hessian reductions serves both loci."""
+    cdef:
+        int sz = K + 1
+        int i0, n, li, k, k2
+        double sa, sb, qv
+        double tab_a[17000]
+        double tab_b[17000]
+        double pa[128]
+        double pb[128]
+        const double* qk2
+        double* wka
+        double* wkb
+        double* ws_b = ws + (K + 3) * P_CHUNK
+        double* wa = ws + 3 * P_CHUNK
+        double* wb = ws_b + 3 * P_CHUNK
+
+    for k in range(sz * sz):
+        tab_a[k] = 0.0
+        tab_b[k] = 0.0
+    for k in range(K):
+        pa[k] = P[<size_t>j * K + k]
+        pb[k] = P[<size_t>(j + 1) * K + k]
+
+    i0 = 0
+    while i0 < N:
+        n = min(N - i0, <int>P_CHUNK)
+        _p_chunk_terms(g_row + i0, Qt, pa, i0, n, N, K, ws, tab_a)
+        _p_chunk_terms(g_row + N + i0, Qt, pb, i0, n, N, K, ws_b, tab_b)
+        for k in range(K):
+            wka = wa + k * P_CHUNK
+            wkb = wb + k * P_CHUNK
+            for k2 in range(k, K):
+                qk2 = Qt + <size_t>k2 * N + i0
+                sa = 0.0
+                sb = 0.0
+                for li in range(n):
+                    qv = qk2[li]
+                    sa += wka[li] * qv
+                    sb += wkb[li] * qv
+                tab_a[k * sz + k2] += sa
+                tab_b[k * sz + k2] += sb
+        i0 = i0 + P_CHUNK
+
+    _p_solve(j, tab_a, pa, P_next, K)
+    _p_solve(j + 1, tab_b, pb, P_next, K)
+
 cpdef void update_p_sqp_fused(const uint8_t[:,::1] G, const double[:,::1] Q, const double[:,::1] P, 
                               double[:,::1] P_next, int M, int N, int K) noexcept nogil:
     cdef:
-        int i, j, k
+        int i, j, jp, k
+        int n_pairs = M // 2
         double* Qt = <double*>malloc(<size_t>K * N * sizeof(double))
         double* ws
 
@@ -570,9 +635,14 @@ cpdef void update_p_sqp_fused(const uint8_t[:,::1] G, const double[:,::1] Q, con
             Qt[<size_t>k * N + i] = Q[i, k]
 
     with nogil, parallel():
+        ws = <double*>malloc(<size_t>2 * (K + 3) * P_CHUNK * sizeof(double))
+        for jp in prange(n_pairs, schedule='static'):
+            j = 2 * jp
+            update_pair_p_fused(j, &G[j, 0], Qt, &P[0, 0], &P_next[0, 0], N, K, ws)
+        free(ws)
+    if M % 2 == 1:
         ws = <double*>malloc(<size_t>(K + 3) * P_CHUNK * sizeof(double))
-        for j in prange(M, schedule='static'):
-            update_single_p_fused(j, &G[j, 0], Qt, &P[0, 0], &P_next[0, 0], N, K, ws)
+        update_single_p_fused(M - 1, &G[M - 1, 0], Qt, &P[0, 0], &P_next[0, 0], N, K, ws)
         free(ws)
     free(Qt)
 
