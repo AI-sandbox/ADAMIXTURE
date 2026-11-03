@@ -95,7 +95,7 @@ def setup(G: Any, N: int, M: int, K_max: int, seed: int, power: int,
 
 
 def initialize_em_cpu(G: np.ndarray, seed: int, M: int, N: int, K: int,
-                      n_steps: int = 5) -> tuple[np.ndarray, np.ndarray]:
+                      n_steps: int = 5, verbose: bool = True) -> tuple[np.ndarray, np.ndarray]:
     """
     Description:
     Initializes P and Q randomly on CPU and runs a few EM priming steps.
@@ -107,6 +107,7 @@ def initialize_em_cpu(G: np.ndarray, seed: int, M: int, N: int, K: int,
         N (int): Number of individuals.
         K (int): Number of ancestral populations.
         n_steps (int): Number of EM priming steps. Defaults to 5.
+        verbose (bool): Whether to log the priming step header. Defaults to True.
 
     Returns:
         tuple[np.ndarray, np.ndarray]: Initialized (P, Q) matrices.
@@ -123,17 +124,18 @@ def initialize_em_cpu(G: np.ndarray, seed: int, M: int, N: int, K: int,
     T = np.zeros_like(Q)
     q_bat = np.zeros(N, dtype=np.float64)
 
-    log.info(f"    Random initialization + {n_steps} EM initial steps...")
+    if verbose:
+        log.info(f"    Random initialization + {n_steps} EM initial steps...")
     for _ in range(n_steps):
         emStep(G, P, Q, T, P_next, Q_next, q_bat, K, M, N)
 
-    log.info(f"        Total EM initialization time={time.time() - t0:.3f}s\n")
+    log.info(f"        Total EM initialization time={time.time() - t0:.3f}s")
     return P, Q
 
 
 def initialize_em_gpu(G: Any, seed: int, M: int, N: int, K: int,
                       device_obj: Any, chunk_size: int, threads_per_block: int,
-                      n_steps: int = 5) -> tuple[Any, Any]:
+                      n_steps: int = 5, verbose: bool = True) -> tuple[Any, Any]:
     """
     Description:
     Initializes P and Q randomly on GPU and runs a few EM priming steps.
@@ -155,13 +157,14 @@ def initialize_em_gpu(G: Any, seed: int, M: int, N: int, K: int,
     optimizer = EMAdamOptimizer(P.shape, Q.shape, 0.0, 0.0, 0.0, 0.0, device_obj.torch_device if hasattr(device_obj, 'torch_device') else device_obj)
     unpacker = utils.get_unpacker(device_obj, threads_per_block)
 
-    log.info(f"    Random initialization + {n_steps} EM initial steps...")
+    if verbose:
+        log.info(f"    Random initialization + {n_steps} EM initial steps...")
     for _ in range(n_steps):
         optimizer.run_em_step(G, P, Q, M, chunk_size, unpacker)
         P.copy_(optimizer.P_EM)
         Q.copy_(optimizer.Q_EM)
 
-    log.info(f"        Total EM initialization time={time.time() - t0:.3f}s\n")
+    log.info(f"        Total EM initialization time={time.time() - t0:.3f}s")
     return P, Q
 
 
@@ -178,19 +181,23 @@ def run_em_init(G: "torch.Tensor | np.ndarray", seed: int, M: int, N: int, K: in
     """
     if device_obj.type != 'cpu':
         logl_calc = utils.get_logl_calculator(device_obj)
+    if n_inits > 1:
+        log.info(f"    Running random initialization ({n_inits} initializations)...")
     best = None
     for start in range(max(1, n_inits)):
+        if n_inits > 1:
+            log.info(f"\n    Initialization {start + 1}/{n_inits}:")
         init_seed = seed + 1000 * start
         if device_obj.type == 'cpu':
-            P, Q = initialize_em_cpu(G, init_seed, M, N, K, em_init_steps)
+            P, Q = initialize_em_cpu(G, init_seed, M, N, K, em_init_steps, verbose=(n_inits == 1))
             logl = tools.loglikelihood(G, P, Q)
         else:
             P, Q = initialize_em_gpu(G, init_seed, M, N, K, device_obj, chunk_size,
-                                     threads_per_block, em_init_steps)
+                                     threads_per_block, em_init_steps, verbose=(n_inits == 1))
             utils.clear_device_cache(device_obj)
             logl = logl_calc(G, P, Q, M, N, chunk_size, threads_per_block)
         if n_inits > 1:
-            log.info(f"        Initialization {start + 1}/{n_inits}: log-likelihood {logl:.1f}.")
+            log.info(f"        Log-likelihood: {logl:.1f}")
         if best is None or logl > best[2]:
             best = (P, Q, logl)
     return best
@@ -212,16 +219,24 @@ def run_als(G: "torch.Tensor | np.ndarray", U: Any, S: Any, V: Any,
         tuple: (P, Q, logl) of the best start.
     """
     if device_obj.type == 'cpu':
-        log.info("    Running ALS...")
+        if n_inits > 1:
+            log.info(f"    Running ALS ({n_inits} initializations)...")
+        else:
+            log.info("    Running ALS...")
     else:
         from ..model.als_gpu import ALS_gpu
         dev_target = device_obj.torch_device if hasattr(device_obj, 'torch_device') else device_obj
         U, S, V = U.contiguous(), S.contiguous(), V.contiguous()
         logl_calc = utils.get_logl_calculator(device_obj)
-        log.info(f"    Running ALS on GPU ({device_obj})...")
+        if n_inits > 1:
+            log.info(f"    Running ALS on GPU ({device_obj}) ({n_inits} initializations)...")
+        else:
+            log.info(f"    Running ALS on GPU ({device_obj})...")
 
     best = None
     for start in range(max(1, n_inits)):
+        if n_inits > 1:
+            log.info(f"\n    Initialization {start + 1}/{n_inits}:")
         als_seed = seed + 1000 * start
         if device_obj.type == 'cpu':
             P, Q = ALS(U, S, V, f, als_seed, M, N, K, max_als, tol_als, beta=beta_als)
@@ -231,7 +246,7 @@ def run_als(G: "torch.Tensor | np.ndarray", U: Any, S: Any, V: Any,
             utils.clear_device_cache(device_obj)
             logl = logl_calc(G, P, Q, M, N, chunk_size, threads_per_block)
         if n_inits > 1:
-            log.info(f"        Initialization {start + 1}/{n_inits}: log-likelihood {logl:.1f}.")
+            log.info(f"        Log-likelihood: {logl:.1f}")
         if best is None or logl > best[2]:
             best = (P, Q, logl)
     return best
@@ -307,7 +322,8 @@ def train_k(G: "torch.Tensor | np.ndarray", N: int, M: int, K: int, U_max: "np.n
         else:
             P, Q, logl = run_als(G, U, S, V, f, seed, M, N, K, max_als, tol_als, beta_als,
                                  n_inits, device_obj, chunk_size, threads_per_block)
-        log.info(f"    Initial log-likelihood for K={K}: {logl:.1f}.")
+        label = "Best initial log-likelihood" if n_inits > 1 else "Initial log-likelihood"
+        log.info(f"\n    {label} for K={K}: {logl:.1f}.")
 
     if device_obj.type == 'cpu':
         if original:

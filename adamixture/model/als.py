@@ -99,6 +99,6 @@ def ALS(U: np.ndarray, S: np.ndarray, V: np.ndarray, f: np.ndarray,
             break
 
     total_time = time.time() - t0
-    log.info(f"        Total ALS time={total_time:.3f}s\n")
+    log.info(f"        Total ALS time={total_time:.3f}s")
 
     return P, Q

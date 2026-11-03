@@ -132,5 +132,5 @@ def ALS_gpu(U: torch.Tensor, S: torch.Tensor, V: torch.Tensor, f: torch.Tensor,
             break
 
     total_time = time.time() - t0
-    log.info(f"        Total ALS time={total_time:.3f}s\n")
+    log.info(f"        Total ALS time={total_time:.3f}s")
     return P, Q

@@ -83,6 +83,7 @@ def run(
     max_als = int(extra_kwargs.get("max_als", extra_kwargs.get("als_iter", 1000)))
     tol_als = float(extra_kwargs.get("tol_als", extra_kwargs.get("als_tole", 1e-4)))
     beta_als = float(extra_kwargs.get("beta_als", 0.8))
+    init = str(extra_kwargs.get("init", extra_kwargs.get("init_original", "svd")))
     n_inits = int(extra_kwargs.get("n_inits", 3))
     power = int(extra_kwargs.get("power", 5))
     tol_svd = float(extra_kwargs.get("tol_svd", 1e-1))
@@ -126,7 +127,7 @@ def run(
         chunk_size,
         device,
         original=True,
-        init_original="svd",
+        init_original=init,
         q_hist=3,
     )
 
@@ -164,7 +165,7 @@ def run(
             original=True,
             rtol=tol,
             Q_hist=3,
-            init_original="svd",
+            init_original=init,
             em_init_steps=5,
             q_block=q_block,
             beta_als=beta_als,
