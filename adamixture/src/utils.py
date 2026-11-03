@@ -30,7 +30,7 @@ _THREAD_ENV_VARS = (
     "OPENBLAS_NUM_THREADS",
     "OPENBLAS_MAX_THREADS",
 )
-_THREAD_LIB_MARKERS = ("openblas", "libgomp", "libomp", "libiomp", "mkl_rt", "mkl_core")
+_THREAD_LIB_MARKERS = ("openblas", "libgomp", "libomp", "libiomp", "mkl_rt", "mkl_core", "vcomp")
 _THREAD_SYMBOLS = ("omp_set_num_threads", "openblas_set_num_threads", "mkl_set_num_threads")
 
 
@@ -55,7 +55,8 @@ def set_cpu_threads(n_threads: int) -> None:
         os.environ[var] = str(n_threads)
     for path in _loaded_thread_libraries():
         _limit_loaded_library(path, n_threads)
-    _limit_loaded_library(None, n_threads)
+    if sys.platform != "win32":
+        _limit_loaded_library(None, n_threads)
     numexpr = sys.modules.get("numexpr")
     if numexpr is not None:
         numexpr.set_num_threads(n_threads)
@@ -88,6 +89,17 @@ def _loaded_thread_libraries() -> list[str]:
                     paths.append(name.decode())
         except OSError:
             pass
+    elif sys.platform == "win32":
+        try:
+            kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+            for cand in ["vcomp140.dll", "vcomp.dll", "libomp.dll", "libgomp-1.dll", "libiomp5md.dll", "openblas.dll", "mkl_rt.dll"]:
+                h = kernel32.GetModuleHandleW(cand)
+                if h:
+                    buf = ctypes.create_unicode_buffer(1024)
+                    if kernel32.GetModuleFileNameW(h, buf, 1024):
+                        paths.append(buf.value)
+        except Exception:
+            pass
     found: list[str] = []
     seen: set[str] = set()
     for path in paths:
@@ -100,9 +112,11 @@ def _loaded_thread_libraries() -> list[str]:
 
 def _limit_loaded_library(path: str | None, n_threads: int) -> None:
     """Calls the thread-limit symbols exported by one already loaded library."""
+    if path is None and sys.platform == "win32":
+        return
     try:
         lib = ctypes.CDLL(path) if path else ctypes.CDLL(None)
-    except OSError:
+    except (OSError, TypeError, ValueError):
         return
     for name in _THREAD_SYMBOLS:
         try:
