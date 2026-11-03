@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ctypes
 import logging
 import os
 import random
@@ -10,7 +11,7 @@ from typing import Any
 
 import numpy as np
 
-from .compat import is_torch_available, require_torch
+from .compat import is_torch_available, is_torch_loaded, require_torch
 from .snp_reader import SNPReader
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
@@ -18,6 +19,106 @@ log = logging.getLogger(__name__)
 
 MIN_GPU_CHUNK_SIZE = 2
 MIN_CPU_CHUNK_SIZE = 2
+
+_THREAD_ENV_VARS = (
+    "MKL_NUM_THREADS",
+    "MKL_MAX_THREADS",
+    "OMP_NUM_THREADS",
+    "OMP_MAX_THREADS",
+    "NUMEXPR_NUM_THREADS",
+    "NUMEXPR_MAX_THREADS",
+    "OPENBLAS_NUM_THREADS",
+    "OPENBLAS_MAX_THREADS",
+)
+_THREAD_LIB_MARKERS = ("openblas", "libgomp", "libomp", "libiomp", "mkl_rt", "mkl_core")
+_THREAD_SYMBOLS = ("omp_set_num_threads", "openblas_set_num_threads", "mkl_set_num_threads")
+
+
+def set_cpu_threads(n_threads: int) -> None:
+    """
+    Description:
+    Limits the CPU threads used by OpenMP and BLAS. The environment variables
+    are set for libraries that have not started yet, and the same limit is
+    applied to the copies already loaded: importing this package loads them
+    before ``-t`` or ``threads`` is known, and they ignore the variables after that.
+
+    Args:
+        n_threads (int): Number of threads. Must be at least 1.
+
+    Returns:
+        None
+    """
+    n_threads = int(n_threads)
+    if n_threads < 1:
+        raise ValueError("n_threads must be at least 1")
+    for var in _THREAD_ENV_VARS:
+        os.environ[var] = str(n_threads)
+    for path in _loaded_thread_libraries():
+        _limit_loaded_library(path, n_threads)
+    _limit_loaded_library(None, n_threads)
+    numexpr = sys.modules.get("numexpr")
+    if numexpr is not None:
+        numexpr.set_num_threads(n_threads)
+    if is_torch_loaded():
+        require_torch().set_num_threads(n_threads)
+
+
+def _loaded_thread_libraries() -> list[str]:
+    """Paths of loaded BLAS and OpenMP libraries."""
+    paths: list[str] = []
+    if sys.platform.startswith("linux"):
+        try:
+            with open("/proc/self/maps") as fh:
+                text = fh.read()
+        except OSError:
+            text = ""
+        for line in text.splitlines():
+            parts = line.split()
+            if parts and ".so" in parts[-1]:
+                paths.append(parts[-1])
+    elif sys.platform == "darwin":
+        try:
+            dyld = ctypes.CDLL("/usr/lib/system/libdyld.dylib")
+            dyld._dyld_image_count.restype = ctypes.c_uint32
+            dyld._dyld_get_image_name.argtypes = [ctypes.c_uint32]
+            dyld._dyld_get_image_name.restype = ctypes.c_char_p
+            for i in range(dyld._dyld_image_count()):
+                name = dyld._dyld_get_image_name(i)
+                if name:
+                    paths.append(name.decode())
+        except OSError:
+            pass
+    found: list[str] = []
+    seen: set[str] = set()
+    for path in paths:
+        low = path.lower()
+        if path not in seen and any(marker in low for marker in _THREAD_LIB_MARKERS):
+            seen.add(path)
+            found.append(path)
+    return found
+
+
+def _limit_loaded_library(path: str | None, n_threads: int) -> None:
+    """Calls the thread-limit symbols exported by one already loaded library."""
+    try:
+        lib = ctypes.CDLL(path) if path else ctypes.CDLL(None)
+    except OSError:
+        return
+    for name in _THREAD_SYMBOLS:
+        try:
+            fn = getattr(lib, name)
+        except AttributeError:
+            continue
+        fn.argtypes = [ctypes.c_int]
+        fn.restype = None
+        fn(n_threads)
+    try:
+        dynamic = lib.omp_set_dynamic
+    except AttributeError:
+        return
+    dynamic.argtypes = [ctypes.c_int]
+    dynamic.restype = None
+    dynamic(0)
 
 
 def clear_device_cache(device_obj: Any = None) -> None:

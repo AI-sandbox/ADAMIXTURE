@@ -131,13 +131,10 @@ def main() -> None:
     assert args.plot_format in ["pdf", "png", "jpg"], "Plot format must be pdf, png or jpg."
     assert 50 <= args.plot_dpi <= 1200, "Plot resolution must be between 50 and 1200."
 
-    # Thread control
-    th = str(args.threads)
-    for env_var in [
-        "MKL_NUM_THREADS", "MKL_MAX_THREADS", "OMP_NUM_THREADS", "OMP_MAX_THREADS",
-        "NUMEXPR_NUM_THREADS", "NUMEXPR_MAX_THREADS", "OPENBLAS_NUM_THREADS", "OPENBLAS_MAX_THREADS",
-    ]:
-        os.environ[env_var] = th
+    # The package import has already loaded OpenMP and BLAS, which only read
+    # the environment variables at startup, so also set the limit on the loaded copies.
+    from .src.utils import set_cpu_threads
+    set_cpu_threads(args.threads)
 
     # OS-specific compiler settings
     system = platform.system()

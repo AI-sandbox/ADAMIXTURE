@@ -285,15 +285,11 @@ def main() -> None:
     args = parse_args(arg_list[1:])
 
     # CONTROL THREADS:
+    # The package import has already loaded OpenMP and BLAS, which only read
+    # the environment variables at startup, so also set the limit on the loaded copies.
+    from .src.utils import set_cpu_threads
     th = str(args.threads)
-    os.environ["MKL_NUM_THREADS"] = th
-    os.environ["MKL_MAX_THREADS"] = th
-    os.environ["OMP_NUM_THREADS"] = th
-    os.environ["OMP_MAX_THREADS"] = th
-    os.environ["NUMEXPR_NUM_THREADS"] = th
-    os.environ["NUMEXPR_MAX_THREADS"] = th
-    os.environ["OPENBLAS_NUM_THREADS"] = th
-    os.environ["OPENBLAS_MAX_THREADS"] = th
+    set_cpu_threads(int(th))
 
     # VALIDATE PARAMETERS:
     assert args.threads >= 1, "Threads (threads) must be at least 1."

@@ -1,6 +1,5 @@
 import argparse
 import logging
-import os
 import sys
 
 import numpy as np
@@ -24,14 +23,8 @@ def set_numerical_backends(n_threads: int) -> None:
     Returns:
         None
     """
-    n_str = str(n_threads)
-    keys = [
-        "MKL_NUM_THREADS", "MKL_MAX_THREADS", "OMP_NUM_THREADS",
-        "OMP_MAX_THREADS", "NUMEXPR_NUM_THREADS", "NUMEXPR_MAX_THREADS",
-        "OPENBLAS_NUM_THREADS", "OPENBLAS_MAX_THREADS"
-    ]
-    for key in keys:
-        os.environ[key] = n_str
+    from ..src.utils import set_cpu_threads
+    set_cpu_threads(n_threads)
 
 def parse_input() -> argparse.Namespace:
     """

@@ -6,7 +6,6 @@ from typing import Any
 
 import numpy as np
 
-from .compat import is_torch_loaded, require_torch
 from .entry import _fix_macos_libomp
 from .model.br_qn import q_hessian_block_size
 from .src import utils
@@ -92,21 +91,11 @@ def run(
     save_dir = extra_kwargs.get("save_dir")
     name = extra_kwargs.get("name", "adamixture")
 
-    # Configure threads for numerical libraries & PyTorch
-    th = str(int(threads))
-    os.environ["MKL_NUM_THREADS"] = th
-    os.environ["MKL_MAX_THREADS"] = th
-    os.environ["OMP_NUM_THREADS"] = th
-    os.environ["OMP_MAX_THREADS"] = th
-    os.environ["NUMEXPR_NUM_THREADS"] = th
-    os.environ["NUMEXPR_MAX_THREADS"] = th
-    os.environ["OPENBLAS_NUM_THREADS"] = th
-    os.environ["OPENBLAS_MAX_THREADS"] = th
+    # The package import has already loaded OpenMP and BLAS, which only read
+    # the environment variables at startup, so also set the limit on the loaded copies.
+    utils.set_cpu_threads(int(threads))
     if platform.system() == "Darwin":
         os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
-
-    if is_torch_loaded():
-        require_torch().set_num_threads(int(threads))
 
     # Set random seed
     utils.set_seed(int(seed))
