@@ -206,8 +206,7 @@ Key arguments:
 | `-s` | `42` | Random seed. |
 | `--device` | `cpu` | Device to use: `cpu`, `gpu`, or `mps`. |
 | `--chunk_size` | `8192` | Number of SNPs in chunk operations. |
-| `--n_inits` | `1` | Number of independent initializations (keeps run with best log-likelihood). |
-| `--als_starts` | `3` | ALS starts on the same SVD (keeps the one with best log-likelihood). |
+| `--n_inits` | `3` | Number of initializations: ALS starts on the same SVD (or random EM primings with `--init em`); keeps the one with best log-likelihood. |
 | `--chrom_mode` | `autosomes` | Chromosome filter: `autosomes` keeps autosomes `1 to --autosomes`; `all` keeps every chromosome. |
 | `--autosomes` | `22` | Number of autosomes kept when `--chrom_mode autosomes` (equivalent to `--specific_chrom 1 2 ... 22`). |
 | `--specific_chrom` | `None` | List of specific chromosomes to analyze when `--chrom_mode autosomes` (overrides `--autosomes`). |
