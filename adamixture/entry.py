@@ -74,7 +74,7 @@ def build_parser(show_adam: bool = False) -> configargparse.ArgumentParser:
 
     optim = parser.add_argument_group('optimization')
     optim.add_argument('--max_iter', type=int, default=10000, help='Maximum number of solver iterations (default: 10000).')
-    optim.add_argument('--tol', type=float, default=1e-4, help='Convergence tolerance on the log-likelihood change (default: 1e-4).')
+    optim.add_argument('--tol', type=float, default=1e-4, help='BR-QN convergence tolerance on the log-likelihood change (default: 1e-4).')
     optim.add_argument('--patience', type=int, default=3, help='Iterations without log-likelihood improvement before stopping; with adamem, checks before decaying the learning rate (default: 3).')
     optim.add_argument('--Q_hist', type=int, default=3, help=argparse.SUPPRESS)
 
@@ -100,6 +100,7 @@ def build_parser(show_adam: bool = False) -> configargparse.ArgumentParser:
     adam = parser.add_argument_group('Adam-EM tuning (only with --algorithm adamem)') if show_adam else parser
     def adam_help(text: str) -> str:
         return text if show_adam else argparse.SUPPRESS
+    adam.add_argument('--tol_adam', type=float, default=0.1, help=adam_help('Adam-EM convergence tolerance on the log-likelihood change (default: 0.1).'))
     adam.add_argument('--lr', type=float, default=0.005, help=adam_help('Learning rate (default: 0.005).'))
     adam.add_argument('--beta1', type=float, default=0.80, help=adam_help('Adam beta1, 1st moment decay (default: 0.80).'))
     adam.add_argument('--beta2', type=float, default=0.88, help=adam_help('Adam beta2, 2nd moment decay (default: 0.88).'))
@@ -170,6 +171,8 @@ def parse_args(argv: list[str]) -> configargparse.Namespace:
 
     if args.tol <= 0.0:
         parser.error("--tol must be greater than 0.")
+    if args.tol_adam <= 0.0:
+        parser.error("--tol_adam must be greater than 0.")
     if not (0.0 <= args.beta_als < 1.0):
         parser.error("--beta_als must be in [0, 1).")
     if args.n_inits < 1:
@@ -318,6 +321,7 @@ def main() -> None:
     assert args.Q_hist >= 1, "Q history (Q_hist) must be at least 1."
     assert args.autosomes >= 1, "Autosome count (autosomes) must be at least 1."
     assert args.tol > 0, "Tolerance (tol) must be positive."
+    assert args.tol_adam > 0, "Adam tolerance (tol_adam) must be positive."
     assert args.tol_als > 0, "ALS tolerance (tol_als) must be positive."
     assert 0 <= args.beta_als < 1, "ALS beta (beta_als) must be in [0, 1)."
     assert args.tol_svd > 0, "SVD tolerance (tol_svd) must be positive."

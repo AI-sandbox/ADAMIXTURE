@@ -84,7 +84,7 @@ def build_parser(show_adam: bool = False) -> configargparse.ArgumentParser:
 
     optim = parser.add_argument_group("optimization")
     optim.add_argument("--max_iter", type=int, default=10000, help="Maximum number of solver iterations (default: 10000).")
-    optim.add_argument("--tol", type=float, default=1e-4, help="Convergence tolerance on the log-likelihood change (default: 1e-4).")
+    optim.add_argument("--tol", type=float, default=1e-4, help="BR-QN convergence tolerance on the log-likelihood change (default: 1e-4).")
     optim.add_argument("--patience", type=int, default=3, help="Iterations without log-likelihood improvement before stopping; with adamem, checks before decaying the learning rate (default: 3).")
     optim.add_argument("--Q_hist", type=int, default=3, help=argparse.SUPPRESS)
 
@@ -95,6 +95,7 @@ def build_parser(show_adam: bool = False) -> configargparse.ArgumentParser:
     adam = parser.add_argument_group("Adam-EM tuning (only with --algorithm adamem)") if show_adam else parser
     def adam_help(text: str) -> str:
         return text if show_adam else argparse.SUPPRESS
+    adam.add_argument("--tol_adam", type=float, default=0.1, help=adam_help("Adam-EM convergence tolerance on the log-likelihood change (default: 0.1)."))
     adam.add_argument("--lr", type=float, default=0.005, help=adam_help("Learning rate (default: 0.005)."))
     adam.add_argument("--beta1", type=float, default=0.80, help=adam_help("Adam beta1, 1st moment decay (default: 0.80)."))
     adam.add_argument("--beta2", type=float, default=0.88, help=adam_help("Adam beta2, 2nd moment decay (default: 0.88)."))
@@ -246,6 +247,7 @@ def main() -> None:
     if args.chrom_mode == "autosomes" and not args.specific_chrom:
         assert args.autosomes >= 1, "Autosome count (autosomes) must be at least 1."
     assert args.tol > 0, "Tolerance (tol) must be positive."
+    assert args.tol_adam > 0, "Adam tolerance (tol_adam) must be positive."
     assert args.reg_adam >= 0, "Adam regularization (reg_adam) must be non-negative."
     assert args.plot_format in ['pdf', 'png', 'jpg'], "Plot format must be pdf, png or jpg."
     assert 50 <= args.plot_dpi <= 1200, "Plot resolution must be between 50 and 1200."
@@ -368,7 +370,7 @@ def main() -> None:
                 lr=args.lr, beta1=args.beta1, beta2=args.beta2, reg_adam=args.reg_adam,
                 max_iter=args.max_iter, check=args.check, M=M,
                 lr_decay=args.lr_decay, min_lr=args.min_lr,
-                patience=args.patience, tol_adam=args.tol,
+                patience=args.patience, tol_adam=args.tol_adam,
                 device=torch_dev, chunk_size=args.chunk_size, threads_per_block=threads_per_block,
             )
         P_opt = P_gpu.cpu().numpy()
@@ -386,7 +388,7 @@ def main() -> None:
                 lr=args.lr, beta1=args.beta1, beta2=args.beta2, reg_adam=args.reg_adam,
                 max_iter=args.max_iter, check=args.check, K=K, M=M, N=N,
                 lr_decay=args.lr_decay, min_lr=args.min_lr,
-                patience=args.patience, tol_adam=args.tol,
+                patience=args.patience, tol_adam=args.tol_adam,
             )
 
     # ── Save outputs ──────────────────────────────────────────────────────────
