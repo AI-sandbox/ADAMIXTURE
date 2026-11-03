@@ -257,6 +257,38 @@ cdef void update_single_p(int j, const double[:,::1] P, double[:,::1] P_next,
         P_next[j, k] = P[j, k] + delta[k]
     project_p_box_row(&P_next[j, 0], K, 1e-5)
 
+cdef inline void _q_locus_terms(const uint8_t* g_row, const double* Qt, const double* pj,
+                                double* qp, double* ts, double* tdz, double* t2,
+                                double* C, double* Z0, int nb, int K) noexcept nogil:
+    cdef:
+        int k, li
+        double g, m, q, inv_q, inv_1mq, t1z_v, t2z_v, t2v, pk
+        const double* qk
+
+    for li in range(nb):
+        qp[li] = 0.0
+    for k in range(K):
+        pk = pj[k]
+        qk = Qt + k * nb
+        for li in range(nb):
+            qp[li] += pk * qk[li]
+
+    # Missing genotypes get zero weight instead of being skipped.
+    for li in range(nb):
+        g = <double>g_row[li]
+        m = 1.0 if g_row[li] != 3 else 0.0
+        q = fmax(fmin(qp[li], 1.0 - 1e-10), 1e-10)
+        inv_q = 1.0 / q
+        inv_1mq = 1.0 / (1.0 - q)
+        t1z_v = m * g * inv_q
+        t2z_v = m * (2.0 - g) * inv_1mq
+        t2v = t2z_v * inv_1mq
+        ts[li] = t1z_v * inv_q + t2v
+        tdz[li] = t1z_v - t2z_v
+        t2[li] = t2v
+        C[li] += t2v
+        Z0[li] += t2z_v
+
 cdef void _grad_hess_q_block(const uint8_t* G, const double* Q, const double* P,
                              double* XtX, double* Xtz, double* ws,
                              int ib, int i_end, int M, int N, int K) noexcept nogil:
@@ -264,9 +296,9 @@ cdef void _grad_hess_q_block(const uint8_t* G, const double* Q, const double* P,
         int nb = i_end - ib
         int npair = K * (K + 1) // 2
         int i, j, k, k2, li, pr
-        double g, m, q, inv_q, inv_1mq, t1z_v, t2z_v, t2v, pk, c, v
-        double pj[128]
-        const uint8_t* g_row
+        double pa, pb, ca, cb, v
+        double pja[128]
+        double pjb[128]
         double* qk
         double* h
         double* zk
@@ -280,10 +312,13 @@ cdef void _grad_hess_q_block(const uint8_t* G, const double* Q, const double* P,
         double* A = Z + K * nb             # K rows: sum term2 p_k
         double* C = A + K * nb             # sum term2
         double* Z0 = C + nb                # sum term2_z
-        double* qp = Z0 + nb
-        double* ts = qp + nb
-        double* tdz = ts + nb
-        double* t2 = tdz + nb
+        double* qp = Z0 + nb               # 4 rows per locus of the current pair
+        double* tsa = qp + nb
+        double* tdza = tsa + nb
+        double* t2a = tdza + nb
+        double* tsb = t2a + nb
+        double* tdzb = tsb + nb
+        double* t2b = tdzb + nb
 
     for k in range(K):
         qk = Qt + k * nb
@@ -292,50 +327,37 @@ cdef void _grad_hess_q_block(const uint8_t* G, const double* Q, const double* P,
     for li in range((npair + 2 * K + 2) * nb):
         H[li] = 0.0
 
-    for j in range(M):
-        g_row = G + <size_t>j * N + ib
+    # Loci are taken in pairs so each accumulator row is loaded and stored
+    # once per two loci; an odd last locus is paired with zero weights.
+    for j in range(0, M, 2):
         for k in range(K):
-            pj[k] = P[<size_t>j * K + k]
-
-        for li in range(nb):
-            qp[li] = 0.0
-        for k in range(K):
-            pk = pj[k]
-            qk = Qt + k * nb
-            for li in range(nb):
-                qp[li] += pk * qk[li]
-
-        # Missing genotypes get zero weight instead of being skipped.
-        for li in range(nb):
-            g = <double>g_row[li]
-            m = 1.0 if g_row[li] != 3 else 0.0
-            q = fmax(fmin(qp[li], 1.0 - 1e-10), 1e-10)
-            inv_q = 1.0 / q
-            inv_1mq = 1.0 / (1.0 - q)
-            t1z_v = m * g * inv_q
-            t2z_v = m * (2.0 - g) * inv_1mq
-            t2v = t2z_v * inv_1mq
-            ts[li] = t1z_v * inv_q + t2v
-            tdz[li] = t1z_v - t2z_v
-            t2[li] = t2v
-            C[li] += t2v
-            Z0[li] += t2z_v
+            pja[k] = P[<size_t>j * K + k]
+        _q_locus_terms(G + <size_t>j * N + ib, Qt, pja, qp, tsa, tdza, t2a, C, Z0, nb, K)
+        if j + 1 < M:
+            for k in range(K):
+                pjb[k] = P[<size_t>(j + 1) * K + k]
+            _q_locus_terms(G + <size_t>(j + 1) * N + ib, Qt, pjb, qp, tsb, tdzb, t2b, C, Z0, nb, K)
+        else:
+            for k in range(K):
+                pjb[k] = 0.0
 
         for k in range(K):
-            pk = pj[k]
+            pa = pja[k]
+            pb = pjb[k]
             zk = Z + k * nb
             ak = A + k * nb
             for li in range(nb):
-                zk[li] += pk * tdz[li]
-                ak[li] += pk * t2[li]
+                zk[li] += pa * tdza[li] + pb * tdzb[li]
+                ak[li] += pa * t2a[li] + pb * t2b[li]
 
         pr = 0
         for k in range(K):
             for k2 in range(k, K):
-                c = pj[k] * pj[k2]
+                ca = pja[k] * pja[k2]
+                cb = pjb[k] * pjb[k2]
                 h = H + pr * nb
                 for li in range(nb):
-                    h[li] += c * ts[li]
+                    h[li] += ca * tsa[li] + cb * tsb[li]
                 pr = pr + 1
 
     for li in range(nb):
@@ -372,7 +394,7 @@ cpdef void compute_grad_hess_Q(const uint8_t[:,::1] G, const double[:,::1] Q, co
     # Loops run over the B individuals of a block (contiguous in G and in the
     # workspace) so they vectorize for any K.
     with nogil, parallel():
-        ws = <double*>malloc(<size_t>B * (K * (K + 1) // 2 + 3 * K + 6) * sizeof(double))
+        ws = <double*>malloc(<size_t>B * (K * (K + 1) // 2 + 3 * K + 9) * sizeof(double))
         for ib in prange(0, N, B, schedule='static'):
             i_end = ib + B
             if i_end > N:

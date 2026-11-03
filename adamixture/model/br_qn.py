@@ -13,8 +13,8 @@ log = logging.getLogger(__name__)
 
 def q_hessian_block_size(K: int) -> int:
     """Individuals per Q-Hessian tile so the per-thread workspace,
-    B * (K(K+1)/2 + 3K + 6) doubles, stays near 64 KB."""
-    per_individual = K * (K + 1) // 2 + 3 * K + 6
+    B * (K(K+1)/2 + 3K + 9) doubles, stays near 64 KB."""
+    per_individual = K * (K + 1) // 2 + 3 * K + 9
     return min(256, max(16, (8192 // per_individual) // 8 * 8))
 
 def polish_sqp_qn(G: np.ndarray, P_init: np.ndarray, Q_init: np.ndarray,
