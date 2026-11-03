@@ -20,7 +20,7 @@ def run(
     K: int | None = None,
     threads: int = 1,
     seed: int = 42,
-    tol: float = 1e-4,
+    tol: float = 0.1,
     cv: int | None = None,
     no_freqs: bool = False,
     plink: bool = True,

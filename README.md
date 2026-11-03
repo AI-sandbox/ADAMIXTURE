@@ -199,7 +199,7 @@ Key arguments:
 |---|---|---|
 | `--algorithm` | `brqn` | Solver: SQP + ZAL quasi-Newton (`brqn`) or Adam-EM (`adamem`). |
 | `--init` | `als` | Initialization method: SVD+ALS (`als`) or random EM priming (`em`). |
-| `--tol` | `1e-4` | BR-QN convergence tolerance on the log-likelihood change. Adam-EM uses `--tol_adam` (default `0.1`). |
+| `--tol` | `0.1` | BR-QN convergence tolerance on the log-likelihood change. Adam-EM uses `--tol_adam` (default `0.1`). |
 | `--max_iter` | `10000` | Maximum solver iterations (BR-QN or Adam-EM). |
 | `--patience` | `3` | Iterations without log-likelihood improvement before stopping. |
 | `-t` | `1` | Number of CPU threads. |
