@@ -56,11 +56,10 @@ def test_align_ilp_recovers_a_permuted_copy() -> None:
 
 
 def test_clumppling_replicate_warning_covers_svd_repeats_and_mixed_runs() -> None:
-    for where in ("train", "plot"):
-        message = clumppling_replicate_warning(where)
-        assert "--init em" in message
-        assert "do not mix" in message
-        assert "clumppling" in message
+    message = clumppling_replicate_warning()
+    assert "--init em" in message
+    assert "do not mix" in message
+    assert "clumppling" in message
 
 
 def test_align_clusters_clumppling_undoes_a_column_permutation() -> None:

@@ -111,11 +111,6 @@ def run(
     # Set random seed
     utils.set_seed(int(seed))
 
-    # The API always initializes from the SVD. Repeats of that run do not
-    # explore ancestry modes, so aligning them with clumppling is not informative.
-    if verbose:
-        utils.log.warning(utils.clumppling_replicate_warning("train"))
-
     K_max = max(k_values)
 
     # Read data (always CPU unpacked uint8)

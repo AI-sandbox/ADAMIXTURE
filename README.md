@@ -198,7 +198,7 @@ Key arguments:
 | Argument &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Default | Description |
 |---|---|---|
 | `--algorithm` | `brqn` | Solver: SQP + ZAL quasi-Newton (`brqn`) or Adam-EM (`adamem`). |
-| `--init` | `als` | Initialization method: SVD+ALS (`als`) or random EM priming (`em`). Repeats of `als` land in the same solution, so aligning them with clumppling does not explore ancestry modes; use `em` for that, and do not mix the two. |
+| `--init` | `als` | Initialization method: SVD+ALS (`als`) or random EM priming (`em`). |
 | `--tol` | `0.1` | Convergence tolerance for log-likelihood changes. |
 | `--max_iter` | `10000` | Maximum solver iterations (BR-QN or Adam-EM). |
 | `--patience` | `3` | Iterations without log-likelihood improvement before stopping. |

@@ -240,7 +240,7 @@ def main() -> None:
         all_qs.append({'id': run['id'], 'K': run['K'], 'Q': Q})
 
     if any(n > 1 for n in Counter(run['K'] for run in all_qs).values()):
-        log.warning(utils.clumppling_replicate_warning("plot"))
+        log.warning(utils.clumppling_replicate_warning())
 
     custom_colors = None
     max_k = max(run['K'] for run in all_qs)
