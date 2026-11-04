@@ -9,16 +9,15 @@ static inline void sweep(thread float* matrix_a, int sz, int k, thread float* tm
     if (piv == 0.0f) return;
     float p = 1.0f / piv;
     for (int i = 0; i < sz; ++i) {
-        tmp[i] = matrix_a[i * sz + k];
+        tmp[i] = matrix_a[k * sz + i];
         matrix_a[i * sz + k] = 0.0f;
         matrix_a[k * sz + i] = 0.0f;
     }
     tmp[k] = inverse ? 1.0f : -1.0f;
-    for (int j = 0; j < sz; ++j) {
-        float tj = tmp[j];
-        int row = j * sz;
-        for (int i = 0; i < sz; ++i) {
-            matrix_a[row + i] = fma(-(p * tmp[i]), tj, matrix_a[row + i]);
+    for (int i = 0; i < sz; ++i) {
+        float pv = p * tmp[i];
+        for (int j = 0; j < sz; ++j) {
+            matrix_a[i * sz + j] -= pv * tmp[j];
         }
     }
 }
@@ -59,7 +58,7 @@ static inline int quadratic_program_device(
         }
     }
 
-    for (int iteration = 1; iteration <= 1000; iteration++) {
+    for (int iteration = 1; iteration <= 1001; iteration++) {
         float a = 1.0f;
         for (int i = 0; i < p; i++) {
             if (swept[i]) {

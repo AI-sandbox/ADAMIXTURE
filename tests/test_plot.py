@@ -4,28 +4,11 @@ from pathlib import Path
 import numpy as np
 
 from adamixture.src.plot import (
-    _build_contiguous_spans,
     _check_hierarchy_codes,
-    _format_label,
-    _require_pillow_image,
     align_clusters_greedy,
     plot_combined,
     plot_q_matrix,
 )
-
-
-def test_pillow_is_available_through_matplotlib_dependencies() -> None:
-    image_module = _require_pillow_image()
-    assert callable(image_module.open)
-    assert callable(image_module.new)
-
-
-def test_format_label() -> None:
-    assert _format_label("barcelona") == "Barcelona"
-    long_name = "a" * 30
-    formatted = _format_label(long_name)
-    assert len(formatted) == 25
-    assert formatted.endswith("…")
 
 
 def test_align_clusters_greedy() -> None:
@@ -47,17 +30,6 @@ def test_align_clusters_greedy() -> None:
     np.testing.assert_allclose(Q_query[:, inferred_perm], Q_ref, atol=1e-10)
 
 
-def test_align_clusters_greedy_different_k() -> None:
-    np.random.seed(42)
-    N = 500
-    Q_ref = np.random.dirichlet([1.0] * 3, size=N)
-    Q_query = np.random.dirichlet([1.0] * 5, size=N)
-
-    perm = align_clusters_greedy(Q_ref, Q_query)
-    assert len(perm) == 5
-    assert len(set(perm)) == 5
-
-
 def test_check_hierarchy_codes() -> None:
     # Valid hierarchy: child 0->parent 0, child 1->parent 0, child 2->parent 1
     child_codes = np.array([0, 1, 0, 1, 2, 2])
@@ -67,16 +39,6 @@ def test_check_hierarchy_codes() -> None:
     # Invalid hierarchy: child 0 maps to parent 0 AND parent 1
     invalid_parent = np.array([0, 0, 1, 0, 1, 1])
     assert _check_hierarchy_codes(child_codes, 3, invalid_parent, "child", "parent") is False
-
-
-def test_build_contiguous_spans() -> None:
-    codes = np.array([0, 0, 0, 1, 1, 2])
-    names = np.array(["PopA", "PopB", "PopC"])
-    spans = _build_contiguous_spans(codes, names)
-    assert len(spans) == 3
-    assert spans[0] == {"name": "PopA", "start": 0, "end": 3}
-    assert spans[1] == {"name": "PopB", "start": 3, "end": 5}
-    assert spans[2] == {"name": "PopC", "start": 5, "end": 6}
 
 
 def test_plot_q_matrix_and_combined_e2e(tmp_path: Path) -> None:

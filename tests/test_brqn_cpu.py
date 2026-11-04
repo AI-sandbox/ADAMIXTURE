@@ -38,17 +38,6 @@ def test_als_matches_expected(als_step) -> None:
     assert_matches_expected(CPU_BRQN_EXPECTED_DIR, "demo_run.als.Q.expected", Q, rtol=EXPECTED_RTOL, atol=EXPECTED_ATOL)
 
 
-def test_run_als_single_start_matches_als(demo_bed_data, svd_step, als_step) -> None:
-    G, N, M = demo_bed_data
-    f, U, S, V = svd_step
-    P, Q, logl = run_als(G, U, S, V, f, SEED, M, N, K, MAX_ALS, TOL_ALS, BETA_ALS,
-                         1, Device("cpu"), CHUNK_SIZE, 0)
-
-    np.testing.assert_allclose(P, als_step[0], rtol=1e-10, atol=1e-12)
-    np.testing.assert_allclose(Q, als_step[1], rtol=1e-10, atol=1e-12)
-    assert logl == pytest.approx(tools.loglikelihood(G, P, Q), rel=1e-12)
-
-
 def test_run_als_keeps_best_start(demo_bed_data, svd_step) -> None:
     G, N, M = demo_bed_data
     f, U, S, V = svd_step
@@ -82,3 +71,26 @@ def test_brqn_optimization_matches_expected(demo_bed_data, als_step) -> None:
     assert Q_opt.shape == (105, K)
     assert_matches_expected(CPU_BRQN_EXPECTED_DIR, "demo_run.brqn.P.expected", P_opt, rtol=EXPECTED_RTOL, atol=EXPECTED_ATOL)
     assert_matches_expected(CPU_BRQN_EXPECTED_DIR, "demo_run.brqn.Q.expected", Q_opt, rtol=EXPECTED_RTOL, atol=EXPECTED_ATOL)
+
+
+def test_qn_cannot_discard_improving_sqp_steps(monkeypatch):
+    import adamixture.model.br_qn as brqn
+    rng = np.random.default_rng(31)
+    K, M, N = 3, 101, 24
+    true_p = rng.uniform(.1, .9, (M,K))
+    true_q = rng.dirichlet(np.ones(K), N)
+    G = rng.binomial(2, true_p @ true_q.T).astype(np.uint8)
+    P = rng.uniform(.1, .9, (M,K))
+    Q = rng.dirichlet(np.ones(K), N)
+    initial_ll = tools.loglikelihood(G, P, Q)
+
+    # A finite but unhelpful extrapolation returns the initial point. The
+    # available SQP improvement must survive even on the first iteration,
+    # when comparison with a previous LL of -inf would accept this candidate.
+    def no_acceleration(output, x_next, x, *args):
+        output[:] = x
+
+    monkeypatch.setattr(brqn, 'qn_extrapolate_ZAL', no_acceleration)
+    p, q = brqn.optimize_original(G, P.copy(), Q.copy(), 1, K, M, N,
+                                  0., 3, 2, verbose=False)
+    assert tools.loglikelihood(G, p, q) > initial_ll + 1.

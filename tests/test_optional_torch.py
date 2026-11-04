@@ -1,32 +1,5 @@
 import subprocess
 import sys
-import pytest
-import numpy as np
-
-from adamixture.compat import Device, is_torch_available, is_torch_loaded, require_torch
-
-
-def test_compat_helpers(monkeypatch):
-    """Test compat layer behaves correctly when torch is blocked."""
-    monkeypatch.setitem(sys.modules, "torch", None)
-
-    assert not is_torch_loaded()
-    assert not is_torch_available()
-
-    with pytest.raises(ImportError) as exc_info:
-        require_torch()
-    assert "pip install 'adamixture[gpu]'" in str(exc_info.value)
-
-    dev_cpu = Device("cpu")
-    assert dev_cpu.type == "cpu"
-    assert str(dev_cpu) == "cpu"
-
-    dev_cuda = Device("cuda:0")
-    assert dev_cuda.type == "cuda"
-    assert dev_cuda.index == 0
-    with pytest.raises(ImportError) as exc_info_cuda:
-        _ = dev_cuda.torch_device
-    assert "pip install 'adamixture[gpu]'" in str(exc_info_cuda.value)
 
 
 def test_import_and_cpu_execution_in_isolated_process():

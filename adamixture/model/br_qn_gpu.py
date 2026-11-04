@@ -347,14 +347,15 @@ def _optimize_original_gpu_once(G: torch.Tensor, P: torch.Tensor, Q: torch.Tenso
         # --- Conditional QN Acceptance ---
         ll_qn = logl_calc(G, P_qn, Q_qn, M, N, chunk_size, threads_per_block)
 
-        if ll_qn > ll_prev_iter:
+        ll_base = logl_calc(G, P_next2, Q_next2, M, N, chunk_size, threads_per_block)
+        if ll_qn > ll_base:
             P.copy_(P_qn)
             Q.copy_(Q_qn)
             ll_new = ll_qn
         else:
             P.copy_(P_next2)
             Q.copy_(Q_next2)
-            ll_new = logl_calc(G, P_next2, Q_next2, M, N, chunk_size, threads_per_block)
+            ll_new = ll_base
 
         best_before = ll_best
         if ll_new > ll_best:

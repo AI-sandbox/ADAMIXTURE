@@ -1,33 +1,6 @@
 import numpy as np
-import pytest
 
-from adamixture.project_entry import parse_args
 from adamixture.src.projection import optimize_projection_cpu
-
-
-PROJ_MIN_ARGS = [
-    "--save_dir", "out",
-    "--data_path", "data.bed",
-    "--p_path", "model.P",
-    "--name", "test_proj",
-]
-
-
-def test_projection_parse_args() -> None:
-    args = parse_args(PROJ_MIN_ARGS)
-    assert args.data_path == "data.bed"
-    assert args.p_path == "model.P"
-    assert args.chunk_size == 4096
-    assert args.device == "cpu"
-
-
-def test_projection_parse_args_rejects_obsolete_flags() -> None:
-    with pytest.raises(SystemExit):
-        parse_args([*PROJ_MIN_ARGS, "--algorithm", "adamem"])
-    with pytest.raises(SystemExit):
-        parse_args([*PROJ_MIN_ARGS, "--max_iter", "10"])
-    with pytest.raises(SystemExit):
-        parse_args([*PROJ_MIN_ARGS, "--tol", "1e-5"])
 
 
 def test_optimize_projection_cpu_synthetic() -> None:

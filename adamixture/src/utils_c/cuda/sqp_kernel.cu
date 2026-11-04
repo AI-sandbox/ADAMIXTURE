@@ -8,7 +8,7 @@ __device__ void sweep(double* matrix_a, int sz, int k, double* tmp, bool inverse
     if (piv == 0.0) return;
     double p = 1.0 / piv;
     for (int i = 0; i < sz; ++i) {
-        tmp[i] = matrix_a[i * sz + k];
+        tmp[i] = matrix_a[k * sz + i];
         matrix_a[i * sz + k] = 0.0;
         matrix_a[k * sz + i] = 0.0;
     }
@@ -20,7 +20,7 @@ __device__ void sweep(double* matrix_a, int sz, int k, double* tmp, bool inverse
     for (int i = 0; i < sz; ++i) {
         double pv = p * tmp[i];
         for (int j = 0; j < sz; ++j) {
-            matrix_a[j * sz + i] -= pv * tmp[j];
+            matrix_a[i * sz + j] -= pv * tmp[j];
         }
     }
 }
@@ -62,7 +62,7 @@ __device__ int quadratic_program_device(
         }
     }
     
-    for (int iteration = 1; iteration <= 1000; iteration++) {
+    for (int iteration = 1; iteration <= 1001; iteration++) {
         double a = 1.0;
         for (int i = 0; i < p; i++) {
             if (swept[i]) {

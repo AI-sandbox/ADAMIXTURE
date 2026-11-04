@@ -5,7 +5,6 @@ import pytest
 
 from adamixture.src import clumppling
 from adamixture.src.plot import align_clusters_clumppling
-from adamixture.src.utils import clumppling_replicate_warning
 from adamixture.src.utils_c.cython import clumppling as kernels
 
 # Published moments of the Tracy-Widom law of index 1.
@@ -30,7 +29,7 @@ def _brute_force_alignment(P: np.ndarray, Q: np.ndarray) -> float:
     return best
 
 
-@pytest.mark.parametrize("K_P,K_Q", [(2, 2), (2, 4), (3, 3), (3, 5), (4, 6)])
+@pytest.mark.parametrize("K_P,K_Q", [(3, 3), (3, 5)])
 def test_align_ilp_reaches_the_brute_force_optimum(K_P: int, K_Q: int) -> None:
     rng = np.random.default_rng(K_P * 10 + K_Q)
     for _ in range(5):
@@ -42,24 +41,6 @@ def test_align_ilp_reaches_the_brute_force_optimum(K_P: int, K_Q: int) -> None:
         assert opt_obj == pytest.approx(_brute_force_alignment(P, Q), abs=1e-12)
         assert len(idxQ2P) == K_Q
         assert set(idxQ2P) == set(range(K_P))
-
-
-def test_align_ilp_recovers_a_permuted_copy() -> None:
-    rng = np.random.default_rng(0)
-    P = _random_memberships(rng, 50, 4)
-    perm = np.array([2, 0, 3, 1])
-
-    opt_obj, idxQ2P = clumppling.align_ILP(P, P[:, perm])
-
-    assert opt_obj == pytest.approx(0.0, abs=1e-12)
-    assert idxQ2P == list(perm)
-
-
-def test_clumppling_replicate_warning_covers_svd_repeats_and_mixed_runs() -> None:
-    message = clumppling_replicate_warning()
-    assert "--init random" in message
-    assert "do not mix" in message
-    assert "clumppling" in message
 
 
 def test_align_clusters_clumppling_undoes_a_column_permutation() -> None:

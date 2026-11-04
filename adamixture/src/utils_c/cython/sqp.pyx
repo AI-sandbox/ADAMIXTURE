@@ -16,7 +16,7 @@ cdef void sweep(double* matrix_a, int sz, int k, double* tmp, bint inverse) noex
         
     p = 1.0 / piv
     for i in range(sz):
-        tmp[i] = matrix_a[i * sz + k]
+        tmp[i] = matrix_a[k * sz + i]
         matrix_a[i * sz + k] = 0.0
         matrix_a[k * sz + i] = 0.0
         
@@ -28,7 +28,7 @@ cdef void sweep(double* matrix_a, int sz, int k, double* tmp, bint inverse) noex
     for i in range(sz):
         pv = p * tmp[i]
         for j in range(sz):
-            matrix_a[j * sz + i] -= pv * tmp[j]
+            matrix_a[i * sz + j] -= pv * tmp[j]
 
 cdef int quadratic_program_local(double* delta, double* tableau, const double* par,
                                  int p, int c,
@@ -62,7 +62,7 @@ cdef int quadratic_program_local(double* delta, double* tableau, const double* p
         else:
             sweep(tableau, sz, i, tmp, False)
             
-    for iteration in range(1, 1001):
+    for iteration in range(1, 1002):
         a = 1.0
         for i in range(p):
             if swept[i]:

@@ -146,8 +146,9 @@ def optimize_original(G: np.ndarray, P: np.ndarray, Q: np.ndarray, max_iter: int
 
         # --- Conditional QN Acceptance (Pointer swapping, 0 memcpy) ---
         ll_qn = tools.loglikelihood(G, P_qn, Q_qn)
-        accept_qn = ll_qn > ll_prev_iter
-        ll_new = ll_qn if accept_qn else tools.loglikelihood(G, P_next2, Q_next2)
+        ll_base = tools.loglikelihood(G, P_next2, Q_next2)
+        accept_qn = ll_qn > ll_base
+        ll_new = ll_qn if accept_qn else ll_base
 
         best_before = ll_best
         if ll_new > ll_best:
