@@ -45,7 +45,7 @@ def polish_sqp_qn(G: np.ndarray, P_init: np.ndarray, Q_init: np.ndarray,
 def optimize_original(G: np.ndarray, P: np.ndarray, Q: np.ndarray, max_iter: int,
                       K: int, M: int, N: int, tol: float, Q_hist: int,
                       patience: int, verbose: bool = True,
-                      q_block: int | None = None, fused_sqp: bool = True) -> tuple[np.ndarray, np.ndarray]:
+                      q_block: int | None = None) -> tuple[np.ndarray, np.ndarray]:
     """
     Description:
     Optimizes the P and Q matrices using the original ADMIXTURE algorithm on CPU:
@@ -64,7 +64,6 @@ def optimize_original(G: np.ndarray, P: np.ndarray, Q: np.ndarray, max_iter: int
         patience (int): Iterations without log-likelihood improvement before stopping.
         verbose (bool): If True, log iteration progress and final likelihood.
         q_block (int | None): Q-Hessian tile size from the outer K run. If None, derived from K.
-        copy_back (bool): If True, write the best parameters back into P and Q in-place.
 
     Returns:
         tuple[np.ndarray, np.ndarray]: Optimized (P, Q) matrices.
@@ -78,9 +77,6 @@ def optimize_original(G: np.ndarray, P: np.ndarray, Q: np.ndarray, max_iter: int
     # 2. Allocate buffers
     XtX_q = np.empty((N, K, K), dtype=np.float64)
     Xtz_q = np.empty((N, K), dtype=np.float64)
-    if not fused_sqp:
-        XtX_p = np.empty((M, K, K), dtype=np.float64)
-        Xtz_p = np.empty((M, K), dtype=np.float64)
 
     # Contiguous parameter buffers with zero-copy views
     PQ = np.empty((M + N, K), dtype=np.float64)
@@ -123,17 +119,11 @@ def optimize_original(G: np.ndarray, P: np.ndarray, Q: np.ndarray, max_iter: int
 
         # --- SQP Update 1: (P_cur, Q_cur) -> (P_next, Q_next) ---
         sqp.update_q_sqp(G, Q_cur, Q_next, P_cur, XtX_q, Xtz_q, v_kk, M, N, K, q_block)
-        if fused_sqp:
-            sqp.update_p_sqp_fused(G, Q_next, P_cur, P_next, M, N, K)
-        else:
-            sqp.update_p_sqp_unfused(G, Q_next, P_cur, P_next, XtX_p, Xtz_p, M, N, K)
+        sqp.update_p_sqp(G, Q_next, P_cur, P_next, M, N, K)
 
         # --- SQP Update 2: (P_next, Q_next) -> (P_next2, Q_next2) ---
         sqp.update_q_sqp(G, Q_next, Q_next2, P_next, XtX_q, Xtz_q, v_kk, M, N, K, q_block)
-        if fused_sqp:
-            sqp.update_p_sqp_fused(G, Q_next2, P_next, P_next2, M, N, K)
-        else:
-            sqp.update_p_sqp_unfused(G, Q_next2, P_next, P_next2, XtX_p, Xtz_p, M, N, K)
+        sqp.update_p_sqp(G, Q_next2, P_next, P_next2, M, N, K)
 
         # --- ZAL QN acceleration (Zero-Copy) ---
         update_UV_ZAL(U, V, x_buf, x_next_buf, x_next2_buf, it, Q_hist, dim)
@@ -141,13 +131,17 @@ def optimize_original(G: np.ndarray, P: np.ndarray, Q: np.ndarray, max_iter: int
         n_cols = min(it, Q_hist)
         qn_extrapolate_ZAL(x_qn, x_next_buf, x_buf, U, V, n_cols, dim, UtUmV_workspace, coeff_workspace)
 
-        sqp.project_p_box(P_qn, M, K)
-        sqp.project_q_simplex(Q_qn, N, K)
-
-        # --- Conditional QN Acceptance (Pointer swapping, 0 memcpy) ---
-        ll_qn = tools.loglikelihood(G, P_qn, Q_qn)
         ll_base = tools.loglikelihood(G, P_next2, Q_next2)
-        accept_qn = ll_qn > ll_base
+        for attempt in range(4):
+            sqp.project_p_box(P_qn, M, K)
+            sqp.project_q_simplex(Q_qn, N, K)
+            ll_qn = tools.loglikelihood(G, P_qn, Q_qn)
+            accept_qn = ll_qn > ll_base
+            if accept_qn:
+                break
+            if attempt < 3:
+                PQ_qn += PQ_next2
+                PQ_qn *= 0.5
         ll_new = ll_qn if accept_qn else ll_base
 
         best_before = ll_best

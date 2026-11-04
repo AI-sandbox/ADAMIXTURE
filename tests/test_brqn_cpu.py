@@ -94,3 +94,32 @@ def test_qn_cannot_discard_improving_sqp_steps(monkeypatch):
     p, q = brqn.optimize_original(G, P.copy(), Q.copy(), 1, K, M, N,
                                   0., 3, 2, verbose=False)
     assert tools.loglikelihood(G, p, q) > initial_ll + 1.
+
+
+@pytest.mark.parametrize('accept_at', [2, None])
+def test_qn_backtracks_up_to_four_candidates(monkeypatch, accept_at):
+    import adamixture.model.br_qn as brqn
+    rng = np.random.default_rng(31)
+    M, N, K = 31, 8, 2
+    P = rng.uniform(.1, .9, (M, K))
+    Q = rng.dirichlet(np.ones(K), N)
+    G = rng.binomial(2, P @ Q.T).astype(np.uint8)
+    evaluated = []
+
+    def score(g, p, q):
+        evaluated.append(np.concatenate((p.ravel(), q.ravel())).copy())
+        if len(evaluated) == 1:
+            return 10.
+        return 11. if len(evaluated) - 1 == accept_at else 9.
+
+    def candidate(output, x_next, x, *args):
+        output[:] = x
+
+    monkeypatch.setattr(brqn, 'qn_extrapolate_ZAL', candidate)
+    monkeypatch.setattr(tools, 'loglikelihood', score)
+    p, q = brqn.optimize_original(G, P, Q, 1, K, M, N, 0., 3, 2, verbose=False)
+    assert len(evaluated) == 1 + (accept_at or 4)
+    for prev, current in zip(evaluated[1:], evaluated[2:]):
+        np.testing.assert_allclose(current, (prev + evaluated[0]) * .5, atol=1e-12, rtol=0)
+    expected = evaluated[-1] if accept_at else evaluated[0]
+    np.testing.assert_allclose(np.concatenate((p.ravel(), q.ravel())), expected, atol=1e-12, rtol=0)

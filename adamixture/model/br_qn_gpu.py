@@ -342,13 +342,18 @@ def _optimize_original_gpu_once(G: torch.Tensor, P: torch.Tensor, Q: torch.Tenso
 
         _unflatten_PQ_gpu(x_qn, P_qn, Q_qn, M, K)
 
-        _mapPQ_gpu(P_qn, Q_qn)
-
-        # --- Conditional QN Acceptance ---
-        ll_qn = logl_calc(G, P_qn, Q_qn, M, N, chunk_size, threads_per_block)
-
         ll_base = logl_calc(G, P_next2, Q_next2, M, N, chunk_size, threads_per_block)
-        if ll_qn > ll_base:
+        for attempt in range(4):
+            _mapPQ_gpu(P_qn, Q_qn)
+            ll_qn = logl_calc(G, P_qn, Q_qn, M, N, chunk_size, threads_per_block)
+            accept_qn = ll_qn > ll_base
+            if accept_qn:
+                break
+            if attempt < 3:
+                P_qn.add_(P_next2).mul_(0.5)
+                Q_qn.add_(Q_next2).mul_(0.5)
+
+        if accept_qn:
             P.copy_(P_qn)
             Q.copy_(Q_qn)
             ll_new = ll_qn

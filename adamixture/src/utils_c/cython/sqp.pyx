@@ -203,25 +203,6 @@ cdef void create_tableau_simplex_local(double* tableau, const double* matrix_q, 
     tableau[(K + 1) * sz + K] = 1.0 - sum_x
     tableau[(K + 1) * sz + (K + 1)] = 0.0
 
-cdef void create_tableau_box_local(double* tableau, const double* matrix_q, const double* r,
-                                   int K) noexcept nogil:
-    cdef:
-        int sz = K + 1
-        int i, j
-        
-    for i in range(sz * sz):
-        tableau[i] = 0.0
-        
-    for i in range(K):
-        for j in range(K):
-            tableau[i * sz + j] = matrix_q[i * K + j]
-            
-    for i in range(K):
-        tableau[i * sz + K] = r[i]
-        tableau[K * sz + i] = r[i]
-        
-    tableau[K * sz + K] = 0.0
-
 cdef void update_single_q(int i, const double[:,::1] Q, double[:,::1] Q_next, 
                           double[:,:,::1] XtX_q, double[:,::1] Xtz_q, 
                           const double[:,::1] v_kk, int K) noexcept nogil:
@@ -239,23 +220,6 @@ cdef void update_single_q(int i, const double[:,::1] Q, double[:,::1] Q_next,
     for k in range(K):
         Q_next[i, k] = Q[i, k] + delta[k]
     project_q_simplex_row(&Q_next[i, 0], K, 1e-5)
-
-cdef void update_single_p(int j, const double[:,::1] P, double[:,::1] P_next, 
-                          double[:,:,::1] XtX_p, double[:,::1] Xtz_p, int K) noexcept nogil:
-    cdef:
-        double tableau[17000]
-        double d_buf[130]
-        double tmp_buf[130]
-        uint8_t swept_buf[128]
-        double delta[128]
-        int k
-        
-    create_tableau_box_local(tableau, &XtX_p[j, 0, 0], &Xtz_p[j, 0], K)
-    quadratic_program_local(delta, tableau, &P[j, 0], K, 0, d_buf, tmp_buf, swept_buf)
-    
-    for k in range(K):
-        P_next[j, k] = P[j, k] + delta[k]
-    project_p_box_row(&P_next[j, 0], K, 1e-5)
 
 cdef inline void _q_locus_terms(const uint8_t* g_row, const double* Qt, const double* pj,
                                 double* qp, double* ts, double* tdz, double* t2,
@@ -402,48 +366,6 @@ cpdef void compute_grad_hess_Q(const uint8_t[:,::1] G, const double[:,::1] Q, co
             _grad_hess_q_block(&G[0, 0], &Q[0, 0], &P[0, 0], &XtX_q[0, 0, 0], &Xtz_q[0, 0],
                                ws, ib, i_end, M, N, K)
         free(ws)
-
-cpdef void compute_grad_hess_P(const uint8_t[:,::1] G, const double[:,::1] Q, const double[:,::1] P,
-                               double[:,:,::1] XtX_p, double[:,::1] Xtz_p, int M, int N, int K) noexcept nogil:
-    cdef:
-        int i, j, k, k2
-        double qp, g
-        double oneT = 1.0
-        double twoT = 2.0
-        double term1_z, term2_z, term1, term2, term_z_diff, term_sum
-        double tqk
-
-    for j in prange(M, schedule='static'):
-        for k in range(K):
-            Xtz_p[j, k] = 0.0
-            for k2 in range(k, K):
-                XtX_p[j, k, k2] = 0.0
-
-        for i in range(N):
-            g = <double>G[j, i]
-            if g == 3.0:
-                continue
-            qp = 0.0
-            for k in range(K):
-                qp += Q[i, k] * P[j, k]
-            qp = fmax(fmin(qp, 1.0 - 1e-10), 1e-10)
-            
-            term1_z = g / qp
-            term2_z = (twoT - g) / (oneT - qp)
-            term1 = term1_z / qp
-            term2 = term2_z / (oneT - qp)
-            term_z_diff = term1_z - term2_z
-            term_sum = term1 + term2
-            
-            for k in range(K):
-                Xtz_p[j, k] += term_z_diff * Q[i, k]
-                tqk = term_sum * Q[i, k]
-                for k2 in range(k, K):
-                    XtX_p[j, k, k2] += tqk * Q[i, k2]
-
-        for k in range(K):
-            for k2 in range(k):
-                XtX_p[j, k, k2] = XtX_p[j, k2, k]
 
 cpdef void project_q_simplex(double[:,::1] Q, int N, int K) noexcept nogil:
     cdef int i
@@ -622,8 +544,8 @@ cdef void update_pair_p_fused(int j, const uint8_t* g_row, const double* Qt,
     _p_solve(j, tab_a, pa, P_next, K)
     _p_solve(j + 1, tab_b, pb, P_next, K)
 
-cpdef void update_p_sqp_fused(const uint8_t[:,::1] G, const double[:,::1] Q, const double[:,::1] P, 
-                              double[:,::1] P_next, int M, int N, int K) noexcept nogil:
+cpdef void update_p_sqp(const uint8_t[:,::1] G, const double[:,::1] Q, const double[:,::1] P,
+                       double[:,::1] P_next, int M, int N, int K) noexcept nogil:
     cdef:
         int i, j, jp, k
         int n_pairs = M // 2
@@ -645,29 +567,3 @@ cpdef void update_p_sqp_fused(const uint8_t[:,::1] G, const double[:,::1] Q, con
         update_single_p_fused(M - 1, &G[M - 1, 0], Qt, &P[0, 0], &P_next[0, 0], N, K, ws)
         free(ws)
     free(Qt)
-
-cpdef void update_p_sqp_unfused(const uint8_t[:,::1] G, const double[:,::1] Q, const double[:,::1] P, 
-                                double[:,::1] P_next, double[:,:,::1] XtX_p, double[:,::1] Xtz_p, 
-                                int M, int N, int K) noexcept nogil:
-    cdef int j
-    compute_grad_hess_P(G, Q, P, XtX_p, Xtz_p, M, N, K)
-    for j in prange(M, schedule='static'):
-        update_single_p(j, P, P_next, XtX_p, Xtz_p, K)
-
-def update_p_sqp(const uint8_t[:,::1] G, const double[:,::1] Q, const double[:,::1] P, 
-                 double[:,::1] P_next, *args):
-    cdef:
-        int M, N, K
-    if len(args) == 3:
-        M = int(args[0])
-        N = int(args[1])
-        K = int(args[2])
-        update_p_sqp_fused(G, Q, P, P_next, M, N, K)
-    elif len(args) == 5:
-        M = int(args[2])
-        N = int(args[3])
-        K = int(args[4])
-        update_p_sqp_unfused(G, Q, P, P_next, args[0], args[1], M, N, K)
-    else:
-        raise TypeError(f"update_p_sqp expects either 7 or 9 arguments, got {4 + len(args)}")
-
