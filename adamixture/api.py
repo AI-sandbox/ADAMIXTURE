@@ -9,7 +9,7 @@ import numpy as np
 from .entry import _fix_macos_libomp
 from .model.br_qn import q_hessian_block_size
 from .src import utils
-from .src.adamixture import setup, train_k
+from .src.adamixture import initialize_k, setup, train_k
 from .src.cv import run_cross_validation
 
 
@@ -84,7 +84,8 @@ def run(
     tol_als = float(extra_kwargs.get("tol_als", extra_kwargs.get("als_tole", 1e-4)))
     beta_als = float(extra_kwargs.get("beta_als", 0.8))
     init = str(extra_kwargs.get("init", extra_kwargs.get("init_original", "svd")))
-    n_inits = int(extra_kwargs.get("n_inits", 3))
+    als_starts = int(extra_kwargs.get("als_starts", 3))
+    n_inits = int(extra_kwargs.get("n_inits", 1))
     power = int(extra_kwargs.get("power", 5))
     tol_svd = float(extra_kwargs.get("tol_svd", 1e-1))
     chunk_size = int(extra_kwargs.get("chunk_size", extra_kwargs.get("chunk", 8192)))
@@ -129,6 +130,7 @@ def run(
         original=True,
         init_original=init,
         q_hist=3,
+        compute_svd=(n_inits == 1),
     )
 
     results: dict[int, tuple] = {}
@@ -136,6 +138,37 @@ def run(
 
     for this_K in k_values:
         q_block = q_hessian_block_size(this_K)
+
+        if n_inits > 1:
+            best_P, best_Q, best_logl = None, None, -np.inf
+            for init_idx in range(n_inits):
+                init_seed = int(seed) + init_idx
+                P_cand, Q_cand, logl = initialize_k(
+                    G,
+                    N,
+                    M,
+                    this_K,
+                    f,
+                    init_seed,
+                    power,
+                    tol_svd,
+                    max_als,
+                    tol_als,
+                    chunk_size,
+                    device_obj,
+                    threads_per_block,
+                    original=True,
+                    init_original=init,
+                    em_init_steps=5,
+                    beta_als=beta_als,
+                    als_starts=als_starts,
+                )
+                if logl > best_logl:
+                    best_logl = logl
+                    best_P, best_Q = P_cand, Q_cand
+            P_init, Q_init = best_P, best_Q
+        else:
+            P_init, Q_init = None, None
 
         P, Q = train_k(
             G,
@@ -167,9 +200,11 @@ def run(
             Q_hist=3,
             init_original=init,
             em_init_steps=5,
+            P_init=P_init,
+            Q_init=Q_init,
             q_block=q_block,
             beta_als=beta_als,
-            n_inits=n_inits,
+            als_starts=als_starts,
         )
 
         P_np = P.cpu().numpy() if hasattr(P, "cpu") else np.asarray(P)

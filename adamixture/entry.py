@@ -64,6 +64,7 @@ def build_parser(show_adam: bool = False) -> configargparse.ArgumentParser:
     general.add_argument('-s', '--seed', required=False, type=int, default=42, help='Random seed (default: 42).')
     general.add_argument('--device', required=False, default='cpu', choices=['cpu', 'gpu', 'mps'], help='Device to use (default: cpu).')
     general.add_argument('--algorithm', choices=['brqn', 'adamem'], default='brqn', help='Solver: brqn (SQP + ZAL quasi-Newton) or adamem (Adam-EM) (default: brqn).')
+    general.add_argument('--n_inits', type=int, default=1, help='Number of independent initializations; the run with the best log-likelihood is kept (default: 1).')
     general.add_argument('--cv', nargs='?', const=5, default=0, type=int, help='Enable V-fold cross-validation on genotype entries; V is 5 if no value is given (default: disabled).')
     general.add_argument('--no_freqs', action='store_true', default=False, help='Do not save the P (allele frequencies) matrix.')
 
@@ -84,7 +85,7 @@ def build_parser(show_adam: bool = False) -> configargparse.ArgumentParser:
     init.add_argument('--max_als', type=int, default=1000, help='Maximum number of ALS iterations (default: 1000).')
     init.add_argument('--tol_als', type=float, default=1e-4, help='Convergence tolerance for ALS (default: 1e-4).')
     init.add_argument('--beta_als', type=float, default=0.8, help='Momentum extrapolation factor for ALS, in [0, 1) (default: 0.8).')
-    init.add_argument('--n_inits', type=int, default=3, help='Number of initializations (ALS starts on the shared SVD, or random EM primings with --init random); the one with the best log-likelihood is kept (default: 3).')
+    init.add_argument('--als_starts', type=int, default=3, help='ALS starts on the same SVD; the one with the best log-likelihood is kept (default: 3).')
     init.add_argument('--power', type=int, default=5, help='Number of power iterations for SVD (default: 5).')
     init.add_argument('--tol_svd', type=float, default=1e-1, help='Convergence tolerance for SVD (default: 1e-1).')
     init.add_argument('--chunk_size', type=int, default=8192, help='Number of SNPs per chunk in SVD (default: 8192).')
@@ -175,6 +176,8 @@ def parse_args(argv: list[str]) -> configargparse.Namespace:
         parser.error("--tol_adam must be greater than 0.")
     if not (0.0 <= args.beta_als < 1.0):
         parser.error("--beta_als must be in [0, 1).")
+    if args.als_starts < 1:
+        parser.error("--als_starts must be at least 1.")
     if args.n_inits < 1:
         parser.error("--n_inits must be at least 1.")
     if args.Q_hist < 1:
@@ -324,6 +327,8 @@ def main() -> None:
     assert args.reg_adam >= 0, "Adam regularization (reg_adam) must be non-negative."
     assert args.plot_format in ['pdf', 'png', 'jpg'], "Plot format must be pdf, png or jpg."
     assert 50 <= args.plot_dpi <= 1200, "Plot resolution must be between 50 and 1200."
+    assert 1 <= args.n_inits <= 10, "Number of initializations (n_inits) must be between 1 and 10."
+    assert args.als_starts >= 1, "ALS starts (als_starts) must be at least 1."
     assert args.cv >= 0, "CV folds (cv) must be >= 0 (0 disables CV)."
     if args.cv:
         assert args.cv >= 2, "CV folds (cv) must be at least 2 when CV is enabled."

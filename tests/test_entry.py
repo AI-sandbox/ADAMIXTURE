@@ -27,3 +27,16 @@ def test_beta_als_invalid_rejected() -> None:
         parse_args(["-k", "2", "--beta_als", "-0.1", *MIN_ARGS])
     with pytest.raises(SystemExit):
         parse_args(["-k", "2", "--beta_als", "1.0", *MIN_ARGS])
+
+
+def test_n_inits_and_als_starts_defaults() -> None:
+    args = parse_args(["-k", "2", *MIN_ARGS])
+    assert args.n_inits == 1
+    assert args.als_starts == 3
+
+
+def test_n_inits_and_als_starts_invalid_rejected() -> None:
+    with pytest.raises(SystemExit):
+        parse_args(["-k", "2", "--n_inits", "0", *MIN_ARGS])
+    with pytest.raises(SystemExit):
+        parse_args(["-k", "2", "--als_starts", "0", *MIN_ARGS])

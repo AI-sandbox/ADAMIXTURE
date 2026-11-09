@@ -11,7 +11,7 @@ from pathlib import Path
 import numpy as np
 
 from . import utils
-from .adamixture import setup, train_k
+from .adamixture import initialize_k, setup, train_k
 from ..model.br_qn import q_hessian_block_size
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
@@ -38,6 +38,7 @@ def main(args: argparse.Namespace, t0: float) -> int:
         else:
             k_values = [int(args.k)]
 
+        n_inits = int(args.n_inits)
         K_max = max(k_values)
 
         Path(args.save_dir).mkdir(parents=True, exist_ok=True)
@@ -57,62 +58,145 @@ def main(args: argparse.Namespace, t0: float) -> int:
         q_blocks: dict[int, int] = {}
         previous_Q = None
 
-        device_obj, threads_per_block, f, U, S, V, G = setup(
-            G, N, M, K_max,
-            int(args.seed), int(args.power), float(args.tol_svd),
-            int(args.chunk_size), args.device,
-            original=(args.algorithm == 'brqn'), init_original=args.init,
-            q_hist=args.Q_hist,
-        )
-
-        for K in k_values:
-            log.info(f"\n    Running on K = {K}.\n")
-            t_k = time.time()
-            q_block = q_hessian_block_size(K)
-            q_blocks[K] = q_block
-
-            P, Q = train_k(
-                G, N, M, K, U, S, V, f,
-                int(args.seed), float(args.lr), float(args.beta1), float(args.beta2),
-                float(args.reg_adam), int(args.max_iter), int(args.check),
-                int(args.max_als), float(args.tol_als),
-                float(args.lr_decay), float(args.min_lr), int(args.chunk_size),
-                int(args.patience), float(args.tol_adam),
-                device_obj, threads_per_block,
-                original=(args.algorithm == 'brqn'), rtol=float(args.tol), Q_hist=args.Q_hist,
-                init_original=args.init,
-                em_init_steps=int(args.em_init_steps),
-                q_block=q_block,
-                beta_als=float(args.beta_als),
-                n_inits=int(args.n_inits),
+        if n_inits == 1:
+            device_obj, threads_per_block, f, U, S, V, G = setup(
+                G, N, M, K_max,
+                int(args.seed), int(args.power), float(args.tol_svd),
+                int(args.chunk_size), args.device,
+                original=(args.algorithm == 'brqn'), init_original=args.init,
+                q_hist=args.Q_hist,
             )
 
-            P_np = P.cpu().numpy() if hasattr(P, "cpu") else P
-            Q_np = Q.cpu().numpy() if hasattr(Q, "cpu") else Q
+            for K in k_values:
+                log.info(f"\n    Running on K = {K}.\n")
+                t_k = time.time()
+                q_block = q_hessian_block_size(K)
+                q_blocks[K] = q_block
 
-            if previous_Q is not None:
-                from .plot import align_clusters_clumppling
-                perm = align_clusters_clumppling(previous_Q, Q_np)
-                Q_np = Q_np[:, perm]
-                P_np = P_np[:, perm]
+                P, Q = train_k(
+                    G, N, M, K, U, S, V, f,
+                    int(args.seed), float(args.lr), float(args.beta1), float(args.beta2),
+                    float(args.reg_adam), int(args.max_iter), int(args.check),
+                    int(args.max_als), float(args.tol_als),
+                    float(args.lr_decay), float(args.min_lr), int(args.chunk_size),
+                    int(args.patience), float(args.tol_adam),
+                    device_obj, threads_per_block,
+                    original=(args.algorithm == 'brqn'), rtol=float(args.tol), Q_hist=args.Q_hist,
+                    init_original=args.init,
+                    em_init_steps=int(args.em_init_steps),
+                    q_block=q_block,
+                    beta_als=float(args.beta_als),
+                    als_starts=int(args.als_starts),
+                )
 
-            previous_Q = Q_np
-            trained_plot[K] = (P_np, Q_np)
+                P_np = P.cpu().numpy() if hasattr(P, "cpu") else P
+                Q_np = Q.cpu().numpy() if hasattr(Q, "cpu") else Q
 
-            utils.write_outputs(Q_np, args.name, K, args.save_dir,
-                                P=None if args.no_freqs else P_np)
+                if previous_Q is not None:
+                    from .plot import align_clusters_clumppling
+                    perm = align_clusters_clumppling(previous_Q, Q_np)
+                    Q_np = Q_np[:, perm]
+                    P_np = P_np[:, perm]
 
-            should_plot_k = (len(k_values) == 1 and args.plot is not None) or (len(k_values) > 1 and getattr(args, 'plot_single', None) is not None)
-            if should_plot_k:
-                from .plot import plot_single_k
-                plot_single_k(args, K, Q_np)
+                previous_Q = Q_np
+                trained_plot[K] = (P_np, Q_np)
 
-            if args.cv:
-                trained[K] = (P, Q)
+                utils.write_outputs(Q_np, args.name, K, args.save_dir,
+                                    P=None if args.no_freqs else P_np)
 
-            log.info(f"\n    K={K} completed in {time.time() - t_k:.2f} seconds.")
+                should_plot_k = (len(k_values) == 1 and args.plot is not None) or (len(k_values) > 1 and getattr(args, 'plot_single', None) is not None)
+                if should_plot_k:
+                    from .plot import plot_single_k
+                    plot_single_k(args, K, Q_np)
 
-        del U, S, V, f
+                if args.cv:
+                    trained[K] = (P, Q)
+
+                log.info(f"\n    K={K} completed in {time.time() - t_k:.2f} seconds.")
+
+            del U, S, V, f
+
+        else:
+            device_obj, threads_per_block, f, _, _, _, G = setup(
+                G, N, M, K_max,
+                int(args.seed), int(args.power), float(args.tol_svd),
+                int(args.chunk_size), args.device,
+                original=(args.algorithm == 'brqn'), init_original=args.init,
+                q_hist=args.Q_hist,
+                compute_svd=False,
+            )
+
+            for K in k_values:
+                log.info(f"\n    Running on K = {K} with {n_inits} initialization(s).\n")
+                t_k = time.time()
+                q_block = q_hessian_block_size(K)
+                q_blocks[K] = q_block
+
+                best_P, best_Q, best_logl = None, None, -np.inf
+                for init_idx in range(n_inits):
+                    init_seed = int(args.seed) + init_idx
+                    log.info(f"\n    --- Initialization {init_idx + 1}/{n_inits} (seed={init_seed}) ---\n")
+
+                    P, Q, logl = initialize_k(
+                        G, N, M, K, f, init_seed,
+                        int(args.power), float(args.tol_svd),
+                        int(args.max_als), float(args.tol_als),
+                        int(args.chunk_size), device_obj, threads_per_block,
+                        original=(args.algorithm == 'brqn'),
+                        init_original=args.init,
+                        em_init_steps=int(args.em_init_steps),
+                        beta_als=float(args.beta_als),
+                        als_starts=int(args.als_starts),
+                    )
+
+                    if logl > best_logl:
+                        best_logl = logl
+                        best_P, best_Q = P, Q
+
+                log.info(f"\n    Best initialization log-likelihood for K={K}: {best_logl:.1f}")
+                P, Q = train_k(
+                    G, N, M, K, None, None, None, f,
+                    int(args.seed), float(args.lr), float(args.beta1), float(args.beta2),
+                    float(args.reg_adam), int(args.max_iter), int(args.check),
+                    int(args.max_als), float(args.tol_als),
+                    float(args.lr_decay), float(args.min_lr), int(args.chunk_size),
+                    int(args.patience), float(args.tol_adam),
+                    device_obj, threads_per_block,
+                    original=(args.algorithm == 'brqn'), rtol=float(args.tol), Q_hist=args.Q_hist,
+                    init_original=args.init,
+                    em_init_steps=int(args.em_init_steps),
+                    P_init=best_P, Q_init=best_Q,
+                    q_block=q_block,
+                    beta_als=float(args.beta_als),
+                    als_starts=int(args.als_starts),
+                )
+
+                P_np = P.cpu().numpy() if hasattr(P, "cpu") else P
+                Q_np = Q.cpu().numpy() if hasattr(Q, "cpu") else Q
+
+                if previous_Q is not None:
+                    from .plot import align_clusters_clumppling
+                    perm = align_clusters_clumppling(previous_Q, Q_np)
+                    Q_np = Q_np[:, perm]
+                    P_np = P_np[:, perm]
+
+                previous_Q = Q_np
+                trained_plot[K] = (P_np, Q_np)
+
+                utils.write_outputs(Q_np, args.name, K, args.save_dir,
+                                    P=None if args.no_freqs else P_np)
+
+                should_plot_k = (len(k_values) == 1 and args.plot is not None) or (len(k_values) > 1 and getattr(args, 'plot_single', None) is not None)
+                if should_plot_k:
+                    from .plot import plot_single_k
+                    plot_single_k(args, K, Q_np)
+
+                if args.cv:
+                    trained[K] = (P, Q)
+
+                log.info(f"\n    K={K} completed in {time.time() - t_k:.2f} seconds.")
+
+            del f
 
         # Combined single plot for all K sweep values
         if len(k_values) > 1 and getattr(args, 'plot', None) is not None:
