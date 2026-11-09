@@ -84,11 +84,11 @@ jobs:
           CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
 
           CIBW_ARCHS_LINUX: "x86_64"
-          CIBW_ARCHS_MACOS: "x86_64 arm64"
+          CIBW_ARCHS_MACOS: "arm64"
           CIBW_ARCHS_WINDOWS: "AMD64"
 
           CIBW_ENVIRONMENT_MACOS: >
-            MACOSX_DEPLOYMENT_TARGET=14.0
+            MACOSX_DEPLOYMENT_TARGET=26.0
             CC=/usr/bin/clang
             CFLAGS="-Xpreprocessor -fopenmp -I$(brew --prefix libomp)/include"
             LDFLAGS="-L$(brew --prefix libomp)/lib -lomp -Wl,-rpath,$(brew --prefix libomp)/lib"
