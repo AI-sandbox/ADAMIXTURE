@@ -73,7 +73,9 @@ jobs:
 
       - name: Install OpenMP (macOS)
         if: runner.os == 'macOS'
-        run: brew install libomp
+        run: |
+          curl -Ls https://micro.mamba.pm/api/micromamba/osx-arm64/latest | tar -xvj -C /tmp bin/micromamba
+          /tmp/bin/micromamba create -y -p /tmp/openmp -c conda-forge llvm-openmp
 
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.19.2
@@ -88,10 +90,10 @@ jobs:
           CIBW_ARCHS_WINDOWS: "AMD64"
 
           CIBW_ENVIRONMENT_MACOS: >
-            MACOSX_DEPLOYMENT_TARGET=26.0
+            MACOSX_DEPLOYMENT_TARGET=11.0
             CC=/usr/bin/clang
-            CFLAGS="-Xpreprocessor -fopenmp -I$(brew --prefix libomp)/include"
-            LDFLAGS="-L$(brew --prefix libomp)/lib -lomp -Wl,-rpath,$(brew --prefix libomp)/lib"
+            CFLAGS="-Xpreprocessor -fopenmp -I/tmp/openmp/include"
+            LDFLAGS="-L/tmp/openmp/lib -lomp -Wl,-rpath,/tmp/openmp/lib"
             SETUPTOOLS_SCM_PRETEND_VERSION=${{ env.SETUPTOOLS_SCM_PRETEND_VERSION }}
           
           CIBW_ENVIRONMENT_LINUX: >
