@@ -75,7 +75,12 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           curl -Ls https://micro.mamba.pm/api/micromamba/osx-arm64/latest | tar -xvj -C /tmp bin/micromamba
-          /tmp/bin/micromamba create -y -p /tmp/openmp -c conda-forge llvm-openmp
+          /tmp/bin/micromamba create -y -p /tmp/openmp-arm -c conda-forge --platform osx-arm64 llvm-openmp
+          /tmp/bin/micromamba create -y -p /tmp/openmp-x86 -c conda-forge --platform osx-64 llvm-openmp
+          mkdir -p /tmp/openmp/lib /tmp/openmp/include
+          cp -r /tmp/openmp-arm/include/* /tmp/openmp/include/
+          lipo -create /tmp/openmp-arm/lib/libomp.dylib /tmp/openmp-x86/lib/libomp.dylib -output /tmp/openmp/lib/libomp.dylib
+          lipo -info /tmp/openmp/lib/libomp.dylib
 
       - name: Build wheels
         uses: pypa/cibuildwheel@main
@@ -86,7 +91,7 @@ jobs:
           CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
 
           CIBW_ARCHS_LINUX: "x86_64"
-          CIBW_ARCHS_MACOS: "arm64"
+          CIBW_ARCHS_MACOS: "x86_64 arm64"
           CIBW_ARCHS_WINDOWS: "AMD64"
 
           CIBW_ENVIRONMENT_MACOS: >
