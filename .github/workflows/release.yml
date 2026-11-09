@@ -96,6 +96,7 @@ jobs:
 
           CIBW_ENVIRONMENT_MACOS: >
             MACOSX_DEPLOYMENT_TARGET=11.0
+            OPENMP_DIR=/tmp/openmp
             CC=/usr/bin/clang
             CFLAGS="-Xpreprocessor -fopenmp -I/tmp/openmp/include"
             LDFLAGS="-L/tmp/openmp/lib -lomp -Wl,-rpath,/tmp/openmp/lib"

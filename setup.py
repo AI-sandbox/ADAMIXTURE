@@ -27,19 +27,26 @@ if system == "Linux":
     if "CXX" not in os.environ:
         os.environ["CXX"] = "g++"
 elif system == "Darwin":  # macOS
+    compile_args = ['-O3', '-ffast-math', '-fno-wrapv']
+    omp_candidates = [
+        os.environ.get("OPENMP_DIR", ""),
+        "/tmp/openmp",
+        "/opt/homebrew/opt/libomp",
+        "/usr/local/opt/libomp",
+        os.path.expanduser("~/.local/libomp"),
+    ]
     omp_path = ""
-    for p in ["/opt/homebrew/opt/libomp", "/usr/local/opt/libomp", os.path.expanduser("~/.local/libomp")]:
-        if os.path.exists(p):
+    for p in omp_candidates:
+        if p and os.path.exists(p):
             omp_path = p
             break
 
     if omp_path:
-        compile_args = ['-O3', '-ffast-math', '-fno-wrapv']
         link_args = ['-lm', f'-L{omp_path}/lib', f'-Wl,-rpath,{omp_path}/lib']
         common_macros.append(('HAVE_OPENMP', '1'))
         mac_include = [f'{omp_path}/include']
     else:
-        log.warning("OpenMP (libomp) not found via Homebrew; will attempt fallback build.")
+        log.warning("OpenMP (libomp) not found; will attempt fallback build.")
 
     if "CC" not in os.environ:
         os.environ["CC"] = "clang"
