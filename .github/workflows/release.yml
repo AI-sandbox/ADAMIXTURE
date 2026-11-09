@@ -78,7 +78,7 @@ jobs:
           /tmp/bin/micromamba create -y -p /tmp/openmp -c conda-forge llvm-openmp
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.19.2
+        uses: pypa/cibuildwheel@main
         env:
           SETUPTOOLS_SCM_PRETEND_VERSION: ${{ env.SETUPTOOLS_SCM_PRETEND_VERSION }}
           CIBW_BUILD: cp310-* cp311-* cp312-* cp313-* cp314-*
