@@ -15,7 +15,7 @@ def save_expected(path: Path, actual: np.ndarray) -> None:
     if np.issubdtype(actual.dtype, np.integer):
         np.savetxt(path, actual, fmt="%d")
     else:
-        np.savetxt(path, actual, fmt="%.18e")
+        np.savetxt(path, actual, fmt="%.6f")
 
 
 def assert_matches_expected(

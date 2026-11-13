@@ -65,7 +65,7 @@ def _to_numpy(array) -> np.ndarray:
 def _save(path: Path, array) -> None:
     arr = _to_numpy(array)
     path.parent.mkdir(parents=True, exist_ok=True)
-    np.savetxt(path, arr, fmt="%.18e")
+    np.savetxt(path, arr, fmt="%.6f")
     print(f"wrote {path.relative_to(ROOT)}")
 
 

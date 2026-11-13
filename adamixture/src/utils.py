@@ -527,9 +527,9 @@ def write_outputs(Q: np.ndarray, run_name: str, K: int, out_path: str | Path, P:
         None
     """
     out_path = Path(out_path)
-    np.savetxt(out_path/f"{run_name}.{K}.Q", Q, delimiter=' ')
+    np.savetxt(out_path/f"{run_name}.{K}.Q", Q, delimiter=' ', fmt="%.6f")
     if P is not None:
-        np.savetxt(out_path/f"{run_name}.{K}.P", P, delimiter=' ')
+        np.savetxt(out_path/f"{run_name}.{K}.P", P, delimiter=' ', fmt="%.6f")
         log.info("    Q and P matrices saved.")
     else:
         log.info("    Q matrix saved.")
