@@ -306,7 +306,7 @@ def main() -> None:
     # ── Load genotype data ────────────────────────────────────────────────────
     G, N, M = utils.read_data(
         args.data_path,
-        packed=use_gpu,
+        packed="cpu" if not use_gpu else True,
         chunk_size=args.chunk_size,
         chrom_mode=args.chrom_mode,
         autosomes=args.autosomes,

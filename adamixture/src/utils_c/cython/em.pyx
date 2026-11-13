@@ -233,6 +233,7 @@ cpdef void P_step(const unsigned char[:,::1] G, double[:,::1] P, double[:,::1] P
     cdef:
         size_t col, row, idx_n, idx_k
         double rec
+        unsigned char genotype
         double* p_ptr
         double* dest_row 
         const unsigned char* g_ptr
@@ -252,13 +253,14 @@ cpdef void P_step(const unsigned char[:,::1] G, double[:,::1] P, double[:,::1] P
         
         for row in prange(M, schedule='guided'):
             p_ptr = &P[row, 0]
-            g_ptr = &G[row, 0]
+            g_ptr = &G[row >> 2, 0]
             for col in range(N):
-                if g_ptr[col] == 3:
+                genotype = (g_ptr[col] >> ((row & 3) << 1)) & 3
+                if genotype == 3:
                     continue
                 q_len[col] += 2.0
                 rec = _reconstruct(p_ptr, &Q[col, 0], K)
-                _update_temp_factors(A, B, &t[col * K], p_ptr, &Q[col, 0], g_ptr[col], rec, K)
+                _update_temp_factors(A, B, &t[col * K], p_ptr, &Q[col, 0], genotype, rec, K)
             _updateEM_P(A, B, p_ptr, &P_EM[row, 0], K)
             
         omp.omp_set_lock(&sync_lock)

@@ -355,6 +355,29 @@ cpdef double KL(double[:, ::1] Q1, double[:, ::1] Q2, int N, int K) noexcept nog
             acc += ai * log((ai) / m + eps)
     return acc / <double>N
 
+cpdef unpack_block(const uint8_t[:, ::1] G, Py_ssize_t start, Py_ssize_t end):
+    """Decode a bounded SNP block from packed genotypes into uint8."""
+    cdef:
+        Py_ssize_t N = G.shape[1]
+        Py_ssize_t nr = end - start
+        Py_ssize_t row, col, locus
+        uint8_t shift
+        const uint8_t* source
+        object output
+        uint8_t[:, ::1] block
+    if start < 0 or end < start or (end + 3) // 4 > G.shape[0]:
+        raise ValueError("Invalid packed genotype block bounds")
+    output = np.empty((nr, N), dtype=np.uint8)
+    block = output
+    for row in prange(nr, nogil=True, schedule='static'):
+        locus = start + row
+        source = &G[locus >> 2, 0]
+        shift = <uint8_t>((locus & 3) << 1)
+        for col in range(N):
+            block[row, col] = (source[col] >> shift) & 3
+    return output
+
+
 # Decompress and center chunk for SVD
 cpdef void decompress_block(const uint8_t[:, ::1] G, float[:, ::1] data_block, const float[::1] freq, const Py_ssize_t offset) noexcept nogil:
     """
@@ -381,11 +404,11 @@ cpdef void decompress_block(const uint8_t[:, ::1] G, float[:, ::1] data_block, c
     for j in prange(nr, schedule='static'):
         l = offset + j
         u = 2.0 * freq[l]
-        gr = &G[l, 0]
+        gr = &G[l >> 2, 0]
         ptr = &data_block[j, 0]
         for i in range(nc):
-            if gr[i] != 3: # missing
-                val = <float>gr[i] - u
+            if ((gr[i] >> ((l & 3) << 1)) & 3) != 3: # missing
+                val = <float>((gr[i] >> ((l & 3) << 1)) & 3) - u
                 ptr[i] = val
             else:
                 ptr[i] = 0.0
@@ -418,10 +441,10 @@ cpdef void decompress_block_scaled(const uint8_t[:, ::1] G, float[:, ::1] data_b
         l = offset + j
         u = 2.0 * freq[l]
         s = scale[l]
-        gr = &G[l, 0]
+        gr = &G[l >> 2, 0]
         ptr = &data_block[j, 0]
         for i in range(nc):
-            if gr[i] != 3: # missing
-                ptr[i] = (<float>gr[i] - u) * s
+            if ((gr[i] >> ((l & 3) << 1)) & 3) != 3: # missing
+                ptr[i] = (<float>((gr[i] >> ((l & 3) << 1)) & 3) - u) * s
             else:
                 ptr[i] = 0.0

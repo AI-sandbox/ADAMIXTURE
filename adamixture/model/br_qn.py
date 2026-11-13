@@ -4,6 +4,8 @@ import time
 
 import numpy as np
 
+from ..src.utils import ensure_packed
+
 from ..src.utils_c.cython import sqp, tools
 from ..src.utils_c.cython.br_qn import qn_extrapolate_ZAL, update_UV_ZAL
 
@@ -68,6 +70,7 @@ def optimize_original(G: np.ndarray, P: np.ndarray, Q: np.ndarray, max_iter: int
     Returns:
         tuple[np.ndarray, np.ndarray]: Optimized (P, Q) matrices.
     """
+    G = ensure_packed(G, M)
     # 1. Precompute Vt matrix from SVD of ones(1, K)
     _, _, vt = np.linalg.svd(np.ones((1, K)), full_matrices=True)
     v_kk = np.ascontiguousarray(vt.T, dtype=np.float64)
@@ -131,11 +134,11 @@ def optimize_original(G: np.ndarray, P: np.ndarray, Q: np.ndarray, max_iter: int
         n_cols = min(it, Q_hist)
         qn_extrapolate_ZAL(x_qn, x_next_buf, x_buf, U, V, n_cols, dim, UtUmV_workspace, coeff_workspace)
 
-        ll_base = tools.loglikelihood(G, P_next2, Q_next2)
+        ll_base = tools.loglikelihood_packed(G.ctypes.data, M, N, P_next2, Q_next2)
         for attempt in range(4):
             sqp.project_p_box(P_qn, M, K)
             sqp.project_q_simplex(Q_qn, N, K)
-            ll_qn = tools.loglikelihood(G, P_qn, Q_qn)
+            ll_qn = tools.loglikelihood_packed(G.ctypes.data, M, N, P_qn, Q_qn)
             accept_qn = ll_qn > ll_base
             if accept_qn:
                 break

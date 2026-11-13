@@ -223,7 +223,7 @@ cdef void update_single_q(int i, const double[:,::1] Q, double[:,::1] Q_next,
 
 cdef inline void _q_locus_terms(const uint8_t* g_row, const double* Qt, const double* pj,
                                 double* qp, double* ts, double* tdz, double* t2,
-                                double* C, double* Z0, int nb, int K) noexcept nogil:
+                                double* C, double* Z0, int nb, int K, uint8_t shift) noexcept nogil:
     cdef:
         int k, li
         double g, m, q, inv_q, inv_1mq, t1z_v, t2z_v, t2v, pk
@@ -239,8 +239,8 @@ cdef inline void _q_locus_terms(const uint8_t* g_row, const double* Qt, const do
 
     # Missing genotypes get zero weight instead of being skipped.
     for li in range(nb):
-        g = <double>g_row[li]
-        m = 1.0 if g_row[li] != 3 else 0.0
+        g = <double>((g_row[li] >> shift) & 0x03)
+        m = 1.0 if ((g_row[li] >> shift) & 0x03) != 3 else 0.0
         q = fmax(fmin(qp[li], 1.0 - 1e-10), 1e-10)
         inv_q = 1.0 / q
         inv_1mq = 1.0 / (1.0 - q)
@@ -296,11 +296,11 @@ cdef void _grad_hess_q_block(const uint8_t* G, const double* Q, const double* P,
     for j in range(0, M, 2):
         for k in range(K):
             pja[k] = P[<size_t>j * K + k]
-        _q_locus_terms(G + <size_t>j * N + ib, Qt, pja, qp, tsa, tdza, t2a, C, Z0, nb, K)
+        _q_locus_terms(G + <size_t>(j >> 2) * N + ib, Qt, pja, qp, tsa, tdza, t2a, C, Z0, nb, K, <uint8_t>((j & 3) << 1))
         if j + 1 < M:
             for k in range(K):
                 pjb[k] = P[<size_t>(j + 1) * K + k]
-            _q_locus_terms(G + <size_t>(j + 1) * N + ib, Qt, pjb, qp, tsb, tdzb, t2b, C, Z0, nb, K)
+            _q_locus_terms(G + <size_t>((j + 1) >> 2) * N + ib, Qt, pjb, qp, tsb, tdzb, t2b, C, Z0, nb, K, <uint8_t>(((j + 1) & 3) << 1))
         else:
             for k in range(K):
                 pjb[k] = 0.0
@@ -393,7 +393,7 @@ cdef enum:
 
 cdef inline void _p_chunk_terms(const uint8_t* g_c, const double* Qt, const double* pj,
                                 int i0, int n, int N, int K, double* ws,
-                                double* tableau) noexcept nogil:
+                                double* tableau, uint8_t shift) noexcept nogil:
     """Fills ts * Q[:, k] rows of ``ws`` for one chunk of individuals and adds
     the gradient column of the tableau."""
     cdef:
@@ -418,8 +418,8 @@ cdef inline void _p_chunk_terms(const uint8_t* g_c, const double* Qt, const doub
 
     # Missing genotypes get zero weight instead of being skipped.
     for li in range(n):
-        g = <double>g_c[li]
-        m = 1.0 if g_c[li] != 3 else 0.0
+        g = <double>((g_c[li] >> shift) & 0x03)
+        m = 1.0 if ((g_c[li] >> shift) & 0x03) != 3 else 0.0
         q = fmax(fmin(qp[li], 1.0 - 1e-10), 1e-10)
         inv_q = 1.0 / q
         inv_1mq = 1.0 / (1.0 - q)
@@ -460,7 +460,7 @@ cdef inline void _p_solve(int j, double* tableau, const double* pj, double* P_ne
 
 cdef void update_single_p_fused(int j, const uint8_t* g_row, const double* Qt,
                                 const double* P, double* P_next,
-                                int N, int K, double* ws) noexcept nogil:
+                                int N, int K, double* ws, uint8_t shift) noexcept nogil:
     cdef:
         int sz = K + 1
         int i0, n, li, k, k2
@@ -481,7 +481,7 @@ cdef void update_single_p_fused(int j, const uint8_t* g_row, const double* Qt,
     i0 = 0
     while i0 < N:
         n = min(N - i0, <int>P_CHUNK)
-        _p_chunk_terms(g_row + i0, Qt, pj, i0, n, N, K, ws, tableau)
+        _p_chunk_terms(g_row + i0, Qt, pj, i0, n, N, K, ws, tableau, shift)
         for k in range(K):
             wk = w + k * P_CHUNK
             for k2 in range(k, K):
@@ -494,9 +494,10 @@ cdef void update_single_p_fused(int j, const uint8_t* g_row, const double* Qt,
 
     _p_solve(j, tableau, pj, P_next, K)
 
-cdef void update_pair_p_fused(int j, const uint8_t* g_row, const double* Qt,
+cdef void update_pair_p_fused(int j, const uint8_t* g_row, const uint8_t* g_row_b, const double* Qt,
                               const double* P, double* P_next,
-                              int N, int K, double* ws) noexcept nogil:
+                              int N, int K, double* ws,
+                              uint8_t shift_a, uint8_t shift_b) noexcept nogil:
     """Updates loci j and j + 1 together so each row of Qt read by the
     Hessian reductions serves both loci."""
     cdef:
@@ -524,8 +525,8 @@ cdef void update_pair_p_fused(int j, const uint8_t* g_row, const double* Qt,
     i0 = 0
     while i0 < N:
         n = min(N - i0, <int>P_CHUNK)
-        _p_chunk_terms(g_row + i0, Qt, pa, i0, n, N, K, ws, tab_a)
-        _p_chunk_terms(g_row + N + i0, Qt, pb, i0, n, N, K, ws_b, tab_b)
+        _p_chunk_terms(g_row + i0, Qt, pa, i0, n, N, K, ws, tab_a, shift_a)
+        _p_chunk_terms(g_row_b + i0, Qt, pb, i0, n, N, K, ws_b, tab_b, shift_b)
         for k in range(K):
             wka = wa + k * P_CHUNK
             wkb = wb + k * P_CHUNK
@@ -560,10 +561,14 @@ cpdef void update_p_sqp(const uint8_t[:,::1] G, const double[:,::1] Q, const dou
         ws = <double*>malloc(<size_t>2 * (K + 3) * P_CHUNK * sizeof(double))
         for jp in prange(n_pairs, schedule='static'):
             j = 2 * jp
-            update_pair_p_fused(j, &G[j, 0], Qt, &P[0, 0], &P_next[0, 0], N, K, ws)
+            update_pair_p_fused(j, &G[j >> 2, 0], &G[(j + 1) >> 2, 0], Qt,
+                                &P[0, 0], &P_next[0, 0], N, K, ws,
+                                <uint8_t>((j & 3) << 1), <uint8_t>(((j + 1) & 3) << 1))
         free(ws)
     if M % 2 == 1:
         ws = <double*>malloc(<size_t>(K + 3) * P_CHUNK * sizeof(double))
-        update_single_p_fused(M - 1, &G[M - 1, 0], Qt, &P[0, 0], &P_next[0, 0], N, K, ws)
+        update_single_p_fused(M - 1, &G[(M - 1) >> 2, 0], Qt,
+                              &P[0, 0], &P_next[0, 0], N, K, ws,
+                              <uint8_t>(((M - 1) & 3) << 1))
         free(ws)
     free(Qt)

@@ -104,10 +104,9 @@ def run(
 
     K_max = max(k_values)
 
-    # Read data (always CPU unpacked uint8)
     G, N, M = utils.read_data(
         target_data,
-        packed=False,
+        packed="cpu",
         chunk_size=chunk_size,
         chrom_mode=chrom_mode,
         verbose=verbose,

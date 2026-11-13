@@ -185,7 +185,7 @@ def main() -> None:
     # ── Load target genotype data ─────────────────────────────────────────────
     G, N, M = utils.read_data(
         args.data_path,
-        packed=device_str in ("cuda", "mps"),
+        packed="cpu" if device_str == "cpu" else True,
         chunk_size=args.chunk_size,
         chrom_mode=args.chrom_mode,
         autosomes=args.autosomes,

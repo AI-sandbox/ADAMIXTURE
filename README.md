@@ -213,6 +213,24 @@ Key arguments:
 | `--specific_chrom` | `None` | List of specific chromosomes to analyze when `--chrom_mode autosomes` (overrides `--autosomes`). |
 | `--no_freqs` | `False` | Do not save the `.P` allele-frequency matrix. |
 
+## Memory requirements
+
+For one default BR-QN fit, let **N** = individuals, **M** = SNPs, **K** = populations,
+and **C** = `min(--chunk_size, M)` (default chunk size: 8192). Rough working-memory
+estimates in **bytes** are:
+
+| Device | Approximate memory |
+|---|---|
+| CPU RAM | `N*M/4 + max(4*C*N, 8*N*K² + 96*K*(M+N))` |
+| CUDA GPU VRAM | `8*(M+3*N)*K² + 160*K*(M+N) + 64*C*N` |
+
+Divide by `2^30` for GiB and allow additional memory for runtime overhead, CV and
+multi-K results. For GPU runs, genotypes occupy `N*M/4` bytes in host RAM when
+streamed, or add this amount to VRAM when GPU-resident. Smaller chunks reduce
+temporary memory.
+Apple MPS uses shared memory and mostly FP32 work buffers, so the CUDA estimate
+does not directly apply.
+
 ## Algorithm note
 
 The ADAMIXTURE [paper](https://doi.org/10.1093/bioinformatics/btag236) introduced Adam-EM as an adaptive first-order optimizer for admixture inference. The package still includes this solver via `--algorithm adamem`.

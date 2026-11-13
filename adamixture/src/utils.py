@@ -335,7 +335,18 @@ def set_cuda_arch_list_if_needed(device: "torch.device | Any") -> None:
     os.environ["TORCH_CUDA_ARCH_LIST"] = f"{major}.{minor}"
 
 
-def read_data(tr_file: str | Path | np.ndarray, packed: bool = False, chunk_size: int = 4096,
+def ensure_packed(G: np.ndarray, M: int) -> np.ndarray:
+    """Convert a legacy M-row uint8 matrix once; reuse packed arrays as-is."""
+    if G.shape[0] == M and M > 1:
+        from .utils_c import pack_genotypes
+        G = np.ascontiguousarray(G, dtype=np.uint8)
+        packed = np.zeros(((M + 3) // 4, G.shape[1]), dtype=np.uint8)
+        pack_genotypes(G.ctypes.data, packed.ctypes.data, M, G.shape[1], packed.shape[0])
+        return packed
+    return G
+
+
+def read_data(tr_file: str | Path | np.ndarray, packed: bool | str = "cpu", chunk_size: int = 4096,
               chrom_mode: str = "autosomes", autosomes: int = 22,
               specific_chrom: list | tuple | str | int | set | None = None,
               verbose: bool = True, plink: bool = True,
@@ -348,7 +359,7 @@ def read_data(tr_file: str | Path | np.ndarray, packed: bool = False, chunk_size
 
     Args:
         tr_file (str | Path | np.ndarray): Path to the SNP data file or in-memory array (M x N).
-        packed (bool): If True, return a 2-bit packed torch.Tensor.
+        packed (bool): True returns a packed torch.Tensor; "cpu" returns a packed NumPy array.
         chunk_size (int): Size of chunks to read for VCF files.
         chrom_mode (str): "all" to keep all chromosomes or "autosomes" to keep 1..autosomes.
         autosomes (int): Number of autosomes when chrom_mode is "autosomes".
@@ -372,7 +383,7 @@ def read_data(tr_file: str | Path | np.ndarray, packed: bool = False, chunk_size
         non_missing = np.sum(G != 3, axis=0)
         if np.any(non_missing == 0):
             raise ValueError("Sample(s) with zero information (all genotypes missing)!")
-        if not packed:
+        if not packed or packed == "cpu":
             mean_val = get_mean_unpacked(G) if M > 0 else 0.0
             if mean_val >= 0.5:
                 if verbose:
@@ -380,6 +391,8 @@ def read_data(tr_file: str | Path | np.ndarray, packed: bool = False, chunk_size
                 flip_unpacked(G)
         if verbose:
             log.info(f"    Data contains {N} samples and {M} SNPs.")
+        if packed == "cpu":
+            G = ensure_packed(G, M)
         return G, N, M
 
     # Case 2: Raw uint8 binary file from tidypopgen (plink=False)
@@ -403,7 +416,7 @@ def read_data(tr_file: str | Path | np.ndarray, packed: bool = False, chunk_size
         non_missing = np.sum(G != 3, axis=0)
         if np.any(non_missing == 0):
             raise ValueError("Sample(s) with zero information (all genotypes missing)!")
-        if not packed:
+        if not packed or packed == "cpu":
             mean_val = get_mean_unpacked(G) if M > 0 else 0.0
             if mean_val >= 0.5:
                 if verbose:
@@ -411,6 +424,8 @@ def read_data(tr_file: str | Path | np.ndarray, packed: bool = False, chunk_size
                 flip_unpacked(G)
         if verbose:
             log.info(f"    Data contains {N} samples and {M} SNPs.")
+        if packed == "cpu":
+            G = ensure_packed(G, M)
         return G, N, M
 
     # Case 3: Standard file formats (PLINK BED, VCF, PGEN, BCF)
@@ -921,10 +936,12 @@ def _calculate_frequencies_cpu_once(G: np.ndarray, M: int, N: int, chunk_size: i
     """
     from .utils_c import tools
 
+    G = ensure_packed(G, M)
     f = np.zeros(M, dtype=np.float32)
     for start in range(0, M, chunk_size):
         end = min(start + chunk_size, M)
-        tools.alleleFrequency(G[start:end], f[start:end], end - start, N)
+        block = tools.unpack_block(G, start, end)
+        tools.alleleFrequency(block, f[start:end], end - start, N)
     return f
 
 

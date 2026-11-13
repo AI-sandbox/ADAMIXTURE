@@ -159,6 +159,7 @@ def RSVD(G: np.ndarray, N: int, M: int, f: np.ndarray, k: int, seed: int,
     """
     Randomized SVD on CPU, retrying with smaller chunks on memory errors.
     """
+    G = utils.ensure_packed(G, M)
     current_chunk = chunk
 
     while True:

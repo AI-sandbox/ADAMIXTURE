@@ -4,6 +4,8 @@ import time
 
 import numpy as np
 
+from ..src.utils import ensure_packed
+
 from ..src.utils_c import em, tools
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
@@ -108,6 +110,7 @@ def optimize_parameters(G: np.ndarray, P: np.ndarray, Q: np.ndarray, lr: float,
     Returns:
         tuple[np.ndarray, np.ndarray]: Optimized P and Q matrices.
     """
+    G = ensure_packed(G, M)
     # Adam state variables (first and second moments):
     m_P = np.zeros_like(P, dtype=np.float64)
     v_P = np.zeros_like(P, dtype=np.float64)
@@ -137,7 +140,7 @@ def optimize_parameters(G: np.ndarray, P: np.ndarray, Q: np.ndarray, lr: float,
     log.info(f"    Performed priming iteration... ({time.time() - ts_priming:.1f}s)\n")
 
     # Initialize best with progress from priming
-    L_best = tools.loglikelihood(G, P, Q)
+    L_best = tools.loglikelihood_packed(G.ctypes.data, M, N, P, Q)
     memoryview(P_best.ravel())[:] = memoryview(P.ravel())
     memoryview(Q_best.ravel())[:] = memoryview(Q.ravel())
 
@@ -147,7 +150,7 @@ def optimize_parameters(G: np.ndarray, P: np.ndarray, Q: np.ndarray, lr: float,
                 t, lr, beta1, beta2, reg_adam)
 
         if (it + 1) % check == 0:
-            L_cur = tools.loglikelihood(G, P, Q)
+            L_cur = tools.loglikelihood_packed(G.ctypes.data, M, N, P, Q)
             log.info(
                 f"    Iteration {it+1}, "
                 f"Log-likelihood: {L_cur:.1f}, "

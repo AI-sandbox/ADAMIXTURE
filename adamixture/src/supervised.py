@@ -64,19 +64,22 @@ def init_p_supervised(G: np.ndarray, y: np.ndarray, K: int, M: int, eps: float =
     Returns:
         np.ndarray: Initialized P matrix (M x K, float64), clipped to [eps, 1−eps].
     """
+    G = utils.ensure_packed(G, M)
     P = np.full((M, K), 0.5, dtype=np.float64)
 
     for k in range(K):
         idx = np.where(y == k + 1)[0]
         if len(idx) == 0:
             continue
-        G_k = G[:, idx].astype(np.float64)
-        missing = G_k == 3
-        G_k[missing] = 0.0
-        counts = G_k.sum(axis=1)
-        denom = 2.0 * (G_k.shape[1] - missing.sum(axis=1))
-        valid = denom > 0
-        P[valid, k] = counts[valid] / denom[valid]
+        for start in range(0, M, 256):
+            end = min(start + 256, M)
+            G_k = tools.unpack_block(G, start, end)[:, idx].astype(np.float64)
+            missing = G_k == 3
+            G_k[missing] = 0.0
+            counts = G_k.sum(axis=1)
+            denom = 2.0 * (G_k.shape[1] - missing.sum(axis=1))
+            valid = denom > 0
+            P[start:end, k][valid] = counts[valid] / denom[valid]
 
     return P.clip(eps, 1.0 - eps)
 
@@ -242,6 +245,7 @@ def optimize_supervised(G: np.ndarray, P: np.ndarray, Q: np.ndarray, y: np.ndarr
     Returns:
         tuple[np.ndarray, np.ndarray]: Optimised (P, Q) matrices.
     """
+    G = utils.ensure_packed(G, M)
     m_P = np.zeros_like(P, dtype=np.float64)
     v_P = np.zeros_like(P, dtype=np.float64)
     m_Q = np.zeros_like(Q, dtype=np.float64)
@@ -268,7 +272,7 @@ def optimize_supervised(G: np.ndarray, P: np.ndarray, Q: np.ndarray, y: np.ndarr
     _supervised_em_step_cpu(G, P, Q, T, P1, Q1, q_bat, K, M, N, y)
     log.info(f"    Priming done. ({time.time() - ts_p:.1f}s)\n")
 
-    L_best = tools.loglikelihood(G, P, Q)
+    L_best = tools.loglikelihood_packed(G.ctypes.data, M, N, P, Q)
     P_best[:] = P
     Q_best[:] = Q
 
@@ -276,7 +280,7 @@ def optimize_supervised(G: np.ndarray, P: np.ndarray, Q: np.ndarray, y: np.ndarr
         _supervised_adam_step_cpu(G, P, Q, T, P1, Q1, q_bat, K, M, N,
                                   m_P, v_P, m_Q, v_Q, t, lr, beta1, beta2, reg_adam, y)
         if (it + 1) % check == 0:
-            L_cur = tools.loglikelihood(G, P, Q)
+            L_cur = tools.loglikelihood_packed(G.ctypes.data, M, N, P, Q)
             log.info(f"    Iteration {it + 1}, "
                      f"Log-likelihood: {L_cur:.1f}, "
                      f"Time: {time.time() - ts:.3f}s")
@@ -486,6 +490,7 @@ def optimize_supervised_original(G: np.ndarray, P: np.ndarray, Q: np.ndarray, y:
     Returns:
         tuple[np.ndarray, np.ndarray]: Optimised (P, Q) matrices.
     """
+    G = utils.ensure_packed(G, M)
     from ..model.br_qn import q_hessian_block_size
     from .utils_c.cython.br_qn import qn_extrapolate_ZAL, update_UV_ZAL
 
@@ -558,9 +563,9 @@ def optimize_supervised_original(G: np.ndarray, P: np.ndarray, Q: np.ndarray, y:
         _snap_q_cpu(Q_qn, y, K)
 
         # --- Conditional QN Acceptance (Pointer swapping, 0 memcpy) ---
-        ll_qn = tools.loglikelihood(G, P_qn, Q_qn)
+        ll_qn = tools.loglikelihood_packed(G.ctypes.data, M, N, P_qn, Q_qn)
         accept_qn = ll_qn > ll_prev_iter
-        ll_new = ll_qn if accept_qn else tools.loglikelihood(G, P_next2, Q_next2)
+        ll_new = ll_qn if accept_qn else tools.loglikelihood_packed(G.ctypes.data, M, N, P_next2, Q_next2)
 
         best_before = ll_best
         if ll_new > ll_best:

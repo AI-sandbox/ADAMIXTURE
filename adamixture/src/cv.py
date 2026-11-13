@@ -9,6 +9,8 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from ..model.br_qn import polish_sqp_qn
+from .utils import ensure_packed
+from .utils_c import tools
 from .utils_c import (
     deviance_squared_sum,
     deviance_squared_sum_i32,
@@ -82,7 +84,7 @@ def _hash_fold_mask(flat_entries: np.ndarray, seed: int, n_folds: int, fold: int
     hashed ^= hashed >> np.uint64(31)
     return (hashed % np.uint64(n_folds)) == np.uint64(fold)
 
-def _iter_non_missing_flat_chunks(G: np.ndarray, N: int):
+def _iter_non_missing_flat_chunks(G: np.ndarray, N: int, M: int | None = None):
     """
     Description:
     Yields chunks of non-missing genotype flat indices without materializing all entries.
@@ -94,14 +96,16 @@ def _iter_non_missing_flat_chunks(G: np.ndarray, N: int):
     Returns:
         Iterator[np.ndarray]: Chunks of flat indices where genotype != 3.
     """
+    M = G.shape[0] if M is None else M
+    G = ensure_packed(G, M)
     rows_per_chunk = _streaming_rows_per_chunk(N)
-    for row_start in range(0, G.shape[0], rows_per_chunk):
-        row_end = min(row_start + rows_per_chunk, G.shape[0])
-        local = np.flatnonzero(G[row_start:row_end].ravel() != 3)
+    for row_start in range(0, M, rows_per_chunk):
+        row_end = min(row_start + rows_per_chunk, M)
+        local = np.flatnonzero(tools.unpack_block(G, row_start, row_end).ravel() != 3)
         if local.size:
             yield local.astype(np.int64, copy=False) + row_start * N
 
-def _count_non_missing_streaming(G: np.ndarray, N: int) -> int:
+def _count_non_missing_streaming(G: np.ndarray, N: int, M: int | None = None) -> int:
     """
     Description:
     Counts non-missing genotype entries by scanning the matrix in chunks.
@@ -113,14 +117,16 @@ def _count_non_missing_streaming(G: np.ndarray, N: int) -> int:
     Returns:
         int: Number of genotype entries where genotype != 3.
     """
+    M = G.shape[0] if M is None else M
+    G = ensure_packed(G, M)
     rows_per_chunk = _streaming_rows_per_chunk(N)
     total = 0
-    for row_start in range(0, G.shape[0], rows_per_chunk):
-        row_end = min(row_start + rows_per_chunk, G.shape[0])
-        total += int(np.count_nonzero(G[row_start:row_end] != 3))
+    for row_start in range(0, M, rows_per_chunk):
+        row_end = min(row_start + rows_per_chunk, M)
+        total += int(np.count_nonzero(tools.unpack_block(G, row_start, row_end) != 3))
     return total
 
-def _build_hashed_fold_entries(G: np.ndarray, N: int, n_folds: int, fold: int, seed: int) -> np.ndarray:
+def _build_hashed_fold_entries(G: np.ndarray, N: int, n_folds: int, fold: int, seed: int, M: int | None = None) -> np.ndarray:
     """
     Description:
     Builds the held-out flat indices for one CV fold using streaming deterministic hashing.
@@ -137,7 +143,7 @@ def _build_hashed_fold_entries(G: np.ndarray, N: int, n_folds: int, fold: int, s
     """
     chunks = [
         flat_entries[_hash_fold_mask(flat_entries, seed, n_folds, fold)]
-        for flat_entries in _iter_non_missing_flat_chunks(G, N)
+        for flat_entries in _iter_non_missing_flat_chunks(G, N, M)
     ]
     return np.concatenate(chunks) if chunks else np.empty(0, dtype=np.int64)
 
@@ -197,16 +203,19 @@ def run_cross_validation(args: Namespace, G: np.ndarray, N: int, M: int, K: int,
         P_global = P_global.detach().cpu().numpy()
     if hasattr(Q_global, "cpu"):
         Q_global = Q_global.detach().cpu().numpy()
-    if G.shape != (M, N):
-        raise ValueError(f"CV requires an unpacked genotype matrix with shape {(M, N)}, got {G.shape}.")
+    if G.shape != (M, N) and G.shape != ((M + 3) // 4, N):
+        raise ValueError(f"CV requires genotype shape {(M, N)} or {((M + 3) // 4, N)}, got {G.shape}.")
 
+    G = ensure_packed(G, M)
     n_folds = int(args.cv)
     use_streaming_folds = M * N > np.iinfo(np.int32).max
     if use_streaming_folds:
-        n_non_missing = _count_non_missing_streaming(G, N)
+        n_non_missing = _count_non_missing_streaming(G, N, M)
         shuffled = None
     else:
-        non_missing_flat = np.flatnonzero(G != 3)
+        chunks = list(_iter_non_missing_flat_chunks(G, N, M))
+        non_missing_flat = np.concatenate(chunks) if chunks else np.empty(0, dtype=np.int32)
+        del chunks
         n_non_missing = int(non_missing_flat.size)
         non_missing_flat = non_missing_flat.astype(np.int32, copy=False)
         shuffled = _shuffle_non_missing(non_missing_flat, int(args.seed))
@@ -219,7 +228,7 @@ def run_cross_validation(args: Namespace, G: np.ndarray, N: int, M: int, K: int,
     cv_sum = 0.0
     for fold in range(n_folds):
         if use_streaming_folds:
-            held_out_entries = _build_hashed_fold_entries(G, N, n_folds, fold, int(args.seed))
+            held_out_entries = _build_hashed_fold_entries(G, N, n_folds, fold, int(args.seed), M)
         else:
             held_out_entries = np.sort(shuffled[fold::n_folds])
         if held_out_entries.size == 0:

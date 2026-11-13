@@ -51,12 +51,13 @@ def optimize_projection_cpu(
 
     M_snps, N_samples = G.shape
     if M is None:
-        M = M_snps
+        M = P.shape[0]
     if N is None:
         N = N_samples
     if K is None:
         K = P.shape[1]
 
+    G = utils.ensure_packed(G, M)
     # 1. Covariance matrix A = P^T P (K x K)
     A_cov_P = np.ascontiguousarray(P.T @ P, dtype=np.float64)
 
@@ -68,7 +69,7 @@ def optimize_projection_cpu(
     for start in range(0, M, chunk_size):
         end = min(start + chunk_size, M)
         n_chunk = end - start
-        g_slice = G[start:end]
+        g_slice = tools.unpack_block(G, start, end)
         buf = chunk_buf[:n_chunk]
         np.copyto(buf, g_slice)
 

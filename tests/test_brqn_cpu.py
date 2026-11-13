@@ -106,7 +106,7 @@ def test_qn_backtracks_up_to_four_candidates(monkeypatch, accept_at):
     G = rng.binomial(2, P @ Q.T).astype(np.uint8)
     evaluated = []
 
-    def score(g, p, q):
+    def score(g_ptr, m, n, p, q):
         evaluated.append(np.concatenate((p.ravel(), q.ravel())).copy())
         if len(evaluated) == 1:
             return 10.
@@ -116,7 +116,7 @@ def test_qn_backtracks_up_to_four_candidates(monkeypatch, accept_at):
         output[:] = x
 
     monkeypatch.setattr(brqn, 'qn_extrapolate_ZAL', candidate)
-    monkeypatch.setattr(tools, 'loglikelihood', score)
+    monkeypatch.setattr(tools, 'loglikelihood_packed', score)
     p, q = brqn.optimize_original(G, P, Q, 1, K, M, N, 0., 3, 2, verbose=False)
     assert len(evaluated) == 1 + (accept_at or 4)
     for prev, current in zip(evaluated[1:], evaluated[2:]):

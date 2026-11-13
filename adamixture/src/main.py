@@ -43,16 +43,16 @@ def main(args: argparse.Namespace, t0: float) -> int:
 
         Path(args.save_dir).mkdir(parents=True, exist_ok=True)
 
-        training_packed = args.device in ("gpu", "cuda", "mps") or 'cuda' in args.device
         G, N, M = utils.read_data(
             args.data_path,
-            packed=training_packed,
+            packed="cpu" if args.device == "cpu" else True,
             chunk_size=args.chunk_size,
             chrom_mode=args.chrom_mode,
             autosomes=args.autosomes,
             specific_chrom=getattr(args, "specific_chrom", None),
         )
 
+        log.info(f"    Genotype storage: {G.nbytes if isinstance(G, np.ndarray) else G.numel()} bytes.")
         trained: dict[int, tuple] = {}
         trained_plot: dict[int, tuple] = {}
         q_blocks: dict[int, int] = {}
@@ -208,7 +208,7 @@ def main(args: argparse.Namespace, t0: float) -> int:
         if args.cv and trained:
             from .cv import run_cross_validation
 
-            if training_packed:
+            if device_obj.type != "cpu":
                 del G
                 gc.collect()
                 if device_obj.type == 'cuda':
@@ -219,7 +219,7 @@ def main(args: argparse.Namespace, t0: float) -> int:
                 try:
                     G_cv, N_cv, M_cv = utils.read_data(
                         args.data_path,
-                        packed=False,
+                        packed="cpu",
                         chunk_size=args.chunk_size,
                         chrom_mode=args.chrom_mode,
                         autosomes=args.autosomes,

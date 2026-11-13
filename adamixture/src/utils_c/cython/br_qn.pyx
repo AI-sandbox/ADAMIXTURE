@@ -157,48 +157,72 @@ cpdef double deviance_squared_sum(uint8_t[::1] geno_values, long[::1] flat_entri
 cpdef void mask_entries_i32(uint8_t[:, ::1] G, int32_t[:] flat_entries, uint8_t[::1] saved_values, Py_ssize_t N) noexcept nogil:
     cdef:
         Py_ssize_t n_entries = flat_entries.shape[0]
-        Py_ssize_t i
+        Py_ssize_t i, row, col, byte_index
+        uint8_t shift
         int32_t idx
         uint8_t* g_flat = &G[0, 0]
 
-    for i in prange(n_entries, schedule='static'):
+    # SNPs in the same byte must be updated serially to preserve other lanes.
+    for i in range(n_entries):
         idx = flat_entries[i]
-        saved_values[i] = g_flat[idx]
-        g_flat[idx] = 3
+        row = idx // N
+        col = idx % N
+        byte_index = (row >> 2) * N + col
+        shift = <uint8_t>((row & 3) << 1)
+        saved_values[i] = (g_flat[byte_index] >> shift) & 3
+        g_flat[byte_index] |= <uint8_t>(3 << shift)
 
 cpdef void restore_entries_i32(uint8_t[:, ::1] G, int32_t[:] flat_entries, uint8_t[::1] saved_values, Py_ssize_t N) noexcept nogil:
     cdef:
         Py_ssize_t n_entries = flat_entries.shape[0]
-        Py_ssize_t i
+        Py_ssize_t i, row, col, byte_index
+        uint8_t shift
         int32_t idx
         uint8_t* g_flat = &G[0, 0]
 
-    for i in prange(n_entries, schedule='static'):
+    # SNPs in the same byte must be updated serially to preserve other lanes.
+    for i in range(n_entries):
         idx = flat_entries[i]
-        g_flat[idx] = saved_values[i]
+        row = idx // N
+        col = idx % N
+        byte_index = (row >> 2) * N + col
+        shift = <uint8_t>((row & 3) << 1)
+        g_flat[byte_index] = (g_flat[byte_index] & <uint8_t>~(3 << shift)) | (saved_values[i] << shift)
 
 cpdef void mask_entries_i64(uint8_t[:, ::1] G, long[:] flat_entries, uint8_t[::1] saved_values, Py_ssize_t N) noexcept nogil:
     cdef:
         Py_ssize_t n_entries = flat_entries.shape[0]
-        Py_ssize_t i
+        Py_ssize_t i, row, col, byte_index
+        uint8_t shift
         long idx
         uint8_t* g_flat = &G[0, 0]
 
-    for i in prange(n_entries, schedule='static'):
+    # SNPs in the same byte must be updated serially to preserve other lanes.
+    for i in range(n_entries):
         idx = flat_entries[i]
-        saved_values[i] = g_flat[idx]
-        g_flat[idx] = 3
+        row = idx // N
+        col = idx % N
+        byte_index = (row >> 2) * N + col
+        shift = <uint8_t>((row & 3) << 1)
+        saved_values[i] = (g_flat[byte_index] >> shift) & 3
+        g_flat[byte_index] |= <uint8_t>(3 << shift)
 
 cpdef void restore_entries_i64(uint8_t[:, ::1] G, long[:] flat_entries, uint8_t[::1] saved_values, Py_ssize_t N) noexcept nogil:
     cdef:
         Py_ssize_t n_entries = flat_entries.shape[0]
-        Py_ssize_t i
+        Py_ssize_t i, row, col, byte_index
+        uint8_t shift
         long idx
         uint8_t* g_flat = &G[0, 0]
 
-    for i in prange(n_entries, schedule='static'):
+    # SNPs in the same byte must be updated serially to preserve other lanes.
+    for i in range(n_entries):
         idx = flat_entries[i]
-        g_flat[idx] = saved_values[i]
+        row = idx // N
+        col = idx % N
+        byte_index = (row >> 2) * N + col
+        shift = <uint8_t>((row & 3) << 1)
+        g_flat[byte_index] = (g_flat[byte_index] & <uint8_t>~(3 << shift)) | (saved_values[i] << shift)
 
 cpdef double deviance_squared_sum_i32(uint8_t[::1] geno_values, int32_t[:] flat_entries, double[:,::1] P,
                                       double[:,::1] Q, Py_ssize_t N) noexcept nogil:

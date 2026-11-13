@@ -48,6 +48,8 @@ def setup(G: Any, N: int, M: int, K_max: int, seed: int, power: int,
                have been moved to GPU.
     """
     device_obj = Device(device)
+    if device_obj.type == "cpu":
+        G = utils.ensure_packed(G, M)
     if device_obj.type != 'cpu':
         require_torch()
     if device_obj.type == 'mps':
@@ -120,6 +122,7 @@ def initialize_em_cpu(G: np.ndarray, seed: int, M: int, N: int, K: int,
     Returns:
         tuple[np.ndarray, np.ndarray]: Initialized (P, Q) matrices.
     """
+    G = utils.ensure_packed(G, M)
     t0 = time.time()
     rng = np.random.default_rng(seed)
     P = rng.random(size=(M, K), dtype=np.float64)
@@ -191,6 +194,8 @@ def run_als(G: "torch.Tensor | np.ndarray", U: Any, S: Any, V: Any,
     Returns:
         tuple: (P, Q, logl) of the best start.
     """
+    if device_obj.type == "cpu":
+        G = utils.ensure_packed(G, M)
     if device_obj.type == 'cpu':
         if als_starts > 1:
             log.info(f"    Running ALS ({als_starts} starts)...")
@@ -213,7 +218,7 @@ def run_als(G: "torch.Tensor | np.ndarray", U: Any, S: Any, V: Any,
         als_seed = seed + 1000 * start
         if device_obj.type == 'cpu':
             P, Q = ALS(U, S, V, f, als_seed, M, N, K, max_als, tol_als, beta=beta_als)
-            logl = tools.loglikelihood(G, P, Q)
+            logl = tools.loglikelihood_packed(G.ctypes.data, M, N, P, Q)
         else:
             P, Q = ALS_gpu(U, S, V, f, als_seed, M, K, max_als, tol_als, dev_target, beta=beta_als)
             utils.clear_device_cache(device_obj)
@@ -260,10 +265,12 @@ def initialize_k(G: "torch.Tensor | np.ndarray", N: int, M: int, K: int,
     Returns:
         tuple: (P, Q, logl) — initialized matrices and initial log-likelihood.
     """
+    if device_obj.type == "cpu":
+        G = utils.ensure_packed(G, M)
     if original and init_original == 'random':
         if device_obj.type == 'cpu':
             P, Q = initialize_em_cpu(G, seed, M, N, K, em_init_steps)
-            logl = tools.loglikelihood(G, P, Q)
+            logl = tools.loglikelihood_packed(G.ctypes.data, M, N, P, Q)
         else:
             P, Q = initialize_em_gpu(G, seed, M, N, K, device_obj, chunk_size,
                                      threads_per_block, em_init_steps)
@@ -345,6 +352,8 @@ def train_k(G: "torch.Tensor | np.ndarray", N: int, M: int, K: int, U_max: "np.n
     Returns:
         tuple: (P, Q) — numpy arrays on CPU, GPU tensors on CUDA/MPS.
     """
+    if device_obj.type == "cpu":
+        G = utils.ensure_packed(G, M)
     if P_init is not None and Q_init is not None:
         P, Q = P_init, Q_init
     else:
@@ -355,7 +364,7 @@ def train_k(G: "torch.Tensor | np.ndarray", N: int, M: int, K: int, U_max: "np.n
         if original and init_original == 'random':
             if device_obj.type == 'cpu':
                 P, Q = initialize_em_cpu(G, seed, M, N, K, em_init_steps)
-                logl = tools.loglikelihood(G, P, Q)
+                logl = tools.loglikelihood_packed(G.ctypes.data, M, N, P, Q)
             else:
                 P, Q = initialize_em_gpu(G, seed, M, N, K, device_obj, chunk_size, threads_per_block, em_init_steps)
                 utils.clear_device_cache(device_obj)

@@ -394,7 +394,7 @@ class SNPReader:
     def _read_bed(
         self,
         file: str,
-        packed: bool,
+        packed: bool | str,
         chunk_size: int,
         chrom_mode: str,
         autosomes: int,
@@ -407,7 +407,7 @@ class SNPReader:
 
         Args:
             file (str): Path to the BED file (without extension or with .bed).
-            packed (bool): If True, returns a 2-bit packed torch.Tensor. Defaults to False.
+            packed (bool): True returns a packed torch.Tensor; "cpu" returns a packed NumPy array. Defaults to False.
 
         Returns:
             tuple[torch.Tensor | np.ndarray, int, int]: (genotype matrix, N individuals, M SNPs)
@@ -456,7 +456,7 @@ class SNPReader:
                 del B, B_raw
                 return G, N, M
             else:
-                log.info("        Reading BED in packed 2-bit format for GPU use.")
+                log.info("        Reading BED in packed 2-bit format for computation.")
                 with open(readable_bed_file, "rb") as f:
                     f.seek(3)
                     buffer = bytearray(f.read())
@@ -470,19 +470,23 @@ class SNPReader:
                     B_raw = np.ascontiguousarray(B_raw[keep_mask])
                 M = B_raw.shape[0]
 
-                torch = require_torch()
-                B = torch.from_numpy(B_raw)
                 M_bytes = (M + 3) // 4
-                G = torch.zeros((M_bytes, N), dtype=torch.uint8)
-
-                read_bed_packed(B.data_ptr(), G.data_ptr(), M, N_bytes, N, M_bytes)
+                if packed == "cpu":
+                    B = B_raw
+                    G = np.zeros((M_bytes, N), dtype=np.uint8)
+                    read_bed_packed(B.ctypes.data, G.ctypes.data, M, N_bytes, N, M_bytes)
+                else:
+                    torch = require_torch()
+                    B = torch.from_numpy(B_raw)
+                    G = torch.zeros((M_bytes, N), dtype=torch.uint8)
+                    read_bed_packed(B.data_ptr(), G.data_ptr(), M, N_bytes, N, M_bytes)
                 del B, B_raw
                 return G, N, M
 
     def _read_vcf(
         self,
         file: str,
-        packed: bool,
+        packed: bool | str,
         chunk_size: int,
         chrom_mode: str,
         autosomes: int,
@@ -495,7 +499,7 @@ class SNPReader:
 
         Args:
             file (str): Path to the VCF file.
-            packed (bool): If True, returns a 2-bit packed torch.Tensor. Defaults to False.
+            packed (bool): True returns a packed torch.Tensor; "cpu" returns a packed NumPy array. Defaults to False.
             chunk_size (int): Size of chunks to read for VCF files. Defaults to 4096.
 
         Returns:
@@ -522,7 +526,7 @@ class SNPReader:
                 )
                 return np.ascontiguousarray(G), N, M
             else:
-                log.info("        Reading VCF in packed 2-bit format for GPU use.")
+                log.info("        Reading VCF in packed 2-bit format for computation.")
                 G_packed_np, N, M = read_vcf_file_packed(
                     str(vcf_file),
                     chunk_size=chunk_size,
@@ -530,6 +534,8 @@ class SNPReader:
                     autosomes=autosomes,
                     specific_chrom=norm_spec,
                 )
+                if packed == "cpu":
+                    return G_packed_np, N, M
                 torch = require_torch()
                 G_packed = torch.from_numpy(G_packed_np)
                 return G_packed, N, M
@@ -544,7 +550,7 @@ class SNPReader:
     def _read_pgen(
         self,
         file: str,
-        packed: bool,
+        packed: bool | str,
         chunk_size: int,
         chrom_mode: str,
         autosomes: int,
@@ -556,7 +562,7 @@ class SNPReader:
 
         Args:
             file (str): Path to the PGEN file (without extension or with .pgen).
-            packed (bool): If True, returns a 2-bit packed torch.Tensor. Defaults to False.
+            packed (bool): True returns a packed torch.Tensor; "cpu" returns a packed NumPy array. Defaults to False.
 
         Returns:
             tuple[torch.Tensor | np.ndarray, int, int]: (genotype matrix, N individuals, M SNPs)
@@ -580,7 +586,7 @@ class SNPReader:
 
         with self._materialize_binary(pgen_file) as readable_pgen_file:
             if packed:
-                log.info("        Reading PGEN in packed 2-bit format for GPU use.")
+                log.info("        Reading PGEN in packed 2-bit format for computation.")
                 if np.all(keep_mask):
                     G_packed, N, M = read_pgen_file_packed(
                         str(readable_pgen_file),
@@ -611,6 +617,8 @@ class SNPReader:
                         "excluded all variants, or if the input dataset has no variants."
                     )
                     raise ValueError("No variants found in dataset matching chromosome filters.")
+                if packed == "cpu":
+                    return G_packed, N, M
                 torch = require_torch()
                 return torch.from_numpy(G_packed), N, M
 
@@ -636,7 +644,7 @@ class SNPReader:
     def _read_bcf(
         self,
         file: str,
-        packed: bool,
+        packed: bool | str,
         chunk_size: int,
         chrom_mode: str,
         autosomes: int,
@@ -649,7 +657,7 @@ class SNPReader:
 
         Args:
             file (str): Path to the BCF file.
-            packed (bool): If True, returns a 2-bit packed torch.Tensor. Defaults to False.
+            packed (bool): True returns a packed torch.Tensor; "cpu" returns a packed NumPy array. Defaults to False.
             chunk_size (int): Size of chunks to read.
             chrom_mode (str): Chromosome filter mode ("all" or "autosomes").
             autosomes (int): Number of autosomes kept when chrom_mode is "autosomes".
@@ -680,13 +688,15 @@ class SNPReader:
                 )
                 return np.ascontiguousarray(G), N, M
             else:
-                log.info("        Reading BCF in packed 2-bit format for GPU use.")
+                log.info("        Reading BCF in packed 2-bit format for computation.")
                 G_packed_np, N, M = read_bcf_file_packed(
                     bcf_bytes,
                     chrom_mode=chrom_mode,
                     autosomes=autosomes,
                     specific_chrom=norm_spec,
                 )
+                if packed == "cpu":
+                    return G_packed_np, N, M
                 torch = require_torch()
                 G_packed = torch.from_numpy(G_packed_np)
                 return G_packed, N, M
@@ -730,7 +740,7 @@ class SNPReader:
     def read_data(
         self,
         file: str,
-        packed: bool,
+        packed: bool | str,
         chunk_size: int,
         chrom_mode: str,
         autosomes: int,
@@ -743,7 +753,7 @@ class SNPReader:
 
         Args:
             file (str): Path to the genotype file.
-            packed (bool): If True, returns a 2-bit packed torch.Tensor (BED, PGEN, VCF). Defaults to False.
+            packed (bool): True returns a packed torch.Tensor; "cpu" returns a packed NumPy array (BED, PGEN, VCF). Defaults to False.
             chunk_size (int): Size of chunks to read for VCF files. Defaults to 4096.
             chrom_mode (str): "all" to keep all chromosomes or "autosomes" to keep 1..autosomes.
             autosomes (int): Number of autosomes when chrom_mode is "autosomes".
@@ -806,10 +816,11 @@ class SNPReader:
                 flip_unpacked(G)
         else:
             M_bytes = G.shape[0]
-            mean_val = get_mean_packed(G.data_ptr(), M, N, M_bytes) if M > 0 else 0.0
+            pointer = G.ctypes.data if isinstance(G, np.ndarray) else G.data_ptr()
+            mean_val = get_mean_packed(pointer, M, N, M_bytes) if M > 0 else 0.0
             if mean_val >= 0.5:
                 log.info("    Flipping genotype encoding (packed).")
-                flip_packed(G.data_ptr(), M, N, M_bytes)
+                flip_packed(pointer, M, N, M_bytes)
 
         end = time.time()
         log.info(f"        Total time for reading={end - start:.3f}s")
