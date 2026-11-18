@@ -11,7 +11,7 @@ from pathlib import Path
 import numpy as np
 
 from . import utils
-from .adamixture import initialize_k, setup, train_k
+from .adamixture import initialize_k, run_als, setup, train_k
 from ..model.br_qn import q_hessian_block_size
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
@@ -55,6 +55,7 @@ def main(args: argparse.Namespace, t0: float) -> int:
         log.info(f"    Genotype storage: {G.nbytes if isinstance(G, np.ndarray) else G.numel()} bytes.")
         trained: dict[int, tuple] = {}
         trained_plot: dict[int, tuple] = {}
+        should_plot_combined = len(k_values) > 1 and getattr(args, 'plot', None) is not None
         q_blocks: dict[int, int] = {}
         previous_Q = None
 
@@ -73,6 +74,21 @@ def main(args: argparse.Namespace, t0: float) -> int:
                 q_block = q_hessian_block_size(K)
                 q_blocks[K] = q_block
 
+                P_init_last = Q_init_last = None
+                if K == k_values[-1] and not (args.algorithm == 'brqn' and args.init == 'random'):
+                    U_k = U[:, :K] if U is not None else None
+                    S_k = S[:K] if S is not None else None
+                    V_k = V[:, :K] if V is not None else None
+                    P_init_last, Q_init_last, init_logl = run_als(
+                        G, U_k, S_k, V_k, f, int(args.seed), M, N, K,
+                        int(args.max_als), float(args.tol_als), float(args.beta_als),
+                        int(args.als_starts), device_obj, int(args.chunk_size), threads_per_block,
+                    )
+                    del U_k, S_k, V_k
+                    U = S = V = f = None
+                    label = "Best initial log-likelihood" if int(args.als_starts) > 1 else "Initial log-likelihood"
+                    log.info(f"\n    {label} for K={K}: {init_logl:.1f}.")
+
                 P, Q = train_k(
                     G, N, M, K, U, S, V, f,
                     int(args.seed), float(args.lr), float(args.beta1), float(args.beta2),
@@ -84,10 +100,12 @@ def main(args: argparse.Namespace, t0: float) -> int:
                     original=(args.algorithm == 'brqn'), rtol=float(args.tol), Q_hist=args.Q_hist,
                     init_original=args.init,
                     em_init_steps=int(args.em_init_steps),
+                    P_init=P_init_last, Q_init=Q_init_last,
                     q_block=q_block,
                     beta_als=float(args.beta_als),
                     als_starts=int(args.als_starts),
                 )
+                del P_init_last, Q_init_last
 
                 P_np = P.cpu().numpy() if hasattr(P, "cpu") else P
                 Q_np = Q.cpu().numpy() if hasattr(Q, "cpu") else Q
@@ -99,7 +117,8 @@ def main(args: argparse.Namespace, t0: float) -> int:
                     P_np = P_np[:, perm]
 
                 previous_Q = Q_np
-                trained_plot[K] = (P_np, Q_np)
+                if should_plot_combined:
+                    trained_plot[K] = (None, Q_np)
 
                 utils.write_outputs(Q_np, args.name, K, args.save_dir,
                                     P=None if args.no_freqs else P_np)
@@ -111,6 +130,8 @@ def main(args: argparse.Namespace, t0: float) -> int:
 
                 if args.cv:
                     trained[K] = (P, Q)
+                else:
+                    del P, Q, P_np, Q_np
 
                 log.info(f"\n    K={K} completed in {time.time() - t_k:.2f} seconds.")
 
@@ -181,7 +202,8 @@ def main(args: argparse.Namespace, t0: float) -> int:
                     P_np = P_np[:, perm]
 
                 previous_Q = Q_np
-                trained_plot[K] = (P_np, Q_np)
+                if should_plot_combined:
+                    trained_plot[K] = (None, Q_np)
 
                 utils.write_outputs(Q_np, args.name, K, args.save_dir,
                                     P=None if args.no_freqs else P_np)
@@ -193,6 +215,8 @@ def main(args: argparse.Namespace, t0: float) -> int:
 
                 if args.cv:
                     trained[K] = (P, Q)
+                else:
+                    del P, Q, P_np, Q_np
 
                 log.info(f"\n    K={K} completed in {time.time() - t_k:.2f} seconds.")
 
@@ -236,11 +260,14 @@ def main(args: argparse.Namespace, t0: float) -> int:
             else:
                 G_cv = G if isinstance(G, np.ndarray) else np.ascontiguousarray(G.detach().cpu().numpy(), dtype=np.uint8)
 
-            for K, (P, Q) in sorted(trained.items()):
+            for K in sorted(list(trained)):
+                P, Q = trained.pop(K)
                 log.info(f"\n    Running {int(args.cv)}-fold CV on genotype entries for K={K}...")
                 cv_results[K] = run_cross_validation(
                     args, G_cv, N, M, K, P, Q, q_block=q_blocks[K],
                 )
+                del P, Q
+                gc.collect()
             del G_cv
             gc.collect()
 
@@ -258,6 +285,14 @@ def main(args: argparse.Namespace, t0: float) -> int:
 
     except (ArgumentError, ArgumentTypeError) as e:
         log.error(f"    Error parsing arguments: {e}")
+        logging.shutdown()
+        return 1
+
+    except MemoryError as e:
+        log.error(
+            f"    CPU out of memory: {e}. Try reducing --chunk_size, --Q_hist, "
+            "or --threads, or closing other memory-intensive processes."
+        )
         logging.shutdown()
         return 1
 

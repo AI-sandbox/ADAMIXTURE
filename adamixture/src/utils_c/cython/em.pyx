@@ -211,7 +211,7 @@ cpdef void adamUpdateQ(double[:,::1] Q0, const double[:,::1] Q1,
 # Coordinated EM P-step
 cpdef void P_step(const unsigned char[:,::1] G, double[:,::1] P, double[:,::1] P_EM, 
                 const double[:,::1] Q, double[:,::1] Q_T, double[::1] q_bat, 
-                const int K, const int M, const int N) noexcept nogil:
+                const int K, const int M, const int N):
     """
     Description:
     Coordinated EM step for P matrix update. Calculates EM P and accumulates factors for Q update.
@@ -232,6 +232,9 @@ cpdef void P_step(const unsigned char[:,::1] G, double[:,::1] P, double[:,::1] P
     """
     cdef:
         size_t col, row, idx_n, idx_k
+        int alloc_err = 0
+        int* err_ptr = &alloc_err
+        bint ok
         double rec
         unsigned char genotype
         double* p_ptr
@@ -243,33 +246,41 @@ cpdef void P_step(const unsigned char[:,::1] G, double[:,::1] P, double[:,::1] P
         double* q_len
         omp.omp_lock_t sync_lock
 
+    if M <= 0 or N <= 0 or K <= 0:
+        return
+
     omp.omp_init_lock(&sync_lock)
     
     with nogil, parallel():
-        A = <double*>calloc(K, sizeof(double))
-        B = <double*>calloc(K, sizeof(double))
-        t = <double*>calloc(N * K, sizeof(double))
-        q_len = <double*>calloc(N, sizeof(double))
+        A = <double*>calloc(<size_t>K, sizeof(double))
+        B = <double*>calloc(<size_t>K, sizeof(double))
+        t = <double*>calloc(<size_t>N * <size_t>K, sizeof(double))
+        q_len = <double*>calloc(<size_t>N, sizeof(double))
+        ok = (A != NULL and B != NULL and t != NULL and q_len != NULL)
+        if not ok:
+            err_ptr[0] = 1
         
         for row in prange(M, schedule='guided'):
-            p_ptr = &P[row, 0]
-            g_ptr = &G[row >> 2, 0]
-            for col in range(N):
-                genotype = (g_ptr[col] >> ((row & 3) << 1)) & 3
-                if genotype == 3:
-                    continue
-                q_len[col] += 2.0
-                rec = _reconstruct(p_ptr, &Q[col, 0], K)
-                _update_temp_factors(A, B, &t[col * K], p_ptr, &Q[col, 0], genotype, rec, K)
-            _updateEM_P(A, B, p_ptr, &P_EM[row, 0], K)
+            if ok:
+                p_ptr = &P[row, 0]
+                g_ptr = &G[row >> 2, 0]
+                for col in range(N):
+                    genotype = (g_ptr[col] >> ((row & 3) << 1)) & 3
+                    if genotype == 3:
+                        continue
+                    q_len[col] += 2.0
+                    rec = _reconstruct(p_ptr, &Q[col, 0], K)
+                    _update_temp_factors(A, B, &t[col * <size_t>K], p_ptr, &Q[col, 0], genotype, rec, K)
+                _updateEM_P(A, B, p_ptr, &P_EM[row, 0], K)
             
-        omp.omp_set_lock(&sync_lock)
-        for idx_n in range(N):
-            q_bat[idx_n] = q_bat[idx_n] + q_len[idx_n]
-            dest_row = &Q_T[idx_n, 0] 
-            for idx_k in range(K):
-                dest_row[idx_k] += t[idx_n * K + idx_k]   
-        omp.omp_unset_lock(&sync_lock)
+        if ok:
+            omp.omp_set_lock(&sync_lock)
+            for idx_n in range(N):
+                q_bat[idx_n] = q_bat[idx_n] + q_len[idx_n]
+                dest_row = &Q_T[idx_n, 0] 
+                for idx_k in range(K):
+                    dest_row[idx_k] += t[idx_n * <size_t>K + idx_k]   
+            omp.omp_unset_lock(&sync_lock)
 
         free(A)
         free(B)
@@ -277,6 +288,8 @@ cpdef void P_step(const unsigned char[:,::1] G, double[:,::1] P, double[:,::1] P
         free(q_len)
         
     omp.omp_destroy_lock(&sync_lock)
+    if alloc_err:
+        raise MemoryError("Out of memory allocating EM thread workspace")
 
 # Coordinated EM Q-step
 cpdef void Q_step(const double[:,::1] Q, double[:,::1] Q_EM, double[:,::1] T, 

@@ -13,6 +13,69 @@ logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
 log = logging.getLogger(__name__)
 
 
+def _allocate_pq_work_buffers(
+    P: np.ndarray,
+    Q: np.ndarray,
+    M: int,
+    N: int,
+    K: int,
+):
+    """Allocate the 4 working (M + N) x K double buffers with an actionable OOM error."""
+    try:
+        PQ = np.empty((M + N, K), dtype=np.float64)
+        P_cur, Q_cur = PQ[:M], PQ[M:]
+        P_cur[:] = P
+        Q_cur[:] = Q
+        x_buf = PQ.ravel()
+
+        PQ_next = np.empty((M + N, K), dtype=np.float64)
+        P_next, Q_next = PQ_next[:M], PQ_next[M:]
+        x_next_buf = PQ_next.ravel()
+
+        PQ_next2 = np.empty((M + N, K), dtype=np.float64)
+        P_next2, Q_next2 = PQ_next2[:M], PQ_next2[M:]
+        x_next2_buf = PQ_next2.ravel()
+
+        PQ_qn = np.empty((M + N, K), dtype=np.float64)
+        P_qn, Q_qn = PQ_qn[:M], PQ_qn[M:]
+        x_qn = PQ_qn.ravel()
+    except MemoryError as exc:
+        req_mb = 4 * (M + N) * K * 8 / (1024 ** 2)
+        raise MemoryError(
+            f"Out of memory allocating BR-QN parameter buffers (~{req_mb:.1f} MiB required for M={M}, N={N}, K={K})."
+        ) from exc
+
+    return (
+        PQ, P_cur, Q_cur, x_buf,
+        PQ_next, P_next, Q_next, x_next_buf,
+        PQ_next2, P_next2, Q_next2, x_next2_buf,
+        PQ_qn, P_qn, Q_qn, x_qn,
+    )
+
+
+def allocate_zal_history_buffers(
+    M: int,
+    N: int,
+    K: int,
+    Q_hist: int,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, int]:
+    """Allocate ZAL Quasi-Newton history buffers (U, V) without altering Q_hist."""
+    dim = (M + N) * K
+    q_hist_eff = max(1, int(Q_hist))
+    try:
+        U = np.zeros(dim * q_hist_eff, dtype=np.float64)
+        V = np.zeros(dim * q_hist_eff, dtype=np.float64)
+        UtUmV_workspace = np.zeros(q_hist_eff * (q_hist_eff + 1), dtype=np.float64)
+        coeff_workspace = np.zeros(q_hist_eff, dtype=np.float64)
+        return U, V, UtUmV_workspace, coeff_workspace, q_hist_eff
+    except MemoryError as exc:
+        req_mb = (2 * q_hist_eff * dim + q_hist_eff * (q_hist_eff + 2)) * 8 / (1024 ** 2)
+        raise MemoryError(
+            f"Out of memory allocating BR-QN ZAL history buffers "
+            f"(~{req_mb:.1f} MiB required for M={M}, N={N}, K={K}, Q_hist={q_hist_eff})."
+        ) from exc
+
+
 def q_hessian_block_size(K: int) -> int:
     """Individuals per Q-Hessian tile so the per-thread workspace,
     B * (K(K+1)/2 + 3K + 9) doubles, stays near 64 KB."""
@@ -77,39 +140,22 @@ def optimize_original(G: np.ndarray, P: np.ndarray, Q: np.ndarray, max_iter: int
     if q_block is None:
         q_block = q_hessian_block_size(K)
 
-    # 2. Allocate buffers
-    XtX_q = np.empty((N, K, K), dtype=np.float64)
-    Xtz_q = np.empty((N, K), dtype=np.float64)
+    # 2. Allocate buffers cleanly (lazy best snapshot + clean OOM reporting)
+    (
+        PQ, P_cur, Q_cur, x_buf,
+        PQ_next, P_next, Q_next, x_next_buf,
+        PQ_next2, P_next2, Q_next2, x_next2_buf,
+        PQ_qn, P_qn, Q_qn, x_qn,
+    ) = _allocate_pq_work_buffers(P, Q, M, N, K)
 
-    # Contiguous parameter buffers with zero-copy views
-    PQ = np.empty((M + N, K), dtype=np.float64)
-    P_cur, Q_cur = PQ[:M], PQ[M:]
-    P_cur[:] = P
-    Q_cur[:] = Q
-    x_buf = PQ.ravel()
-
-    PQ_next = np.empty((M + N, K), dtype=np.float64)
-    P_next, Q_next = PQ_next[:M], PQ_next[M:]
-    x_next_buf = PQ_next.ravel()
-
-    PQ_next2 = np.empty((M + N, K), dtype=np.float64)
-    P_next2, Q_next2 = PQ_next2[:M], PQ_next2[M:]
-    x_next2_buf = PQ_next2.ravel()
-
-    PQ_qn = np.empty((M + N, K), dtype=np.float64)
-    P_qn, Q_qn = PQ_qn[:M], PQ_qn[M:]
-    x_qn = PQ_qn.ravel()
-
-    PQ_best = np.empty((M + N, K), dtype=np.float64)
-    P_best, Q_best = PQ_best[:M], PQ_best[M:]
-    x_best = PQ_best.ravel()
+    PQ_best = None
+    P_best = Q_best = x_best = None
 
     # QN history buffers
     dim = (M + N) * K
-    U = np.zeros(dim * Q_hist, dtype=np.float64)
-    V = np.zeros(dim * Q_hist, dtype=np.float64)
-    UtUmV_workspace = np.zeros(Q_hist * (Q_hist + 1), dtype=np.float64)
-    coeff_workspace = np.zeros(Q_hist, dtype=np.float64)
+    U, V, UtUmV_workspace, coeff_workspace, Q_hist = allocate_zal_history_buffers(
+        M, N, K, Q_hist
+    )
 
     # 3. Initialize log-likelihood tracking
     ll_prev_iter = -float('inf')
@@ -121,11 +167,11 @@ def optimize_original(G: np.ndarray, P: np.ndarray, Q: np.ndarray, max_iter: int
         it_start = time.time()
 
         # --- SQP Update 1: (P_cur, Q_cur) -> (P_next, Q_next) ---
-        sqp.update_q_sqp(G, Q_cur, Q_next, P_cur, XtX_q, Xtz_q, v_kk, M, N, K, q_block)
+        sqp.update_q_sqp(G, Q_cur, Q_next, P_cur, None, None, v_kk, M, N, K, q_block)
         sqp.update_p_sqp(G, Q_next, P_cur, P_next, M, N, K)
 
         # --- SQP Update 2: (P_next, Q_next) -> (P_next2, Q_next2) ---
-        sqp.update_q_sqp(G, Q_next, Q_next2, P_next, XtX_q, Xtz_q, v_kk, M, N, K, q_block)
+        sqp.update_q_sqp(G, Q_next, Q_next2, P_next, None, None, v_kk, M, N, K, q_block)
         sqp.update_p_sqp(G, Q_next2, P_next, P_next2, M, N, K)
 
         # --- ZAL QN acceleration (Zero-Copy) ---
@@ -152,6 +198,10 @@ def optimize_original(G: np.ndarray, P: np.ndarray, Q: np.ndarray, max_iter: int
             ll_best = ll_new
             best_in_cur = True
         elif best_in_cur:
+            if PQ_best is None:
+                PQ_best = np.empty_like(PQ)
+                P_best, Q_best = PQ_best[:M], PQ_best[M:]
+                x_best = PQ_best.ravel()
             PQ, PQ_best = PQ_best, PQ
             P_cur, P_best = P_best, P_cur
             Q_cur, Q_best = Q_best, Q_cur
@@ -193,7 +243,7 @@ def optimize_original(G: np.ndarray, P: np.ndarray, Q: np.ndarray, max_iter: int
 
         ll_prev_iter = ll_new
 
-    if best_in_cur:
+    if best_in_cur or P_best is None:
         P_best, Q_best = P_cur, Q_cur
 
     if verbose:

@@ -60,9 +60,14 @@ def _RSVD_once(G: np.ndarray, N: int, M: int, f: np.ndarray, k: int, seed: int,
     rng = np.random.default_rng(seed)
 
     # Execution parameters
-    n_batches = int(np.ceil(M / chunk))
     alpha = np.float32(0.0)
     k_prime = max(k + 10, 20)
+    chunk = utils.cap_cpu_chunk_size(
+        chunk,
+        bytes_per_row=(N + k_prime) * 4,
+        reserve_bytes=M * (k_prime + k + 1) * 4,
+    )
+    n_batches = int(np.ceil(M / chunk))
 
     # Internal buffers
     accum_mat = np.zeros((N, k_prime), dtype=np.float32)
@@ -137,12 +142,14 @@ def _RSVD_once(G: np.ndarray, N: int, M: int, f: np.ndarray, k: int, seed: int,
         buf = gen_buffer[:n_active]
         tools.decompress_block(G, buf, f, start_idx)
         np.matmul(buf, orth_matrix, out=proj_basis[start_idx : (start_idx + n_active)])
+    del gen_buffer, proj_chunk, w_patterson, accum_mat, temp_accum
     log.info(f"        time={time.time() - t_build:.4f}s")
 
     # 4) SVD of condensed matrix
     log.info("    4) SVD of small matrix...")
     t_svd = time.time()
     U, S, v_cond = eigSVD(proj_basis, k=k)
+    del proj_basis
     log.info(f"        time={time.time() - t_svd:.4f}s")
 
     # Rotate right singular vectors

@@ -134,13 +134,15 @@ cdef double* _transpose_q(double[:,::1] Q) noexcept nogil:
         Py_ssize_t K = Q.shape[1]
         Py_ssize_t i, k
         double* Qt = <double*>malloc(<size_t>K * N * sizeof(double))
+    if Qt == NULL:
+        return NULL
     for k in range(K):
         for i in range(N):
             Qt[k * N + i] = Q[i, k]
     return Qt
 
 # Calculate total log-likelihood
-cpdef double loglikelihood(uint8_t[:,::1] G, double[:,::1] P, double[:,::1] Q) noexcept nogil:
+cpdef double loglikelihood(uint8_t[:,::1] G, double[:,::1] P, double[:,::1] Q):
     """
     Description:
     Calculates the total log-likelihood for the current model parameters (P, Q) given genotypes G.
@@ -158,16 +160,32 @@ cpdef double loglikelihood(uint8_t[:,::1] G, double[:,::1] P, double[:,::1] Q) n
         Py_ssize_t N = G.shape[1]
         Py_ssize_t K = Q.shape[1]
         Py_ssize_t j
+        int alloc_err = 0
+        int* err_ptr = &alloc_err
+        bint ok
         double ll = 0.0
-        double* Qt = _transpose_q(Q)
+        double* Qt
         double* ws
+
+    if M == 0 or N == 0 or K == 0:
+        return 0.0
+
+    Qt = _transpose_q(Q)
+    if Qt == NULL:
+        raise MemoryError("Out of memory allocating Q transpose buffer")
 
     with nogil, parallel():
         ws = <double*>malloc(LL_CHUNK * sizeof(double))
+        ok = (ws != NULL)
+        if not ok:
+            err_ptr[0] = 1
         for j in prange(M, schedule='guided'):
-            ll += _row_loglike_t(&G[j, 0], &P[j, 0], Qt, N, K, ws)
+            if ok:
+                ll += _row_loglike_t(&G[j, 0], &P[j, 0], Qt, N, K, ws)
         free(ws)
     free(Qt)
+    if alloc_err:
+        raise MemoryError("Out of memory allocating loglikelihood workspace")
     return ll
 
 
@@ -244,7 +262,7 @@ cdef double _ll_packed_tile(const uint8_t* G, const double* P, const double* Qt,
     return tile_ll
 
 
-cpdef double loglikelihood_packed(uintptr_t G_ptr, size_t M, size_t N, double[:,::1] P, double[:,::1] Q) noexcept nogil:
+cpdef double loglikelihood_packed(uintptr_t G_ptr, size_t M, size_t N, double[:,::1] P, double[:,::1] Q):
     """
     Description:
     Calculates log-likelihood from a 2-bit packed genotype matrix without
@@ -257,6 +275,9 @@ cpdef double loglikelihood_packed(uintptr_t G_ptr, size_t M, size_t N, double[:,
         Py_ssize_t n_tiles, tile, c_max, n_max
         size_t j0, c
         int prev_blas
+        int alloc_err = 0
+        int* err_ptr = &alloc_err
+        bint ok
         double ll = 0.0
         double* Qt
         double* r_tile
@@ -265,6 +286,9 @@ cpdef double loglikelihood_packed(uintptr_t G_ptr, size_t M, size_t N, double[:,
         return 0.0
 
     Qt = _transpose_q(Q)
+    if Qt == NULL:
+        raise MemoryError("Out of memory allocating Q transpose buffer")
+
     n_tiles = <Py_ssize_t>((M + LL_SNP_TILE - 1) // LL_SNP_TILE)
     c_max = <Py_ssize_t>M if M < LL_SNP_TILE else LL_SNP_TILE
     n_max = <Py_ssize_t>N if N < LL_IND_TILE else LL_IND_TILE
@@ -272,15 +296,21 @@ cpdef double loglikelihood_packed(uintptr_t G_ptr, size_t M, size_t N, double[:,
     prev_blas = adm_blas_begin_single_thread()
     with nogil, parallel():
         r_tile = <double*>malloc(<size_t>c_max * n_max * sizeof(double))
+        ok = (r_tile != NULL)
+        if not ok:
+            err_ptr[0] = 1
         for tile in prange(n_tiles, schedule='dynamic', chunksize=1):
-            j0 = <size_t>tile * LL_SNP_TILE
-            c = M - j0
-            if c > LL_SNP_TILE:
-                c = LL_SNP_TILE
-            ll += _ll_packed_tile(G, &P[0, 0], Qt, j0, c, N, <size_t>K, r_tile)
+            if ok:
+                j0 = <size_t>tile * LL_SNP_TILE
+                c = M - j0
+                if c > LL_SNP_TILE:
+                    c = LL_SNP_TILE
+                ll += _ll_packed_tile(G, &P[0, 0], Qt, j0, c, N, <size_t>K, r_tile)
         free(r_tile)
     adm_blas_end_single_thread(prev_blas)
     free(Qt)
+    if alloc_err:
+        raise MemoryError("Out of memory allocating packed loglikelihood workspace")
     return ll
 
 cdef inline float _snp_af(const uint8_t* r, size_t N) noexcept nogil:
@@ -313,6 +343,93 @@ cpdef void alleleFrequency(uint8_t[:, ::1] G, float[::1] f, int M, int N) noexce
     cdef size_t x
     for x in prange(M, schedule='guided'):
         f[x] = _snp_af(&G[x, 0], N)
+
+
+cdef inline void _af_packed_row(const uint8_t* g_row, float* f_out, Py_ssize_t valid, Py_ssize_t N) noexcept nogil:
+    cdef:
+        Py_ssize_t i
+        uint32_t s0 = 0, s1 = 0, s2 = 0, s3 = 0
+        uint32_t c0 = 0, c1 = 0, c2 = 0, c3 = 0
+        uint8_t b, u0, u1, u2, u3, v0, v1, v2, v3
+    for i in range(N):
+        b = g_row[i]
+        u0 = b & 0x03
+        v0 = (u0 != 3)
+        s0 += u0 if v0 else 0
+        c0 += v0
+
+        u1 = (b >> 2) & 0x03
+        v1 = (u1 != 3)
+        s1 += u1 if v1 else 0
+        c1 += v1
+
+        u2 = (b >> 4) & 0x03
+        v2 = (u2 != 3)
+        s2 += u2 if v2 else 0
+        c2 += v2
+
+        u3 = (b >> 6) & 0x03
+        v3 = (u3 != 3)
+        s3 += u3 if v3 else 0
+        c3 += v3
+    if valid >= 1:
+        f_out[0] = <float>s0 / <float>(2 * c0) if c0 > 0 else 0.0
+    if valid >= 2:
+        f_out[1] = <float>s1 / <float>(2 * c1) if c1 > 0 else 0.0
+    if valid >= 3:
+        f_out[2] = <float>s2 / <float>(2 * c2) if c2 > 0 else 0.0
+    if valid >= 4:
+        f_out[3] = <float>s3 / <float>(2 * c3) if c3 > 0 else 0.0
+
+
+cpdef void alleleFrequency_packed(const uint8_t[:, ::1] G, float[::1] f, Py_ssize_t M, Py_ssize_t N) noexcept nogil:
+    """Calculate per-SNP allele frequencies directly from 2-bit packed genotypes."""
+    cdef:
+        Py_ssize_t M_bytes = (M + 3) // 4
+        Py_ssize_t j4, base, valid
+    for j4 in prange(M_bytes, schedule='static'):
+        base = j4 << 2
+        valid = M - base
+        if valid > 4:
+            valid = 4
+        _af_packed_row(&G[j4, 0], &f[base], valid, N)
+
+
+cdef inline Py_ssize_t _cnt_packed_row(const uint8_t* g_row, Py_ssize_t valid, Py_ssize_t N) noexcept nogil:
+    cdef:
+        Py_ssize_t i
+        Py_ssize_t c0 = 0, c1 = 0, c2 = 0, c3 = 0, acc = 0
+        uint8_t b
+    for i in range(N):
+        b = g_row[i]
+        c0 += ((b & 0x03) != 3)
+        c1 += (((b >> 2) & 0x03) != 3)
+        c2 += (((b >> 4) & 0x03) != 3)
+        c3 += (((b >> 6) & 0x03) != 3)
+    if valid >= 1:
+        acc += c0
+    if valid >= 2:
+        acc += c1
+    if valid >= 3:
+        acc += c2
+    if valid >= 4:
+        acc += c3
+    return acc
+
+
+cpdef Py_ssize_t count_non_missing_packed(const uint8_t[:, ::1] G, Py_ssize_t M, Py_ssize_t N) noexcept nogil:
+    """Count non-missing genotype entries directly from 2-bit packed genotypes."""
+    cdef:
+        Py_ssize_t M_bytes = (M + 3) // 4
+        Py_ssize_t j4, base, valid
+        Py_ssize_t total = 0
+    for j4 in prange(M_bytes, schedule='static'):
+        base = j4 << 2
+        valid = M - base
+        if valid > 4:
+            valid = 4
+        total += _cnt_packed_row(&G[j4, 0], valid, N)
+    return total
 
 # Calculate RMSE between matrices
 cpdef double rmse_d(double[:,::1] Q1, double[:,::1] Q2, int N, int K) noexcept nogil:

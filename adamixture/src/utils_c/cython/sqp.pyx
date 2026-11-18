@@ -82,6 +82,9 @@ cdef void project_q_simplex_row(double* b, int n, double pseudocount) noexcept n
         project_q_simplex_row_idx(b, n, pseudocount, idx_stack)
     else:
         idx_heap = <int*>malloc(<size_t>n * sizeof(int))
+        if idx_heap == NULL:
+            project_p_box_row(b, n, pseudocount)
+            return
         project_q_simplex_row_idx(b, n, pseudocount, idx_heap)
         free(idx_heap)
 
@@ -570,6 +573,8 @@ cdef void _grad_hess_q_tile(const uint8_t* G, const double* Q, const double* P,
         double* Z0_acc = NULL if unit_simplex else (C_acc + nb)
         double* t2_tile = NULL if unit_simplex else (Z0_acc + nb)
         double* qp_d_ws = extra if unit_simplex else (t2_tile + <size_t>q_c_max * nb)
+        double* xtx_local = (qp_d_ws + <size_t>2 * K * K + <size_t>5 * K) if (Q_next != NULL and (XtX == NULL or Xtz == NULL)) else NULL
+        double* xtz_local = (xtx_local + <size_t>K * K) if xtx_local != NULL else NULL
         float* ts_f32 = ws_f32 if unit_simplex else NULL
         float* P_pairs_f32 = (ts_f32 + <size_t>q_c_max * nb) if unit_simplex else NULL
         float* H_tile_f32 = (P_pairs_f32 + <size_t>q_c_max * npair) if unit_simplex else NULL
@@ -684,8 +689,14 @@ cdef void _grad_hess_q_tile(const uint8_t* G, const double* Q, const double* P,
         j0 += Q_SNP_TILE
 
     for li in range(nb):
-        xtx = XtX + <size_t>(ib + li) * K * K
-        xtz = Xtz + <size_t>(ib + li) * K
+        if XtX != NULL and Xtz != NULL:
+            xtx = XtX + <size_t>(ib + li) * K * K
+            xtz = Xtz + <size_t>(ib + li) * K
+        elif Q_next != NULL:
+            xtx = xtx_local
+            xtz = xtz_local
+        else:
+            continue
         pr = 0
         if unit_simplex:
             for k in range(K):
@@ -708,12 +719,15 @@ cdef void _grad_hess_q_tile(const uint8_t* G, const double* Q, const double* P,
                                        Q_next + <size_t>(ib + li) * K, K, qp_d_ws, qp_i_ws)
 
 
-cdef void _run_q_sqp(const uint8_t* G, const double* Q, double* Q_next, const double* P,
-                     double* XtX_q, double* Xtz_q, int M, int N, int K, int B) noexcept nogil:
+cdef int _run_q_sqp(const uint8_t* G, const double* Q, double* Q_next, const double* P,
+                    double* XtX_q, double* Xtz_q, int M, int N, int K, int B) noexcept nogil:
     cdef:
         int i, k, ib, i_end, blk, n_blocks, B_eff, B_par, q_c_max, prev_blas
         int n_threads = openmp.omp_get_max_threads()
         int npair = K * (K + 1) // 2
+        int alloc_err = 0
+        int* err_ptr = &alloc_err
+        bint ok
         bint unit_simplex = True
         double row_sum
         size_t ws_doubles, qp_doubles, f32_floats
@@ -722,7 +736,7 @@ cdef void _run_q_sqp(const uint8_t* G, const double* Q, double* Q_next, const do
         int* qp_i_ws
 
     if M <= 0 or N <= 0 or K <= 0:
-        return
+        return 0
 
     for i in range(N):
         row_sum = 0.0
@@ -750,6 +764,8 @@ cdef void _run_q_sqp(const uint8_t* G, const double* Q, double* Q_next, const do
     n_blocks = (N + B_eff - 1) // B_eff
     q_c_max = M if M < Q_SNP_TILE else Q_SNP_TILE
     qp_doubles = <size_t>(2 * K * K + 5 * K) if Q_next != NULL else 0
+    if Q_next != NULL and (XtX_q == NULL or Xtz_q == NULL):
+        qp_doubles += <size_t>K * K + <size_t>K
     ws_doubles = (
         <size_t>(npair + 2 * K) * B_eff
         + <size_t>2 * q_c_max * B_eff
@@ -770,23 +786,32 @@ cdef void _run_q_sqp(const uint8_t* G, const double* Q, double* Q_next, const do
         ws = <double*>malloc(ws_doubles * sizeof(double))
         ws_f32 = <float*>malloc(f32_floats * sizeof(float)) if unit_simplex else NULL
         qp_i_ws = <int*>malloc(<size_t>(3 * K) * sizeof(int)) if Q_next != NULL else NULL
+        ok = (ws != NULL) and (not unit_simplex or ws_f32 != NULL) and (Q_next == NULL or qp_i_ws != NULL)
+        if not ok:
+            err_ptr[0] = 1
         for blk in prange(n_blocks, schedule='dynamic', chunksize=1):
-            ib = blk * B_eff
-            i_end = ib + B_eff
-            if i_end > N:
-                i_end = N
-            _grad_hess_q_tile(G, Q, P, XtX_q, Xtz_q, Q_next, ws, ws_f32, qp_i_ws,
-                              ib, i_end, M, N, K, q_c_max, unit_simplex)
+            if ok:
+                ib = blk * B_eff
+                i_end = ib + B_eff
+                if i_end > N:
+                    i_end = N
+                _grad_hess_q_tile(G, Q, P, XtX_q, Xtz_q, Q_next, ws, ws_f32, qp_i_ws,
+                                  ib, i_end, M, N, K, q_c_max, unit_simplex)
         free(qp_i_ws)
         free(ws_f32)
         free(ws)
     adm_blas_end_single_thread(prev_blas)
+    return -1 if alloc_err else 0
 
 
 cpdef void compute_grad_hess_Q(const uint8_t[:,::1] G, const double[:,::1] Q, const double[:,::1] P,
                                double[:,:,::1] XtX_q, double[:,::1] Xtz_q,
-                               int M, int N, int K, int B) noexcept nogil:
-    _run_q_sqp(&G[0, 0], &Q[0, 0], NULL, &P[0, 0], &XtX_q[0, 0, 0], &Xtz_q[0, 0], M, N, K, B)
+                               int M, int N, int K, int B):
+    if XtX_q is None or Xtz_q is None:
+        raise ValueError("XtX_q and Xtz_q are required for compute_grad_hess_Q")
+    cdef int rc = _run_q_sqp(&G[0, 0], &Q[0, 0], NULL, &P[0, 0], &XtX_q[0, 0, 0], &Xtz_q[0, 0], M, N, K, B)
+    if rc != 0:
+        raise MemoryError("Out of memory allocating SQP Q gradient/Hessian workspace")
 
 
 cpdef void project_q_simplex(double[:,::1] Q, int N, int K) noexcept nogil:
@@ -803,8 +828,13 @@ cpdef void project_p_box(double[:,::1] P, int M, int K) noexcept nogil:
 
 cpdef void update_q_sqp(const uint8_t[:,::1] G, const double[:,::1] Q, double[:,::1] Q_next,
                         const double[:,::1] P, double[:,:,::1] XtX_q, double[:,::1] Xtz_q,
-                        const double[:,::1] v_kk, int M, int N, int K, int B) noexcept nogil:
-    _run_q_sqp(&G[0, 0], &Q[0, 0], &Q_next[0, 0], &P[0, 0], &XtX_q[0, 0, 0], &Xtz_q[0, 0], M, N, K, B)
+                        const double[:,::1] v_kk, int M, int N, int K, int B):
+    cdef:
+        double* xtx_ptr = &XtX_q[0, 0, 0] if XtX_q is not None else NULL
+        double* xtz_ptr = &Xtz_q[0, 0] if Xtz_q is not None else NULL
+        int rc = _run_q_sqp(&G[0, 0], &Q[0, 0], &Q_next[0, 0], &P[0, 0], xtx_ptr, xtz_ptr, M, N, K, B)
+    if rc != 0:
+        raise MemoryError("Out of memory allocating SQP Q workspace")
 
 
 cdef void _update_p_tile(const uint8_t* G, const double* Q, const double* Qt, const float* Q_pairs_f32,
@@ -891,9 +921,12 @@ cdef void _update_p_tile(const uint8_t* G, const double* Q, const double* Qt, co
 
 
 cpdef void update_p_sqp(const uint8_t[:,::1] G, const double[:,::1] Q, const double[:,::1] P,
-                        double[:,::1] P_next, int M, int N, int K) noexcept nogil:
+                        double[:,::1] P_next, int M, int N, int K):
     cdef:
         int i, k, k2, pr, tile, n_p_tiles, j0, c, c_max, n_max, prev_blas
+        int alloc_err = 0
+        int* err_ptr = &alloc_err
+        bint ok
         int npair = K * (K + 1) // 2
         double qik
         float qik_f
@@ -911,6 +944,10 @@ cpdef void update_p_sqp(const uint8_t[:,::1] G, const double[:,::1] Q, const dou
 
     Qt = <double*>malloc(<size_t>K * N * sizeof(double))
     Q_pairs_f32 = <float*>malloc(<size_t>N * npair * sizeof(float))
+    if Qt == NULL or Q_pairs_f32 == NULL:
+        free(Q_pairs_f32)
+        free(Qt)
+        raise MemoryError("Out of memory allocating SQP P shared buffers")
 
     for i in range(N):
         qi = &Q[i, 0]
@@ -939,13 +976,17 @@ cpdef void update_p_sqp(const uint8_t[:,::1] G, const double[:,::1] Q, const dou
         ws = <double*>malloc(ws_doubles * sizeof(double))
         ws_f32 = <float*>malloc(f32_floats * sizeof(float))
         qp_i_ws = <int*>malloc(<size_t>(2 * K) * sizeof(int))
+        ok = (ws != NULL and ws_f32 != NULL and qp_i_ws != NULL)
+        if not ok:
+            err_ptr[0] = 1
         for tile in prange(n_p_tiles, schedule='dynamic', chunksize=1):
-            j0 = tile * P_SNP_TILE
-            c = M - j0
-            if c > P_SNP_TILE:
-                c = P_SNP_TILE
-            _update_p_tile(&G[0, 0], &Q[0, 0], Qt, Q_pairs_f32, &P[0, 0], &P_next[0, 0],
-                           ws, ws_f32, qp_i_ws, j0, c, N, K, c_max, n_max)
+            if ok:
+                j0 = tile * P_SNP_TILE
+                c = M - j0
+                if c > P_SNP_TILE:
+                    c = P_SNP_TILE
+                _update_p_tile(&G[0, 0], &Q[0, 0], Qt, Q_pairs_f32, &P[0, 0], &P_next[0, 0],
+                               ws, ws_f32, qp_i_ws, j0, c, N, K, c_max, n_max)
         free(qp_i_ws)
         free(ws_f32)
         free(ws)
@@ -953,3 +994,5 @@ cpdef void update_p_sqp(const uint8_t[:,::1] G, const double[:,::1] Q, const dou
 
     free(Q_pairs_f32)
     free(Qt)
+    if alloc_err:
+        raise MemoryError("Out of memory allocating SQP P thread workspace")

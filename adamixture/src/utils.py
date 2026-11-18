@@ -311,6 +311,165 @@ def reduce_cpu_chunk_or_raise(chunk_size: int, exc: BaseException, context: str)
     return new_chunk_size
 
 
+def _read_int_file(path: str) -> int | None:
+    """Read a positive integer from a procfs/cgroup control file."""
+    try:
+        text = Path(path).read_text().strip()
+        if not text or text == "max":
+            return None
+        return int(text)
+    except (OSError, ValueError):
+        return None
+
+
+def _current_process_rss_bytes() -> int:
+    """Best-effort current resident set size in bytes."""
+    if sys.platform.startswith("linux"):
+        try:
+            page_size = os.sysconf("SC_PAGE_SIZE")
+            fields = Path("/proc/self/statm").read_text().split()
+            if len(fields) >= 2:
+                return int(fields[1]) * page_size
+        except (OSError, ValueError):
+            pass
+    return 0
+
+
+def get_available_cpu_memory_bytes() -> int:
+    """
+    Estimate currently available host/container RAM in bytes.
+    Respects ADAMIXTURE_MAX_CPU_MEM_MB when set, SLURM/cgroup limits on Linux,
+    and OS available memory APIs on Linux, macOS, and Windows.
+    """
+    env_mb = os.environ.get("ADAMIXTURE_MAX_CPU_MEM_MB")
+    if env_mb:
+        try:
+            val = float(env_mb)
+            if val > 0.0:
+                return max(1, int(val * 1024 * 1024))
+        except ValueError:
+            pass
+
+    limits: list[int] = []
+
+    if sys.platform.startswith("linux"):
+        rss = _current_process_rss_bytes()
+        slurm_node = os.environ.get("SLURM_MEM_PER_NODE")
+        if slurm_node:
+            try:
+                mb = int(slurm_node)
+                if mb > 0:
+                    limits.append(max(1, mb * 1024 * 1024 - rss))
+            except ValueError:
+                pass
+        else:
+            slurm_cpu = os.environ.get("SLURM_MEM_PER_CPU")
+            slurm_cpus = os.environ.get("SLURM_CPUS_ON_NODE") or os.environ.get("SLURM_NTASKS")
+            if slurm_cpu and slurm_cpus:
+                try:
+                    mb = int(slurm_cpu) * int(slurm_cpus)
+                    if mb > 0:
+                        limits.append(max(1, mb * 1024 * 1024 - rss))
+                except ValueError:
+                    pass
+
+        cg2_max = _read_int_file("/sys/fs/cgroup/memory.max")
+        cg2_cur = _read_int_file("/sys/fs/cgroup/memory.current")
+        if cg2_max is not None and cg2_cur is not None:
+            limits.append(max(1, cg2_max - cg2_cur))
+        else:
+            cg1_max = _read_int_file("/sys/fs/cgroup/memory/memory.limit_in_bytes")
+            cg1_cur = _read_int_file("/sys/fs/cgroup/memory/memory.usage_in_bytes")
+            if cg1_max is not None and cg1_cur is not None and cg1_max < (1 << 60):
+                limits.append(max(1, cg1_max - cg1_cur))
+
+        try:
+            with open("/proc/meminfo") as fh:
+                for line in fh:
+                    if line.startswith("MemAvailable:"):
+                        kb = int(line.split()[1])
+                        limits.append(max(1, kb * 1024))
+                        break
+        except (OSError, ValueError, IndexError):
+            pass
+
+    elif sys.platform == "darwin":
+        try:
+            page_size = os.sysconf("SC_PAGE_SIZE")
+            phys_ram = os.sysconf("SC_PHYS_PAGES") * page_size
+            try:
+                libc = ctypes.CDLL("/usr/lib/libSystem.B.dylib")
+                host = libc.mach_host_self()
+                buf = (ctypes.c_uint32 * 64)()
+                cnt = ctypes.c_uint32(62)
+                rc = libc.host_statistics64(
+                    ctypes.c_uint32(host),
+                    ctypes.c_int(4),  # HOST_VM_INFO64
+                    ctypes.byref(buf),
+                    ctypes.byref(cnt),
+                )
+                if rc == 0:
+                    free_c, inactive_c, wire_c = buf[0], buf[2], buf[3]
+                    spec_c, comp_c = buf[23], buf[32]
+                    reclaimable = (free_c + inactive_c + spec_c) * page_size
+                    nonwired = phys_ram - (wire_c + comp_c) * page_size
+                    limits.append(max(1, min(phys_ram, max(reclaimable, nonwired))))
+                else:
+                    limits.append(max(1, int(0.8 * phys_ram)))
+            except Exception:
+                limits.append(max(1, int(0.8 * phys_ram)))
+        except (OSError, ValueError):
+            pass
+
+    elif sys.platform == "win32":
+        try:
+            class _MEMORYSTATUSEX(ctypes.Structure):
+                _fields_ = [
+                    ("dwLength", ctypes.c_uint32),
+                    ("dwMemoryLoad", ctypes.c_uint32),
+                    ("ullTotalPhys", ctypes.c_uint64),
+                    ("ullAvailPhys", ctypes.c_uint64),
+                    ("ullTotalPageFile", ctypes.c_uint64),
+                    ("ullAvailPageFile", ctypes.c_uint64),
+                    ("ullTotalVirtual", ctypes.c_uint64),
+                    ("ullAvailVirtual", ctypes.c_uint64),
+                    ("ullAvailExtendedVirtual", ctypes.c_uint64),
+                ]
+
+            stat = _MEMORYSTATUSEX()
+            stat.dwLength = ctypes.sizeof(_MEMORYSTATUSEX)
+            if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(stat)):
+                limits.append(max(1, int(stat.ullAvailPhys)))
+        except Exception:
+            pass
+
+    return min(limits) if limits else 8 * (1024 ** 3)
+
+
+def cap_cpu_chunk_size(
+    chunk_size: int,
+    bytes_per_row: int,
+    reserve_bytes: int = 0,
+    fraction: float = 0.5,
+) -> int:
+    """
+    Cap a CPU row-chunk size so temporary working buffers fit within a safe
+    fraction of currently available RAM after accounting for ``reserve_bytes``.
+    """
+    chunk_size = int(chunk_size)
+    if chunk_size <= MIN_CPU_CHUNK_SIZE or bytes_per_row <= 0:
+        return max(1, chunk_size)
+
+    avail = get_available_cpu_memory_bytes()
+    budget = max(0, int(avail * fraction) - max(0, int(reserve_bytes)))
+    if chunk_size * bytes_per_row > budget:
+        capped = max(MIN_CPU_CHUNK_SIZE, budget // bytes_per_row)
+        if capped < chunk_size:
+            log.info(f"    Capping CPU chunk_size from {chunk_size} to {capped} to fit available RAM.")
+            return int(capped)
+    return chunk_size
+
+
 def set_cuda_arch_list_if_needed(device: "torch.device | Any") -> None:
     """
     Description:
@@ -923,25 +1082,24 @@ def get_logl_calculator(device: Any) -> Callable:
 def _calculate_frequencies_cpu_once(G: np.ndarray, M: int, N: int, chunk_size: int) -> np.ndarray:
     """
     Description:
-    Calculates allele frequencies on CPU in SNP chunks.
+    Calculates allele frequencies on CPU directly from 2-bit packed genotypes.
 
     Args:
         G (np.ndarray): Genotype matrix.
         M (int): Number of SNPs.
         N (int): Number of samples.
-        chunk_size (int): SNP chunk size.
+        chunk_size (int): Unused SNP chunk size (retained for API compatibility).
 
     Returns:
         np.ndarray: Computed 1D allele frequency array.
     """
     from .utils_c import tools
 
+    del chunk_size
     G = ensure_packed(G, M)
     f = np.zeros(M, dtype=np.float32)
-    for start in range(0, M, chunk_size):
-        end = min(start + chunk_size, M)
-        block = tools.unpack_block(G, start, end)
-        tools.alleleFrequency(block, f[start:end], end - start, N)
+    if M > 0 and N > 0:
+        tools.alleleFrequency_packed(G, f, M, N)
     return f
 
 

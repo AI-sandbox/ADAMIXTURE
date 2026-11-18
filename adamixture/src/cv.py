@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from ..model.br_qn import polish_sqp_qn
-from .utils import ensure_packed
+from .utils import ensure_packed, get_available_cpu_memory_bytes
 from .utils_c import tools
 from .utils_c import (
     deviance_squared_sum,
@@ -108,10 +108,10 @@ def _iter_non_missing_flat_chunks(G: np.ndarray, N: int, M: int | None = None):
 def _count_non_missing_streaming(G: np.ndarray, N: int, M: int | None = None) -> int:
     """
     Description:
-    Counts non-missing genotype entries by scanning the matrix in chunks.
+    Counts non-missing genotype entries directly from 2-bit packed genotypes.
 
     Args:
-        G (np.ndarray): Unpacked genotype matrix (M x N, uint8).
+        G (np.ndarray): Genotype matrix (M x N or ceil(M/4) x N, uint8).
         N (int): Number of individuals.
 
     Returns:
@@ -119,12 +119,9 @@ def _count_non_missing_streaming(G: np.ndarray, N: int, M: int | None = None) ->
     """
     M = G.shape[0] if M is None else M
     G = ensure_packed(G, M)
-    rows_per_chunk = _streaming_rows_per_chunk(N)
-    total = 0
-    for row_start in range(0, M, rows_per_chunk):
-        row_end = min(row_start + rows_per_chunk, M)
-        total += int(np.count_nonzero(tools.unpack_block(G, row_start, row_end) != 3))
-    return total
+    if M <= 0 or N <= 0:
+        return 0
+    return int(tools.count_non_missing_packed(G, M, N))
 
 def _build_hashed_fold_entries(G: np.ndarray, N: int, n_folds: int, fold: int, seed: int, M: int | None = None) -> np.ndarray:
     """
@@ -208,22 +205,30 @@ def run_cross_validation(args: Namespace, G: np.ndarray, N: int, M: int, K: int,
 
     G = ensure_packed(G, M)
     n_folds = int(args.cv)
-    use_streaming_folds = M * N > np.iinfo(np.int32).max
-    if use_streaming_folds:
-        n_non_missing = _count_non_missing_streaming(G, N, M)
-        shuffled = None
-    else:
-        chunks = list(_iter_non_missing_flat_chunks(G, N, M))
-        non_missing_flat = np.concatenate(chunks) if chunks else np.empty(0, dtype=np.int32)
-        del chunks
-        n_non_missing = int(non_missing_flat.size)
-        non_missing_flat = non_missing_flat.astype(np.int32, copy=False)
-        shuffled = _shuffle_non_missing(non_missing_flat, int(args.seed))
-        del non_missing_flat
-        gc.collect()
-
+    n_non_missing = _count_non_missing_streaming(G, N, M)
     if n_non_missing == 0:
         raise ValueError("No non-missing genotypes available for cross-validation.")
+
+    avail_mem = get_available_cpu_memory_bytes()
+    use_streaming_folds = (
+        (M * N > np.iinfo(np.int32).max)
+        or (n_non_missing * 4 > int(0.4 * avail_mem))
+    )
+    shuffled = None
+    if not use_streaming_folds:
+        try:
+            shuffled = np.empty(n_non_missing, dtype=np.int32)
+            pos = 0
+            for local_chunk in _iter_non_missing_flat_chunks(G, N, M):
+                end_pos = pos + local_chunk.size
+                shuffled[pos:end_pos] = local_chunk
+                pos = end_pos
+            np.random.default_rng(int(args.seed)).shuffle(shuffled)
+        except MemoryError:
+            log.warning("    CPU out of memory buffering CV fold indices; switching to streaming hash folds.")
+            shuffled = None
+            use_streaming_folds = True
+            gc.collect()
 
     cv_sum = 0.0
     for fold in range(n_folds):

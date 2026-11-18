@@ -476,7 +476,9 @@ cdef void _process_chunk_standard(
         Py_ssize_t i
         const char** c_lines
 
-    c_lines = <const char**>malloc(n_chunk * sizeof(const char*))
+    c_lines = <const char**>malloc(<size_t>n_chunk * sizeof(const char*))
+    if c_lines == NULL:
+        raise MemoryError("Out of memory allocating VCF chunk line table")
     for i in range(n_chunk):
         c_lines[i] = chunk_bytes[i]
 
@@ -720,7 +722,9 @@ cdef void _process_chunk_packed(
         Py_ssize_t global_g
         const char** c_lines
 
-    c_lines = <const char**>malloc(n_chunk * sizeof(const char*))
+    c_lines = <const char**>malloc(<size_t>n_chunk * sizeof(const char*))
+    if c_lines == NULL:
+        raise MemoryError("Out of memory allocating VCF chunk line table")
     for i in range(n_chunk):
         c_lines[i] = chunk_bytes[i]
 

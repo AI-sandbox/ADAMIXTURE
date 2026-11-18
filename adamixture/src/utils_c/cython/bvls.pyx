@@ -266,28 +266,46 @@ cpdef void batch_nnls_bpp(double[:, ::1] A_cov, double[:, ::1] B_target, double[
     cdef int M = B_target.shape[0]
     cdef int K = A_cov.shape[0]
     cdef int i
+    cdef int alloc_err = 0
+    cdef int* err_ptr = &alloc_err
+    cdef bint ok
     cdef const double* A_ptr = &A_cov[0, 0]
     cdef double[:, ::1] A_inv = np.ascontiguousarray(np.linalg.pinv(A_cov), dtype=np.float64)
     cdef const double* A_inv_ptr = &A_inv[0, 0]
     
+    cdef void* ws
     cdef double* aug
+    cdef double* y
     cdef int* map_idx
     cdef int* F
-    cdef double* y
-    
+    cdef size_t n_dbl = <size_t>K * (K + 2)
+    cdef size_t ws_bytes = n_dbl * sizeof(double) + <size_t>2 * K * sizeof(int)
+
+    if M <= 0 or K <= 0:
+        return
+
     with nogil, parallel():
-        aug = <double*>malloc(K * (K + 1) * sizeof(double))
-        map_idx = <int*>malloc(K * sizeof(int))
-        F = <int*>malloc(K * sizeof(int))
-        y = <double*>malloc(K * sizeof(double))
+        ws = malloc(ws_bytes)
+        ok = (ws != NULL)
+        if not ok:
+            err_ptr[0] = 1
+            aug = NULL
+            y = NULL
+            map_idx = NULL
+            F = NULL
+        else:
+            aug = <double*>ws
+            y = aug + <size_t>K * (K + 1)
+            map_idx = <int*>(aug + n_dbl)
+            F = map_idx + K
 
         for i in prange(M, schedule='static'):
-            _exact_nnls_bpp_ptr(A_ptr, A_inv_ptr, &B_target[i, 0], &Out_mat[i, 0], K, aug, map_idx, F, y)
+            if ok:
+                _exact_nnls_bpp_ptr(A_ptr, A_inv_ptr, &B_target[i, 0], &Out_mat[i, 0], K, aug, map_idx, F, y)
 
-        free(aug)
-        free(map_idx)
-        free(F)
-        free(y)
+        free(ws)
+    if alloc_err:
+        raise MemoryError("Out of memory allocating NNLS thread workspace")
 
 # Batch BVLS solver
 cpdef void batch_bvls_bpp(double[:, ::1] A_cov, double[:, ::1] B_target, double[:, ::1] Out_mat, double lower, double upper):
@@ -309,31 +327,49 @@ cpdef void batch_bvls_bpp(double[:, ::1] A_cov, double[:, ::1] B_target, double[
     cdef int M = B_target.shape[0]
     cdef int K = A_cov.shape[0]
     cdef int i
+    cdef int alloc_err = 0
+    cdef int* err_ptr = &alloc_err
+    cdef bint ok
     cdef const double* A_ptr = &A_cov[0, 0]
     cdef double[:, ::1] A_inv = np.ascontiguousarray(np.linalg.pinv(A_cov), dtype=np.float64)
     cdef const double* A_inv_ptr = &A_inv[0, 0]
     
+    cdef void* ws
     cdef double* aug
+    cdef double* y
+    cdef double* b_subset
     cdef int* map_idx
     cdef int* F
     cdef int* U
-    cdef double* y
-    cdef double* b_subset
-    
+    cdef size_t n_dbl = <size_t>K * (K + 3)
+    cdef size_t ws_bytes = n_dbl * sizeof(double) + <size_t>3 * K * sizeof(int)
+
+    if M <= 0 or K <= 0:
+        return
+
     with nogil, parallel():
-        aug = <double*>malloc(K * (K + 1) * sizeof(double))
-        map_idx = <int*>malloc(K * sizeof(int))
-        F = <int*>malloc(K * sizeof(int))
-        U = <int*>malloc(K * sizeof(int))
-        y = <double*>malloc(K * sizeof(double))
-        b_subset = <double*>malloc(K * sizeof(double))
+        ws = malloc(ws_bytes)
+        ok = (ws != NULL)
+        if not ok:
+            err_ptr[0] = 1
+            aug = NULL
+            y = NULL
+            b_subset = NULL
+            map_idx = NULL
+            F = NULL
+            U = NULL
+        else:
+            aug = <double*>ws
+            y = aug + <size_t>K * (K + 1)
+            b_subset = y + K
+            map_idx = <int*>(aug + n_dbl)
+            F = map_idx + K
+            U = F + K
 
         for i in prange(M, schedule='static'):
-            _exact_bvls_bpp_ptr(A_ptr, A_inv_ptr, &B_target[i, 0], &Out_mat[i, 0], K, aug, map_idx, F, U, y, b_subset, lower, upper)
+            if ok:
+                _exact_bvls_bpp_ptr(A_ptr, A_inv_ptr, &B_target[i, 0], &Out_mat[i, 0], K, aug, map_idx, F, U, y, b_subset, lower, upper)
 
-        free(aug)
-        free(map_idx)
-        free(F)
-        free(U)
-        free(y)
-        free(b_subset)
+        free(ws)
+    if alloc_err:
+        raise MemoryError("Out of memory allocating BVLS thread workspace")

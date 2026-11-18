@@ -40,10 +40,8 @@ def ALS(U: np.ndarray, S: np.ndarray, V: np.ndarray, f: np.ndarray,
     Z_aug = np.empty((M, k_svd + 1), dtype=np.float64)
     Z_aug[:, :k_svd] = 0.5 * (U * S)
     Z_aug[:, k_svd] = f_64
-    Z_aug_T = np.ascontiguousarray(Z_aug.T)
     V_aug = np.ones((N, k_svd + 1), dtype=np.float64)
     V_aug[:, :k_svd] = V
-    V_aug_T = np.ascontiguousarray(V_aug.T)
 
     # Fisher information curvature weights: 1 / max(f * (1 - f), 1e-3)
     w2 = 1.0 / np.maximum(f_64 * (1.0 - f_64), 1e-3)
@@ -58,7 +56,7 @@ def ALS(U: np.ndarray, S: np.ndarray, V: np.ndarray, f: np.ndarray,
     np.multiply(P, w2_col, out=WP)
     A_cov_P = np.ascontiguousarray(P.T @ WP, dtype=np.float64)
     pinv_P = np.linalg.pinv(A_cov_P)
-    Q = V_aug @ ((Z_aug_T @ WP) @ pinv_P)
+    Q = V_aug @ ((Z_aug.T @ WP) @ pinv_P)
     tools.mapQ_d(Q, N, K)
 
     Q_prev = Q.copy()
@@ -78,7 +76,7 @@ def ALS(U: np.ndarray, S: np.ndarray, V: np.ndarray, f: np.ndarray,
 
         # Update P
         A_cov_Q = np.ascontiguousarray(Q_use.T @ Q_use, dtype=np.float64)
-        np.matmul(Z_aug, V_aug_T @ Q_use, out=B_target_P)
+        np.matmul(Z_aug, V_aug.T @ Q_use, out=B_target_P)
 
         batch_bvls_bpp(A_cov_Q, B_target_P, P, 0.0, 1.0)
         tools.mapP_d(P, M, K)
@@ -86,7 +84,7 @@ def ALS(U: np.ndarray, S: np.ndarray, V: np.ndarray, f: np.ndarray,
         # Update Q (weighted by Fisher curvature)
         np.multiply(P, w2_col, out=WP)
         A_cov_P = np.ascontiguousarray(P.T @ WP, dtype=np.float64)
-        np.matmul(V_aug, Z_aug_T @ WP, out=B_target_Q)
+        np.matmul(V_aug, Z_aug.T @ WP, out=B_target_Q)
 
         batch_bvls_bpp(A_cov_P, B_target_Q, Q_next, 0.0, 1.0)
         tools.mapQ_d(Q_next, N, K)

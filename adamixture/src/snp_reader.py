@@ -432,56 +432,125 @@ class SNPReader:
         keep_all = bool(keep_mask.all())
 
         with self._materialize_binary(bed_file) as readable_bed_file:
+            from .utils import cap_cpu_chunk_size
+
             file_size = readable_bed_file.stat().st_size
-            assert ((file_size - 3) % N_bytes) == 0, "bim file doesn't match!"
-            M_total = (file_size - 3) // N_bytes
+            if N_bytes > 0:
+                assert ((file_size - 3) % N_bytes) == 0, "bim file doesn't match!"
+                M_total = (file_size - 3) // N_bytes
+            else:
+                M_total = len(keep_mask)
             assert len(keep_mask) == M_total, "bim file doesn't match!"
 
-            skipped = len(keep_mask) - keep_mask.sum()
+            M = int(keep_mask.sum())
+            skipped = M_total - M
             self._log_chromosome_filter(skipped, chrom_mode, autosomes, specific_chrom)
 
-            if not packed:
-                with open(readable_bed_file, "rb") as bed:
-                    B_raw = np.fromfile(bed, dtype=np.uint8, offset=3)
-
-                assert (B_raw.shape[0] % N_bytes) == 0, "bim file doesn't match!"
-                M = B_raw.shape[0] // N_bytes
-                B_raw = B_raw.reshape(M, N_bytes)
-
-                B = B_raw if keep_all else np.ascontiguousarray(B_raw[keep_mask])
-                M = B.shape[0]
-
-                G = np.zeros((M, N), dtype=np.uint8)
-                read_bed(B, G)
-                del B, B_raw
-                return G, N, M
-            else:
-                log.info("        Reading BED in packed 2-bit format for computation.")
-                with open(readable_bed_file, "rb") as f:
-                    f.seek(3)
-                    buffer = bytearray(f.read())
-
-                B_raw = np.frombuffer(buffer, dtype=np.uint8)
-                assert (B_raw.shape[0] % N_bytes) == 0, "bim file doesn't match!"
-                M = B_raw.shape[0] // N_bytes
-
-                B_raw = B_raw.reshape(M, N_bytes)
-                if not keep_all:
-                    B_raw = np.ascontiguousarray(B_raw[keep_mask])
-                M = B_raw.shape[0]
-
-                M_bytes = (M + 3) // 4
+            if M == 0:
+                if not packed:
+                    return np.empty((0, N), dtype=np.uint8), N, 0
                 if packed == "cpu":
-                    B = B_raw
-                    G = np.zeros((M_bytes, N), dtype=np.uint8)
-                    read_bed_packed(B.ctypes.data, G.ctypes.data, M, N_bytes, N, M_bytes)
+                    return np.empty((0, N), dtype=np.uint8), N, 0
+                torch = require_torch()
+                return torch.empty((0, N), dtype=torch.uint8), N, 0
+
+            M_bytes = (M + 3) // 4
+            out_bytes = (M_bytes if packed else M) * N
+            req_chunk = max(4, ((max(chunk_size, 4096) + 3) // 4) * 4)
+            row_chunk = cap_cpu_chunk_size(req_chunk, max(1, N_bytes * 2), reserve_bytes=out_bytes)
+            row_chunk = max(4, (row_chunk // 4) * 4)
+            row_chunk = min(row_chunk, max(4, ((M_total + 3) // 4) * 4))
+
+            if packed:
+                log.info("        Reading BED in packed 2-bit format for computation.")
+                if packed == "cpu":
+                    G = np.empty((M_bytes, N), dtype=np.uint8)
+                    g_base_ptr = G.ctypes.data
                 else:
                     torch = require_torch()
-                    B = torch.from_numpy(B_raw)
-                    G = torch.zeros((M_bytes, N), dtype=torch.uint8)
-                    read_bed_packed(B.data_ptr(), G.data_ptr(), M, N_bytes, N, M_bytes)
-                del B, B_raw
-                return G, N, M
+                    G = torch.empty((M_bytes, N), dtype=torch.uint8)
+                    g_base_ptr = G.data_ptr()
+            else:
+                G = np.empty((M, N), dtype=np.uint8)
+
+            raw_buf = bytearray(row_chunk * N_bytes)
+            raw_view = memoryview(raw_buf)
+            raw_np = np.frombuffer(raw_buf, dtype=np.uint8)
+            stage = None if (keep_all or not packed) else np.empty((row_chunk, N_bytes), dtype=np.uint8)
+            stage_filled = 0
+            out_snp = 0
+
+            with open(readable_bed_file, "rb") as bed:
+                bed.seek(3)
+                pos = 0
+                while pos < M_total:
+                    n_rows = min(row_chunk, M_total - pos)
+                    n_bytes = n_rows * N_bytes
+                    offset = 0
+                    while offset < n_bytes:
+                        n_read = bed.readinto(raw_view[offset:n_bytes])
+                        if not n_read:
+                            raise EOFError(
+                                f"Unexpected EOF reading BED file: expected {n_bytes} bytes, got {offset}."
+                            )
+                        offset += n_read
+
+                    if keep_all:
+                        if packed:
+                            read_bed_packed(
+                                raw_np.ctypes.data,
+                                g_base_ptr + (pos // 4) * N,
+                                n_rows,
+                                N_bytes,
+                                N,
+                                (n_rows + 3) // 4,
+                            )
+                        else:
+                            chunk_2d = raw_np[:n_bytes].reshape(n_rows, N_bytes)
+                            read_bed(chunk_2d, G[pos : pos + n_rows])
+                    else:
+                        sub_mask = keep_mask[pos : pos + n_rows]
+                        if np.any(sub_mask):
+                            kept_2d = np.ascontiguousarray(
+                                raw_np[:n_bytes].reshape(n_rows, N_bytes)[sub_mask]
+                            )
+                            if packed:
+                                k_off = 0
+                                k_len = kept_2d.shape[0]
+                                while k_off < k_len:
+                                    take = min(row_chunk - stage_filled, k_len - k_off)
+                                    stage[stage_filled : stage_filled + take] = kept_2d[k_off : k_off + take]
+                                    stage_filled += take
+                                    k_off += take
+                                    if stage_filled == row_chunk:
+                                        read_bed_packed(
+                                            stage.ctypes.data,
+                                            g_base_ptr + (out_snp // 4) * N,
+                                            row_chunk,
+                                            N_bytes,
+                                            N,
+                                            row_chunk // 4,
+                                        )
+                                        out_snp += row_chunk
+                                        stage_filled = 0
+                            else:
+                                n_kept = kept_2d.shape[0]
+                                read_bed(kept_2d, G[out_snp : out_snp + n_kept])
+                                out_snp += n_kept
+                    pos += n_rows
+
+                if packed and not keep_all and stage_filled > 0:
+                    read_bed_packed(
+                        stage.ctypes.data,
+                        g_base_ptr + (out_snp // 4) * N,
+                        stage_filled,
+                        N_bytes,
+                        N,
+                        (stage_filled + 3) // 4,
+                    )
+
+            del stage, raw_np, raw_view, raw_buf
+            return G, N, M
 
     def _read_vcf(
         self,

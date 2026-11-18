@@ -491,7 +491,11 @@ def optimize_supervised_original(G: np.ndarray, P: np.ndarray, Q: np.ndarray, y:
         tuple[np.ndarray, np.ndarray]: Optimised (P, Q) matrices.
     """
     G = utils.ensure_packed(G, M)
-    from ..model.br_qn import q_hessian_block_size
+    from ..model.br_qn import (
+        _allocate_pq_work_buffers,
+        allocate_zal_history_buffers,
+        q_hessian_block_size,
+    )
     from .utils_c.cython.br_qn import qn_extrapolate_ZAL, update_UV_ZAL
 
     # 1. Precompute Vt matrix from SVD of ones(1, K)
@@ -499,39 +503,22 @@ def optimize_supervised_original(G: np.ndarray, P: np.ndarray, Q: np.ndarray, y:
     v_kk = np.ascontiguousarray(vt.T, dtype=np.float64)
     q_block = q_hessian_block_size(K)
 
-    # 2. Allocate buffers
-    XtX_q = np.empty((N, K, K), dtype=np.float64)
-    Xtz_q = np.empty((N, K), dtype=np.float64)
+    # 2. Allocate buffers (lazy best snapshot + clean OOM reporting)
+    (
+        PQ, P_cur, Q_cur, x_buf,
+        PQ_next, P_next, Q_next, x_next_buf,
+        PQ_next2, P_next2, Q_next2, x_next2_buf,
+        PQ_qn, P_qn, Q_qn, x_qn,
+    ) = _allocate_pq_work_buffers(P, Q, M, N, K)
 
-    # Contiguous parameter buffers with zero-copy views
-    PQ = np.empty((M + N, K), dtype=np.float64)
-    P_cur, Q_cur = PQ[:M], PQ[M:]
-    P_cur[:] = P
-    Q_cur[:] = Q
-    x_buf = PQ.ravel()
-
-    PQ_next = np.empty((M + N, K), dtype=np.float64)
-    P_next, Q_next = PQ_next[:M], PQ_next[M:]
-    x_next_buf = PQ_next.ravel()
-
-    PQ_next2 = np.empty((M + N, K), dtype=np.float64)
-    P_next2, Q_next2 = PQ_next2[:M], PQ_next2[M:]
-    x_next2_buf = PQ_next2.ravel()
-
-    PQ_qn = np.empty((M + N, K), dtype=np.float64)
-    P_qn, Q_qn = PQ_qn[:M], PQ_qn[M:]
-    x_qn = PQ_qn.ravel()
-
-    PQ_best = np.empty((M + N, K), dtype=np.float64)
-    P_best, Q_best = PQ_best[:M], PQ_best[M:]
-    x_best = PQ_best.ravel()
+    PQ_best = None
+    P_best = Q_best = x_best = None
 
     # QN history buffers
     dim = (M + N) * K
-    U = np.zeros(dim * Q_hist, dtype=np.float64)
-    V = np.zeros(dim * Q_hist, dtype=np.float64)
-    UtUmV_workspace = np.zeros(Q_hist * (Q_hist + 1), dtype=np.float64)
-    coeff_workspace = np.zeros(Q_hist, dtype=np.float64)
+    U, V, UtUmV_workspace, coeff_workspace, Q_hist = allocate_zal_history_buffers(
+        M, N, K, Q_hist
+    )
 
     # 3. Initialize log-likelihood
     ll_prev_iter = -float('inf')
@@ -543,12 +530,12 @@ def optimize_supervised_original(G: np.ndarray, P: np.ndarray, Q: np.ndarray, y:
         it_start = time.time()
 
         # --- SQP Update 1: (P_cur, Q_cur) -> (P_next, Q_next) ---
-        sqp.update_q_sqp(G, Q_cur, Q_next, P_cur, XtX_q, Xtz_q, v_kk, M, N, K, q_block)
+        sqp.update_q_sqp(G, Q_cur, Q_next, P_cur, None, None, v_kk, M, N, K, q_block)
         _snap_q_cpu(Q_next, y, K)
         sqp.update_p_sqp(G, Q_next, P_cur, P_next, M, N, K)
 
         # --- SQP Update 2: (P_next, Q_next) -> (P_next2, Q_next2) ---
-        sqp.update_q_sqp(G, Q_next, Q_next2, P_next, XtX_q, Xtz_q, v_kk, M, N, K, q_block)
+        sqp.update_q_sqp(G, Q_next, Q_next2, P_next, None, None, v_kk, M, N, K, q_block)
         _snap_q_cpu(Q_next2, y, K)
         sqp.update_p_sqp(G, Q_next2, P_next, P_next2, M, N, K)
 
@@ -572,6 +559,10 @@ def optimize_supervised_original(G: np.ndarray, P: np.ndarray, Q: np.ndarray, y:
             ll_best = ll_new
             best_in_cur = True
         elif best_in_cur:
+            if PQ_best is None:
+                PQ_best = np.empty_like(PQ)
+                P_best, Q_best = PQ_best[:M], PQ_best[M:]
+                x_best = PQ_best.ravel()
             PQ, PQ_best = PQ_best, PQ
             P_cur, P_best = P_best, P_cur
             Q_cur, Q_best = Q_best, Q_cur
@@ -610,7 +601,7 @@ def optimize_supervised_original(G: np.ndarray, P: np.ndarray, Q: np.ndarray, y:
 
         ll_prev_iter = ll_new
 
-    if best_in_cur:
+    if best_in_cur or P_best is None:
         P_best, Q_best = P_cur, Q_cur
 
     log.info(f"\n    Final log-likelihood (supervised): {ll_best:.1f}")

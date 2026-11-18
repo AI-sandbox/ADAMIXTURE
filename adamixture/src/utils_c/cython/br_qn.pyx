@@ -23,13 +23,16 @@ cpdef void update_UV_ZAL(double[::1] U_flat, double[::1] V_flat, const double[::
 # ZAL Quasi-Newton: compute the QN extrapolated point
 cpdef void qn_extrapolate_ZAL(double[::1] x_qn, const double[::1] x_next, const double[::1] x, 
                               const double[::1] U_flat, const double[::1] V_flat, const int n_cols,
-                              const Py_ssize_t dim, double[::1] UtUmV_workspace, double[::1] coeff_workspace) noexcept nogil:
+                              const Py_ssize_t dim, double[::1] UtUmV_workspace, double[::1] coeff_workspace):
     """
     Computes the ZAL quasi-Newton extrapolation using pre-allocated workspaces
     to avoid malloc/free and parallelizing vector operations.
     """
     cdef:
         int q = n_cols
+        int alloc_err = 0
+        int* err_ptr = &alloc_err
+        bint ok
         size_t i, j, k, inner_i, inner_j, idx
         double val_final
         int max_row
@@ -47,29 +50,36 @@ cpdef void qn_extrapolate_ZAL(double[::1] x_qn, const double[::1] x_next, const 
     openmp.omp_init_lock(&zal_lock)
 
     with nogil, parallel():
-        local_mat = <double*>calloc(q * (q + 1), sizeof(double))
-        diff_UV = <double*>malloc(q * sizeof(double))
+        local_mat = <double*>calloc(<size_t>q * (q + 1), sizeof(double))
+        diff_UV = <double*>malloc(<size_t>q * sizeof(double))
+        ok = (local_mat != NULL and diff_UV != NULL)
+        if not ok:
+            err_ptr[0] = 1
 
         for k in prange(dim, schedule='static'):
-            diff_x = x[k] - x_next[k]
-            for inner_j in range(q):
-                diff_UV[inner_j] = U_flat[inner_j * dim + k] - V_flat[inner_j * dim + k]
-
-            for inner_i in range(q):
-                u_ik = U_flat[inner_i * dim + k]
+            if ok:
+                diff_x = x[k] - x_next[k]
                 for inner_j in range(q):
-                    local_mat[inner_i * (q + 1) + inner_j] += u_ik * diff_UV[inner_j]
-                local_mat[inner_i * (q + 1) + q] += u_ik * diff_x
+                    diff_UV[inner_j] = U_flat[inner_j * dim + k] - V_flat[inner_j * dim + k]
 
-        openmp.omp_set_lock(&zal_lock)
-        for idx in range(q * (q + 1)):
-            UtUmV_workspace[idx] += local_mat[idx]
-        openmp.omp_unset_lock(&zal_lock)
+                for inner_i in range(q):
+                    u_ik = U_flat[inner_i * dim + k]
+                    for inner_j in range(q):
+                        local_mat[inner_i * (q + 1) + inner_j] += u_ik * diff_UV[inner_j]
+                    local_mat[inner_i * (q + 1) + q] += u_ik * diff_x
+
+        if ok:
+            openmp.omp_set_lock(&zal_lock)
+            for idx in range(q * (q + 1)):
+                UtUmV_workspace[idx] += local_mat[idx]
+            openmp.omp_unset_lock(&zal_lock)
 
         free(diff_UV)
         free(local_mat)
 
     openmp.omp_destroy_lock(&zal_lock)
+    if alloc_err:
+        raise MemoryError("Out of memory allocating ZAL extrapolation thread workspace")
 
     # 2. Solve UtUmV_workspace @ coeff_workspace = rhs via Gaussian Elimination
     # (This happens in the q x q space which is tiny, so it is sequential)
@@ -104,7 +114,7 @@ cpdef void qn_extrapolate_ZAL(double[::1] x_qn, const double[::1] x_next, const 
         coeff_workspace[i] = UtUmV_workspace[i * (q + 1) + q]
 
     # 3. Compute x_qn = x_next - V @ coeff (Fully parallelized)
-    for k in prange(dim, schedule='static'):
+    for k in prange(dim, nogil=True, schedule='static'):
         val_final = x_next[k]
         for i in range(q):
             val_final = val_final - V_flat[i * dim + k] * coeff_workspace[i]

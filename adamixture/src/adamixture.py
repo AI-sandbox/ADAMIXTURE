@@ -227,6 +227,7 @@ def run_als(G: "torch.Tensor | np.ndarray", U: Any, S: Any, V: Any,
             log.info(f"        Log-likelihood: {logl:.1f}")
         if best is None or logl > best[2]:
             best = (P, Q, logl)
+        del P, Q
     return best
 
 
@@ -375,6 +376,7 @@ def train_k(G: "torch.Tensor | np.ndarray", N: int, M: int, K: int, U_max: "np.n
                                  als_starts, device_obj, chunk_size, threads_per_block)
         label = "Best initial log-likelihood" if als_starts > 1 else "Initial log-likelihood"
         log.info(f"\n    {label} for K={K}: {logl:.1f}.")
+        del U, S, V
 
     if device_obj.type == 'cpu':
         if original:
