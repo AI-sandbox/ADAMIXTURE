@@ -38,17 +38,33 @@ jobs:
           echo "LDFLAGS=-L${LIBOMP_PREFIX}/lib -lomp -Wl,-rpath,${LIBOMP_PREFIX}/lib" >> $GITHUB_ENV
           echo "DYLD_LIBRARY_PATH=${LIBOMP_PREFIX}/lib" >> $GITHUB_ENV
 
+      - name: Configure OpenMP (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          echo "CFLAGS=/openmp" >> $GITHUB_ENV
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install tox tox-gh-actions
+          python -m pip install tox
+
+      - name: Resolve tox environment
+        shell: bash
+        env:
+          MATRIX_PYTHON: ${{ matrix.python-version }}
+        run: |
+          case "${RUNNER_OS}" in
+            Linux)   OS_TAG="linux" ;;
+            macOS)   OS_TAG="macos" ;;
+            Windows) OS_TAG="windows" ;;
+            *)       echo "Unsupported OS: ${RUNNER_OS}" >&2; exit 1 ;;
+          esac
+          echo "TOX_ENV=py${MATRIX_PYTHON//./}-${OS_TAG}" >> "$GITHUB_ENV"
 
       - name: Test with tox
         uses: GabrielBB/xvfb-action@v1
         with:
-          run: python -m tox
-        env:
-          PLATFORM: ${{ matrix.platform }}
+          run: python -m tox -e ${{ env.TOX_ENV }}
 
   build_wheels:
     name: Build wheels on ${{ matrix.os }}

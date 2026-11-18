@@ -2,7 +2,7 @@
 from cython.parallel import parallel, prange
 cimport openmp
 from libc.math cimport fabs, log
-from libc.stdint cimport int32_t, uint8_t
+from libc.stdint cimport int32_t, int64_t, uint8_t
 from libc.stdlib cimport calloc, free, malloc
 
 # ZAL Quasi-Newton: update U and V history matrices
@@ -121,7 +121,7 @@ cpdef void qn_extrapolate_ZAL(double[::1] x_qn, const double[::1] x_next, const 
         x_qn[k] = val_final
 
 # Computing the sum of squared binomial deviance residuals
-cpdef double deviance_squared_sum(uint8_t[::1] geno_values, long[::1] flat_entries, double[:,::1] P, 
+cpdef double deviance_squared_sum(uint8_t[::1] geno_values, int64_t[:] flat_entries, double[:,::1] P, 
                                   double[:,::1] Q, Py_ssize_t N) noexcept nogil:
     """
     Computes the sum of squared binomial deviance residuals using pre-extracted genotype values.
@@ -130,7 +130,7 @@ cpdef double deviance_squared_sum(uint8_t[::1] geno_values, long[::1] flat_entri
         Py_ssize_t n_entries = flat_entries.shape[0]
         Py_ssize_t K = Q.shape[1]
         Py_ssize_t i, k
-        long idx
+        int64_t idx
         Py_ssize_t row, col
         uint8_t g_u8
         double mu, dev
@@ -199,12 +199,12 @@ cpdef void restore_entries_i32(uint8_t[:, ::1] G, int32_t[:] flat_entries, uint8
         shift = <uint8_t>((row & 3) << 1)
         g_flat[byte_index] = (g_flat[byte_index] & <uint8_t>~(3 << shift)) | (saved_values[i] << shift)
 
-cpdef void mask_entries_i64(uint8_t[:, ::1] G, long[:] flat_entries, uint8_t[::1] saved_values, Py_ssize_t N) noexcept nogil:
+cpdef void mask_entries_i64(uint8_t[:, ::1] G, int64_t[:] flat_entries, uint8_t[::1] saved_values, Py_ssize_t N) noexcept nogil:
     cdef:
         Py_ssize_t n_entries = flat_entries.shape[0]
         Py_ssize_t i, row, col, byte_index
         uint8_t shift
-        long idx
+        int64_t idx
         uint8_t* g_flat = &G[0, 0]
 
     # SNPs in the same byte must be updated serially to preserve other lanes.
@@ -217,12 +217,12 @@ cpdef void mask_entries_i64(uint8_t[:, ::1] G, long[:] flat_entries, uint8_t[::1
         saved_values[i] = (g_flat[byte_index] >> shift) & 3
         g_flat[byte_index] |= <uint8_t>(3 << shift)
 
-cpdef void restore_entries_i64(uint8_t[:, ::1] G, long[:] flat_entries, uint8_t[::1] saved_values, Py_ssize_t N) noexcept nogil:
+cpdef void restore_entries_i64(uint8_t[:, ::1] G, int64_t[:] flat_entries, uint8_t[::1] saved_values, Py_ssize_t N) noexcept nogil:
     cdef:
         Py_ssize_t n_entries = flat_entries.shape[0]
         Py_ssize_t i, row, col, byte_index
         uint8_t shift
-        long idx
+        int64_t idx
         uint8_t* g_flat = &G[0, 0]
 
     # SNPs in the same byte must be updated serially to preserve other lanes.
