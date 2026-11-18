@@ -27,6 +27,7 @@ from .cython.tools import (
     KL,
     alleleFrequency,
     loglikelihood,
+    loglikelihood_packed,
     rmse_d,
 )
 
@@ -49,6 +50,7 @@ __all__ = [
     "get_mean_packed",
     "get_mean_unpacked",
     "loglikelihood",
+    "loglikelihood_packed",
     "mask_entries_i32",
     "mask_entries_i64",
     "pack_genotypes",

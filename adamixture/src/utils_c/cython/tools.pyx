@@ -441,7 +441,7 @@ cpdef double KL(double[:, ::1] Q1, double[:, ::1] Q2, int N, int K) noexcept nog
         size_t i, k
         double eps = 1e-10
         double acc = 0.0
-        double ai, bi, m
+        double ai, bi, bi_pos, m
         double* pa
         double* pb
     for i in prange(N, schedule='guided'):
@@ -449,9 +449,11 @@ cpdef double KL(double[:, ::1] Q1, double[:, ::1] Q2, int N, int K) noexcept nog
         pb = &Q2[i, 0]
         for k in range(K):
             ai = pa[k]
-            bi = pb[k]
-            m = 0.5 * (ai + bi)
-            acc += ai * log((ai) / m + eps)
+            if ai > 0.0:
+                bi = pb[k]
+                bi_pos = bi if bi > 0.0 else 0.0
+                m = 0.5 * (ai + bi_pos)
+                acc += ai * log(ai / m + eps)
     return acc / <double>N
 
 cpdef unpack_block(const uint8_t[:, ::1] G, Py_ssize_t start, Py_ssize_t end):

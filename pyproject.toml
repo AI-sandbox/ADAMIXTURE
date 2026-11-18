@@ -68,6 +68,8 @@ adamixture = "adamixture.entry:main"
 adamixture-plot = "adamixture.plot_entry:main"
 adamixture-project = "adamixture.project_entry:main"
 adamixture-supervised = "adamixture.supervised_entry:main"
+adamixture-eval = "adamixture.eval.evaluation:main"
+adamixture-stability = "adamixture.eval.stability:main"
 
 [tool.setuptools]
 include-package-data = true
