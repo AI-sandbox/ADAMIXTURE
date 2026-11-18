@@ -123,6 +123,23 @@ To leverage GPU acceleration (highly recommended for large datasets), use the `-
 
 For a step-by-step guide on how to run a complete analysis workflow, see the [1000 Genomes Tutorial](tutorials/1000_genomes.ipynb).
 
+### Inference (Docker)
+
+Alternatively to installing ADAMIXTURE locally, you can run CPU inference directly from a Docker container:
+
+1) Pull the multi-architecture Docker image from GitHub Container Registry (`linux/amd64` and `linux/arm64`):
+```console
+$ docker pull ghcr.io/ai-sandbox/adamixture:main
+```
+
+2) Mount your local data folder to `/data` and run `adamixture` (or any ADAMIXTURE CLI such as `adamixture-project`, `adamixture-supervised`, `adamixture-plot`, `adamixture-eval`, `adamixture-stability`):
+```console
+$ docker run --rm -v /local/data/folder:/data ghcr.io/ai-sandbox/adamixture:main \
+    adamixture -k 8 --data_path /data/snps_data.bed --save_dir /data/out --name snps_data -t 8
+```
+
+Where `-v` mounts `/local/data/folder` into `/data` inside the container (on Linux, you can pass `-u $(id -u):$(id -g)` so output files retain your user ownership). Note that the current Docker image supports CPU execution only.
+
 ## Multi-K Sweep
 
 Instead of running ADAMIXTURE for a single K, you can automatically sweep over a range of K values using `--min_k` and `--max_k`. The data is loaded once, and each K is trained sequentially. `K=1` is the no-structure null model and is a valid start for a sweep or a CV baseline:
