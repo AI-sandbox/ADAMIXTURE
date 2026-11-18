@@ -99,6 +99,25 @@ def unpack2bit_gpu_chunk_center_mps(
     return output
 
 
+def em_ab_packed_mps(
+    a_out: torch.Tensor,
+    b_out: torch.Tensor,
+    input_mps: torch.Tensor,
+    rec_mps: torch.Tensor,
+    m_start: int,
+    chunk_rows: int,
+    byte_offset: int,
+    N_total: int,
+) -> None:
+    """Fused Metal kernel computing E-step weight matrices (A, B) directly from 2-bit packed genotypes."""
+    if chunk_rows <= 0 or N_total <= 0:
+        return
+    _shader("pack2bit.metal").em_ab_packed_f32(
+        a_out, b_out, input_mps, rec_mps, int(m_start), int(chunk_rows), int(byte_offset), int(N_total),
+        threads=(int(chunk_rows) * int(N_total), 1, 1),
+    )
+
+
 def batch_bvls_bpp_mps(A: torch.Tensor, B: torch.Tensor, lower: float, upper: float) -> torch.Tensor:
     _check_mps_float32(A, B)
     M = B.size(0)

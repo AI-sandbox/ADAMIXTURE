@@ -43,6 +43,7 @@ def adamStep(G: np.ndarray, P0: np.ndarray, Q0: np.ndarray, T: np.ndarray, P1: n
     Returns:
         None
     """
+    G = ensure_packed(G, M)
     # EM Step:
     em.P_step(G, P0, P1, Q0, T, q_bat, K, M, N)
     em.Q_step(Q0, Q1, T, q_bat, K, N)
@@ -76,6 +77,7 @@ def emStep(G: np.ndarray, P0: np.ndarray, Q0: np.ndarray, T: np.ndarray, P1: np.
     Returns:
         None
     """
+    G = ensure_packed(G, M)
     em.P_step(G, P0, P1, Q0, T, q_bat, K, M, N)
     em.Q_step(Q0, Q1, T, q_bat, K, N)
     memoryview(P0.ravel())[:] = memoryview(P1.ravel())
@@ -111,46 +113,76 @@ def optimize_parameters(G: np.ndarray, P: np.ndarray, Q: np.ndarray, lr: float,
         tuple[np.ndarray, np.ndarray]: Optimized P and Q matrices.
     """
     G = ensure_packed(G, M)
-    # Adam state variables (first and second moments):
-    m_P = np.zeros_like(P, dtype=np.float64)
-    v_P = np.zeros_like(P, dtype=np.float64)
-    m_Q = np.zeros_like(Q, dtype=np.float64)
-    v_Q = np.zeros_like(Q, dtype=np.float64)
-    t = [0]
+    ws_bytes = em.em_workspace_bytes(M, N, K, False)
+    try:
+        # Adam state variables (first and second moments):
+        m_P = np.zeros((M, K), dtype=np.float64)
+        v_P = np.zeros((M, K), dtype=np.float64)
+        m_Q = np.zeros((N, K), dtype=np.float64)
+        v_Q = np.zeros((N, K), dtype=np.float64)
 
-    # Temporary buffers for EM calculations:
-    P1 = np.zeros_like(P, dtype=np.float64)
-    Q1 = np.zeros_like(Q, dtype=np.float64)
-    T = np.zeros_like(Q, dtype=np.float64)
-    q_bat = np.zeros(N, dtype=np.float64)
+        # Temporary buffers for EM calculations and best snapshot:
+        T = np.empty((N, K), dtype=np.float64)
+        inv_q_bat = np.empty(N, dtype=np.float64)
+        P_best = np.empty_like(P)
+        Q_best = np.empty_like(Q)
+        P1 = np.empty((M, K), dtype=np.float64) if max_iter > 0 else None
+        Q1 = np.empty((N, K), dtype=np.float64) if max_iter > 0 else None
+        scratch = np.empty(ws_bytes, dtype=np.uint8)
+    except MemoryError as exc:
+        target_mult = 4 if max_iter > 0 else 3
+        req_mb = (target_mult * (M + N) * K * 8 + N * 8 + ws_bytes) / (1024 ** 2)
+        raise MemoryError(
+            f"Out of memory allocating Adam-EM CPU buffers (~{req_mb:.1f} MiB required for M={M}, N={N}, K={K})."
+        ) from exc
 
-    # Variables for tracking the best solution:
-    P_best = np.empty_like(P)
-    Q_best = np.empty_like(Q)
-    L_best = float('-inf')
+    t_val = 0
     wait_lr = 0
 
-    ts = time.time()
+    em.precompute_inv_q_bat_packed(G, inv_q_bat, M, N)
 
     # Accelerated priming iteration
     ts_priming = time.time()
-    emStep(G, P, Q, T, P1, Q1, q_bat, K, M, N)
-    adamStep(G, P, Q, T, P1, Q1, q_bat, K, M, N, m_P, v_P, m_Q, v_Q, t, lr, beta1, beta2, reg_adam)
-    emStep(G, P, Q, T, P1, Q1, q_bat, K, M, N)
+    em.em_step_inplace(G, P, Q, T, inv_q_bat, K, M, N, scratch)
+    t_val += 1
+    em.adam_em_step_inplace(
+        G, P, Q, m_P, v_P, m_Q, v_Q, T, inv_q_bat,
+        lr, beta1, beta2, reg_adam, t_val, K, M, N, scratch,
+    )
+    em.em_step_inplace(G, P, Q, T, inv_q_bat, K, M, N, scratch)
     log.info(f"    Performed priming iteration... ({time.time() - ts_priming:.1f}s)\n")
 
-    # Initialize best with progress from priming
-    L_best = tools.loglikelihood_packed(G.ctypes.data, M, N, P, Q)
+    # Initialize best with progress from priming; reuse targets when main loop will run
+    if max_iter > 0:
+        L_best = em.em_targets_with_ll(G, P, P1, Q, Q1, T, inv_q_bat, K, M, N, scratch)
+        have_targets = True
+    else:
+        L_best = tools.loglikelihood_packed(G.ctypes.data, M, N, P, Q)
+        have_targets = False
     memoryview(P_best.ravel())[:] = memoryview(P.ravel())
     memoryview(Q_best.ravel())[:] = memoryview(Q.ravel())
 
+    ts = time.time()
+
     # ---------- Adam-EM ----------
     for it in range(max_iter):
-        adamStep(G, P, Q, T, P1, Q1, q_bat, K, M, N, m_P, v_P, m_Q, v_Q,
-                t, lr, beta1, beta2, reg_adam)
+        t_val += 1
+        if have_targets:
+            em.adamUpdateP(P, P1, m_P, v_P, lr, beta1, beta2, reg_adam, t_val, M, K)
+            em.adamUpdateQ(Q, Q1, m_Q, v_Q, lr, beta1, beta2, reg_adam, t_val, N, K)
+            have_targets = False
+        else:
+            em.adam_em_step_inplace(
+                G, P, Q, m_P, v_P, m_Q, v_Q, T, inv_q_bat,
+                lr, beta1, beta2, reg_adam, t_val, K, M, N, scratch,
+            )
 
         if (it + 1) % check == 0:
-            L_cur = tools.loglikelihood_packed(G.ctypes.data, M, N, P, Q)
+            if it + 1 < max_iter:
+                L_cur = em.em_targets_with_ll(G, P, P1, Q, Q1, T, inv_q_bat, K, M, N, scratch)
+                have_targets = True
+            else:
+                L_cur = tools.loglikelihood_packed(G.ctypes.data, M, N, P, Q)
             log.info(
                 f"    Iteration {it+1}, "
                 f"Log-likelihood: {L_cur:.1f}, "

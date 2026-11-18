@@ -1,6 +1,6 @@
 # cython: language_level=3, boundscheck=False, wraparound=False, initializedcheck=False, cdivision=True
 from cython.parallel import parallel, prange
-from libc.math cimport log, sqrtf, sqrt
+from libc.math cimport fmax, fmin, log, sqrtf, sqrt
 from libc.stdlib cimport free, malloc
 from libc.stdint cimport uint8_t, uint32_t, uintptr_t, int32_t, uint64_t
 
@@ -504,10 +504,15 @@ cpdef void mapQ_d(double[:,::1] Q, int N, int K) noexcept nogil:
     Returns:
         None
     """
-    cdef size_t j
-    with nogil, parallel():
-        for j in prange(N, schedule='guided'):
-            _norm_d(&Q[j,0], K)
+    cdef Py_ssize_t j
+    if N <= 0 or K <= 0:
+        return
+    if N < 64:
+        for j in range(N):
+            _norm_d(&Q[j, 0], K)
+    else:
+        for j in prange(N, schedule='static'):
+            _norm_d(&Q[j, 0], K)
 
 # Clip all entries of P to domain
 cpdef void mapP_d(double[:,::1] P, int M, int K) noexcept nogil:
@@ -524,18 +529,18 @@ cpdef void mapP_d(double[:,::1] P, int M, int K) noexcept nogil:
         None
     """
     cdef:
-        size_t i, k
-        double raw
+        Py_ssize_t idx, total_mk
         double* p
-    with nogil, parallel():
-        for i in prange(M, schedule='guided'):
-            p = &P[i,0]
-            for k in range(K):
-                raw = p[k]
-                if raw < 1e-5:
-                    p[k] = 1e-5
-                elif raw > 1.0 - 1e-5:
-                    p[k] = 1.0 - 1e-5
+    if M <= 0 or K <= 0:
+        return
+    total_mk = <Py_ssize_t>M * <Py_ssize_t>K
+    p = &P[0, 0]
+    if total_mk < 2048:
+        for idx in range(total_mk):
+            p[idx] = fmin(fmax(p[idx], 1e-5), 1.0 - 1e-5)
+    else:
+        for idx in prange(total_mk, schedule='static'):
+            p[idx] = fmin(fmax(p[idx], 1e-5), 1.0 - 1e-5)
 
 
 # Jensen-Shannon based divergence

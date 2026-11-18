@@ -13,7 +13,7 @@ from ..model.em_adam import emStep, optimize_parameters
 from ..model.svd import RSVD
 from . import utils
 from .compat import Device, require_torch
-from .utils_c import tools
+from .utils_c import em, tools
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")
 log = logging.getLogger(__name__)
@@ -125,20 +125,28 @@ def initialize_em_cpu(G: np.ndarray, seed: int, M: int, N: int, K: int,
     G = utils.ensure_packed(G, M)
     t0 = time.time()
     rng = np.random.default_rng(seed)
-    P = rng.random(size=(M, K), dtype=np.float64)
-    Q = rng.random(size=(N, K), dtype=np.float64)
-    tools.mapP_d(P, M, K)
-    tools.mapQ_d(Q, N, K)
+    ws_bytes = em.em_workspace_bytes(M, N, K, False)
+    try:
+        P = rng.random(size=(M, K), dtype=np.float64)
+        Q = rng.random(size=(N, K), dtype=np.float64)
+        tools.mapP_d(P, M, K)
+        tools.mapQ_d(Q, N, K)
 
-    P_next = np.empty_like(P)
-    Q_next = np.empty_like(Q)
-    T = np.zeros_like(Q)
-    q_bat = np.zeros(N, dtype=np.float64)
+        T = np.empty_like(Q)
+        inv_q_bat = np.empty(N, dtype=np.float64)
+        scratch = np.empty(ws_bytes, dtype=np.uint8)
+    except MemoryError as exc:
+        req_mb = (((M + 2 * N) * K + N) * 8 + ws_bytes) / (1024 ** 2)
+        raise MemoryError(
+            f"Out of memory allocating CPU EM initialization buffers (~{req_mb:.1f} MiB required for M={M}, N={N}, K={K})."
+        ) from exc
+
+    em.precompute_inv_q_bat_packed(G, inv_q_bat, M, N)
 
     if verbose:
         log.info(f"    Random initialization + {n_steps} EM initial steps...")
     for _ in range(n_steps):
-        emStep(G, P, Q, T, P_next, Q_next, q_bat, K, M, N)
+        em.em_step_inplace(G, P, Q, T, inv_q_bat, K, M, N, scratch)
 
     log.info(f"        Total EM initialization time={time.time() - t0:.3f}s")
     return P, Q
@@ -165,7 +173,11 @@ def initialize_em_gpu(G: Any, seed: int, M: int, N: int, K: int,
     P = torch.from_numpy(P_np).to(device=device_obj.torch_device if hasattr(device_obj, 'torch_device') else device_obj, dtype=dtype)
     Q = torch.from_numpy(Q_np).to(device=device_obj.torch_device if hasattr(device_obj, 'torch_device') else device_obj, dtype=dtype)
 
-    optimizer = EMAdamOptimizer(P.shape, Q.shape, 0.0, 0.0, 0.0, 0.0, device_obj.torch_device if hasattr(device_obj, 'torch_device') else device_obj)
+    optimizer = EMAdamOptimizer(
+        P.shape, Q.shape, 0.0, 0.0, 0.0, 0.0,
+        device_obj.torch_device if hasattr(device_obj, 'torch_device') else device_obj,
+        allocate_adam_state=False,
+    )
     unpacker = utils.get_unpacker(device_obj, threads_per_block)
 
     if verbose:

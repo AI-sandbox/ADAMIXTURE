@@ -112,6 +112,27 @@ def init_p_supervised_packed(G: "torch.Tensor", y: np.ndarray, K: int, M: int, e
 
 # ── CPU (numpy) implementation ────────────────────────────────────────────────
 
+def _prepare_snap_cpu(y: np.ndarray, K: int, eps: float = 1e-5) -> tuple[np.ndarray, np.ndarray, float, float]:
+    fill_minor = eps / max(K - 1, 1)
+    anchor = 1.0 - eps
+    labeled_idx = np.flatnonzero(y > 0)
+    labeled_cols = (y[labeled_idx] - 1).astype(np.intp, copy=False)
+    return labeled_idx, labeled_cols, fill_minor, anchor
+
+
+def _apply_snap_cpu(
+    Q: np.ndarray,
+    labeled_idx: np.ndarray,
+    labeled_cols: np.ndarray,
+    fill_minor: float,
+    anchor: float,
+) -> None:
+    if len(labeled_idx) == 0:
+        return
+    Q[labeled_idx, :] = fill_minor
+    Q[labeled_idx, labeled_cols] = anchor
+
+
 def _snap_q_cpu(Q: np.ndarray, y: np.ndarray, K: int, eps: float = 1e-5) -> None:
     """
     Description:
@@ -127,11 +148,8 @@ def _snap_q_cpu(Q: np.ndarray, y: np.ndarray, K: int, eps: float = 1e-5) -> None
     Returns:
         None: Q is updated in-place.
     """
-    fill_minor = eps / max(K - 1, 1)
-    for i, pop in enumerate(y):
-        if pop > 0:
-            Q[i, :] = fill_minor
-            Q[i, pop - 1] = 1.0 - eps
+    labeled_idx, labeled_cols, fill_minor, anchor = _prepare_snap_cpu(y, K, eps)
+    _apply_snap_cpu(Q, labeled_idx, labeled_cols, fill_minor, anchor)
 
 
 def _supervised_adam_step_cpu(G: np.ndarray, P0: np.ndarray, Q0: np.ndarray, T: np.ndarray,
@@ -246,41 +264,75 @@ def optimize_supervised(G: np.ndarray, P: np.ndarray, Q: np.ndarray, y: np.ndarr
         tuple[np.ndarray, np.ndarray]: Optimised (P, Q) matrices.
     """
     G = utils.ensure_packed(G, M)
-    m_P = np.zeros_like(P, dtype=np.float64)
-    v_P = np.zeros_like(P, dtype=np.float64)
-    m_Q = np.zeros_like(Q, dtype=np.float64)
-    v_Q = np.zeros_like(Q, dtype=np.float64)
-    t = [0]
+    ws_bytes = em.em_workspace_bytes(M, N, K, False)
+    try:
+        m_P = np.zeros((M, K), dtype=np.float64)
+        v_P = np.zeros((M, K), dtype=np.float64)
+        m_Q = np.zeros((N, K), dtype=np.float64)
+        v_Q = np.zeros((N, K), dtype=np.float64)
 
-    P1 = np.zeros_like(P, dtype=np.float64)
-    Q1 = np.zeros_like(Q, dtype=np.float64)
-    T = np.zeros_like(Q, dtype=np.float64)
-    q_bat = np.zeros(N, dtype=np.float64)
+        T = np.empty((N, K), dtype=np.float64)
+        inv_q_bat = np.empty(N, dtype=np.float64)
+        P_best = np.empty_like(P)
+        Q_best = np.empty_like(Q)
+        P1 = np.empty((M, K), dtype=np.float64) if max_iter > 0 else None
+        Q1 = np.empty((N, K), dtype=np.float64) if max_iter > 0 else None
+        scratch = np.empty(ws_bytes, dtype=np.uint8)
+    except MemoryError as exc:
+        target_mult = 4 if max_iter > 0 else 3
+        req_mb = (target_mult * (M + N) * K * 8 + N * 8 + ws_bytes) / (1024 ** 2)
+        raise MemoryError(
+            f"Out of memory allocating supervised Adam-EM CPU buffers (~{req_mb:.1f} MiB required for M={M}, N={N}, K={K})."
+        ) from exc
 
-    P_best = np.empty_like(P)
-    Q_best = np.empty_like(Q)
-    L_best = float("-inf")
+    t_val = 0
     wait_lr = 0
-
-    ts = time.time()
+    labeled_idx, labeled_cols, fill_minor, anchor = _prepare_snap_cpu(y, K)
+    em.precompute_inv_q_bat_packed(G, inv_q_bat, M, N)
 
     log.info("    Performing priming iteration...")
     ts_p = time.time()
-    _supervised_em_step_cpu(G, P, Q, T, P1, Q1, q_bat, K, M, N, y)
-    _supervised_adam_step_cpu(G, P, Q, T, P1, Q1, q_bat, K, M, N,
-                               m_P, v_P, m_Q, v_Q, t, lr, beta1, beta2, reg_adam, y)
-    _supervised_em_step_cpu(G, P, Q, T, P1, Q1, q_bat, K, M, N, y)
+    em.em_step_inplace(G, P, Q, T, inv_q_bat, K, M, N, scratch)
+    _apply_snap_cpu(Q, labeled_idx, labeled_cols, fill_minor, anchor)
+    t_val += 1
+    em.adam_em_step_inplace(
+        G, P, Q, m_P, v_P, m_Q, v_Q, T, inv_q_bat,
+        lr, beta1, beta2, reg_adam, t_val, K, M, N, scratch,
+    )
+    _apply_snap_cpu(Q, labeled_idx, labeled_cols, fill_minor, anchor)
+    em.em_step_inplace(G, P, Q, T, inv_q_bat, K, M, N, scratch)
+    _apply_snap_cpu(Q, labeled_idx, labeled_cols, fill_minor, anchor)
     log.info(f"    Priming done. ({time.time() - ts_p:.1f}s)\n")
 
-    L_best = tools.loglikelihood_packed(G.ctypes.data, M, N, P, Q)
-    P_best[:] = P
-    Q_best[:] = Q
+    if max_iter > 0:
+        L_best = em.em_targets_with_ll(G, P, P1, Q, Q1, T, inv_q_bat, K, M, N, scratch)
+        have_targets = True
+    else:
+        L_best = tools.loglikelihood_packed(G.ctypes.data, M, N, P, Q)
+        have_targets = False
+    memoryview(P_best.ravel())[:] = memoryview(P.ravel())
+    memoryview(Q_best.ravel())[:] = memoryview(Q.ravel())
 
+    ts = time.time()
     for it in range(max_iter):
-        _supervised_adam_step_cpu(G, P, Q, T, P1, Q1, q_bat, K, M, N,
-                                  m_P, v_P, m_Q, v_Q, t, lr, beta1, beta2, reg_adam, y)
+        t_val += 1
+        if have_targets:
+            em.adamUpdateP(P, P1, m_P, v_P, lr, beta1, beta2, reg_adam, t_val, M, K)
+            em.adamUpdateQ(Q, Q1, m_Q, v_Q, lr, beta1, beta2, reg_adam, t_val, N, K)
+            have_targets = False
+        else:
+            em.adam_em_step_inplace(
+                G, P, Q, m_P, v_P, m_Q, v_Q, T, inv_q_bat,
+                lr, beta1, beta2, reg_adam, t_val, K, M, N, scratch,
+            )
+        _apply_snap_cpu(Q, labeled_idx, labeled_cols, fill_minor, anchor)
+
         if (it + 1) % check == 0:
-            L_cur = tools.loglikelihood_packed(G.ctypes.data, M, N, P, Q)
+            if it + 1 < max_iter:
+                L_cur = em.em_targets_with_ll(G, P, P1, Q, Q1, T, inv_q_bat, K, M, N, scratch)
+                have_targets = True
+            else:
+                L_cur = tools.loglikelihood_packed(G.ctypes.data, M, N, P, Q)
             log.info(f"    Iteration {it + 1}, "
                      f"Log-likelihood: {L_cur:.1f}, "
                      f"Time: {time.time() - ts:.3f}s")
@@ -288,8 +340,8 @@ def optimize_supervised(G: np.ndarray, P: np.ndarray, Q: np.ndarray, y: np.ndarr
 
             if L_cur > L_best + tol_adam:
                 L_best = L_cur
-                P_best[:] = P
-                Q_best[:] = Q
+                memoryview(P_best.ravel())[:] = memoryview(P.ravel())
+                memoryview(Q_best.ravel())[:] = memoryview(Q.ravel())
                 wait_lr = 0
             else:
                 wait_lr += 1
@@ -394,6 +446,18 @@ def optimize_supervised_gpu(
     unpacker = utils.get_unpacker(device, threads_per_block)
     logl_calc = utils.get_logl_calculator(device)
 
+    import torch
+    K = Q.shape[1]
+    eps = 1e-5
+    labeled_idx = np.where(y > 0)[0]
+    if len(labeled_idx) > 0:
+        rows = np.full((len(labeled_idx), K), eps / max(K - 1, 1), dtype=np.float64)
+        rows[np.arange(len(labeled_idx)), y[labeled_idx] - 1] = 1.0 - eps
+        rows_t = torch.tensor(rows, dtype=Q.dtype, device=device)
+        idx_t = torch.tensor(labeled_idx, dtype=torch.long, device=device)
+    else:
+        rows_t = idx_t = None
+
     def run_em_step() -> "tuple[torch.Tensor, torch.Tensor]":
         """
         Description:
@@ -422,13 +486,13 @@ def optimize_supervised_gpu(
             None: P and Q are updated in-place.
         """
         optimizer.step(P, Q, P_target, Q_target)
-        _snap_q_gpu(Q, y, Q.shape[1])
+        if idx_t is not None:
+            Q[idx_t] = rows_t
 
     # Priming
     ts_p = time.time()
     P_target, Q_target = run_em_step()
     supervised_step(P_target, Q_target)
-    run_em_step()
     log.info(f"    Priming done. ({time.time() - ts_p:.1f}s)\n")
 
     L_best = logl_calc(G, P, Q, M, N, chunk_size, threads_per_block)
@@ -454,10 +518,10 @@ def optimize_supervised_gpu(
             else:
                 wait_lr += 1
                 if wait_lr >= patience:
-                    old_lr = lr
-                    lr = max(lr * lr_decay, min_lr)
-                    log.info(f"    Plateau ({wait_lr} checks). Reducing lr: {old_lr:.3e} → {lr:.3e}")
-                    if lr <= min_lr:
+                    old_lr = optimizer.lr
+                    optimizer.lr = max(optimizer.lr * lr_decay, min_lr)
+                    log.info(f"    Plateau ({wait_lr} checks). Reducing lr: {old_lr:.3e} → {optimizer.lr:.3e}")
+                    if optimizer.lr <= min_lr:
                         log.info("    Convergence reached.")
                         break
                     wait_lr = 0

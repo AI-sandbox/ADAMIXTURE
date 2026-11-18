@@ -2,11 +2,13 @@ import logging
 import time
 from collections.abc import Callable
 
+import numpy as np
 import torch
 
 from ..src import utils
 
 log = logging.getLogger(__name__)
+
 
 def adam_update(param: torch.Tensor, param_target: torch.Tensor, m: torch.Tensor, v: torch.Tensor,
                 t_tensor: torch.Tensor, lr: float, beta1: float, beta2: float, reg_adam: float) -> torch.Tensor:
@@ -41,9 +43,17 @@ def adam_update(param: torch.Tensor, param_target: torch.Tensor, m: torch.Tensor
     param.add_(step_val)
     return param
 
+
 adam_update_compiled = torch.compile(adam_update, disable=not hasattr(torch, "compile"))
 
-def em_batch_math(G_chunk: torch.Tensor, p_batch: torch.Tensor, Q: torch.Tensor, dtype: torch.dtype) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+
+def em_batch_math(
+    G_chunk: torch.Tensor,
+    p_batch: torch.Tensor,
+    Q: torch.Tensor,
+    dtype: torch.dtype,
+    need_q_bat: bool = True,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor | None]:
     """
     Compute EM sufficient-statistic contributions for one SNP chunk.
 
@@ -52,32 +62,66 @@ def em_batch_math(G_chunk: torch.Tensor, p_batch: torch.Tensor, Q: torch.Tensor,
         p_batch: P rows matching ``G_chunk`` with shape ``chunk_size x K``.
         Q: Current ancestry-proportion matrix with shape ``N x K``.
         dtype: Floating-point dtype used for the computation.
+        need_q_bat: Whether to compute per-sample non-missing counts for this chunk.
 
     Returns:
-        Per-chunk P numerator terms, Q accumulator terms, and genotype counts.
+        Per-chunk P numerator/complement terms, Q accumulator terms, and optional genotype counts.
     """
     mask = (G_chunk != 3).to(dtype)
     g_val = G_chunk.to(dtype)
 
     rec = torch.matmul(p_batch, Q.T)
-    rec = torch.clamp(rec, 1e-5, 1.0-1e-5)
+    rec = torch.clamp(rec, 1e-5, 1.0 - 1e-5)
 
-    term_a = (g_val / rec) * mask
-    denom_b = 1.0 - rec
-    term_b = ((2.0 - g_val) / denom_b) * mask
+    omr = 1.0 - rec
+    inv = mask / (rec * omr)
+    term_a = g_val * omr * inv
+    term_b = (2.0 - g_val) * rec * inv
 
-    A_part = torch.matmul(term_a, Q)
-    B_part = torch.matmul(term_b, Q)
+    c = G_chunk.size(0)
+    AB = torch.matmul(torch.cat([term_a, term_b], dim=0), Q)
+    A_part = AB[:c]
+    B_part = AB[c:]
 
     diff = term_a - term_b
     T_part = torch.matmul(diff.T, p_batch)
     T_sum_part = term_b.sum(dim=0, keepdim=True).T
 
-    q_bat_part = mask.sum(dim=0) * 2.0
+    q_bat_part = mask.sum(dim=0) * 2.0 if need_q_bat else None
 
     return A_part, B_part, T_part, T_sum_part, q_bat_part
 
+
 em_batch_compiled = torch.compile(em_batch_math, disable=not hasattr(torch, "compile"))
+
+
+def _em_final_from_scale(
+    P: torch.Tensor,
+    Q: torch.Tensor,
+    A_accum: torch.Tensor,
+    B_accum: torch.Tensor,
+    T_accum: torch.Tensor,
+    scale_Q: torch.Tensor,
+    P_target: torch.Tensor,
+    Q_target: torch.Tensor,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    torch.sub(A_accum, B_accum, out=P_target)
+    P_target.mul_(P)
+    P_target.add_(B_accum)
+    torch.clamp(P_target, min=1e-5, out=P_target)
+    P_target.reciprocal_()
+    P_target.mul_(P)
+    P_target.mul_(A_accum)
+
+    torch.mul(Q, T_accum, out=Q_target)
+    Q_target.mul_(scale_Q)
+
+    sum_Q = Q_target.sum(dim=1, keepdim=True)
+    torch.clamp(sum_Q, min=1e-5, out=sum_Q)
+    Q_target.div_(sum_Q)
+
+    return P_target, Q_target
+
 
 def em_final_update(P: torch.Tensor, Q: torch.Tensor, A_accum: torch.Tensor, B_accum: torch.Tensor,
                     T_accum: torch.Tensor, q_bat: torch.Tensor,
@@ -98,32 +142,20 @@ def em_final_update(P: torch.Tensor, Q: torch.Tensor, A_accum: torch.Tensor, B_a
     Returns:
         ``(P_target, Q_target)`` after in-place normalization/clipping.
     """
-    torch.sub(A_accum, B_accum, out=P_target)
-    P_target.mul_(P)
-    P_target.add_(B_accum)
-    torch.clamp(P_target, min=1e-5, out=P_target)
-    P_target.reciprocal_()
-    P_target.mul_(P)
-    P_target.mul_(A_accum)
-
     scale_Q = torch.clamp(q_bat, min=1e-5).reciprocal_().unsqueeze(1)
-    torch.mul(Q, T_accum, out=Q_target)
-    Q_target.mul_(scale_Q)
+    return _em_final_from_scale(P, Q, A_accum, B_accum, T_accum, scale_Q, P_target, Q_target)
 
-    sum_Q = Q_target.sum(dim=1, keepdim=True)
-    torch.clamp(sum_Q, min=1e-5, out=sum_Q)
-    Q_target.div_(sum_Q)
 
-    return P_target, Q_target
-
+em_final_from_scale_compiled = torch.compile(_em_final_from_scale, disable=not hasattr(torch, "compile"))
 em_final_compiled = torch.compile(em_final_update, disable=not hasattr(torch, "compile"))
+
 
 class EMAdamOptimizer:
     """
     Manages Adam optimization states for Expectation Minimization process.
     """
     def __init__(self, P_shape: torch.Size, Q_shape: torch.Size, lr: float, beta1: float, beta2: float,
-                reg_adam: float, device: torch.device) -> None:
+                reg_adam: float, device: torch.device, allocate_adam_state: bool = True) -> None:
         """
         Description:
         Initializes Adam-EM optimizer state tensors and EM target buffers.
@@ -136,11 +168,14 @@ class EMAdamOptimizer:
             beta2 (float): Adam beta2.
             reg_adam (float): Adam epsilon.
             device (torch.device): Device for optimizer buffers.
+            allocate_adam_state (bool): Whether to allocate first/second Adam moments.
 
         Returns:
             None
         """
         self.device = device
+        self._is_mps = device.type == "mps"
+        self._use_compile = (device.type == "cuda") and hasattr(torch, "compile")
         self.lr = lr
         self.beta1 = beta1
         self.beta2 = beta2
@@ -148,20 +183,116 @@ class EMAdamOptimizer:
         self.dtype = utils.get_dtype(device)
         self.t = torch.tensor(0.0, device=device, dtype=self.dtype)
 
-        self.m_P = torch.zeros(P_shape, dtype=self.dtype, device=device)
-        self.v_P = torch.zeros(P_shape, dtype=self.dtype, device=device)
-        self.m_Q = torch.zeros(Q_shape, dtype=self.dtype, device=device)
-        self.v_Q = torch.zeros(Q_shape, dtype=self.dtype, device=device)
+        if allocate_adam_state:
+            self.m_P = torch.zeros(P_shape, dtype=self.dtype, device=device)
+            self.v_P = torch.zeros(P_shape, dtype=self.dtype, device=device)
+            self.m_Q = torch.zeros(Q_shape, dtype=self.dtype, device=device)
+            self.v_Q = torch.zeros(Q_shape, dtype=self.dtype, device=device)
+        else:
+            self.m_P = self.v_P = self.m_Q = self.v_Q = None
 
         # Accumulation buffers
         self.A_accum = torch.zeros(P_shape, dtype=self.dtype, device=device)
         self.B_accum = torch.zeros(P_shape, dtype=self.dtype, device=device)
         self.T_accum = torch.zeros(Q_shape, dtype=self.dtype, device=device)
         self.q_bat = torch.zeros(Q_shape[0], dtype=self.dtype, device=device)
+        self.q_scale = None
+
+        # Reusable chunk workspaces (populated on first packed MPS sweep)
+        self._rec_buf = None
+        self._ab_buf = None
+        self._b_sum_buf = None
+        self._g_mps = None
+        self._tried_cache_g = False
 
         # Target buffers (P_EM, Q_EM)
         self.P_EM = torch.zeros(P_shape, dtype=self.dtype, device=device)
         self.Q_EM = torch.zeros(Q_shape, dtype=self.dtype, device=device)
+
+    def _ensure_q_scale_from_cpu_packed(self, G: torch.Tensor, M: int, N: int) -> None:
+        if self.q_scale is not None:
+            return
+        from ..src.utils_c import em
+        G_np = G.numpy()
+        inv_np = np.empty(N, dtype=np.float64)
+        em.precompute_inv_q_bat_packed(G_np, inv_np, M, N)
+        # Match original clamp(q_bat, min=1e-5).reciprocal_() behaviour on all-missing samples
+        inv_np[inv_np == 0.0] = 1e5
+        self.q_scale = torch.from_numpy(inv_np).to(device=self.device, dtype=self.dtype).unsqueeze(1)
+
+    def _run_em_step_mps_packed(
+        self,
+        G: torch.Tensor,
+        P: torch.Tensor,
+        Q: torch.Tensor,
+        M: int,
+        chunk_size: int,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        from ..src.utils_c import metal
+
+        N = Q.size(0)
+        if self.q_scale is None and G.device.type == "cpu":
+            self._ensure_q_scale_from_cpu_packed(G, M, N)
+
+        if not self._tried_cache_g:
+            self._tried_cache_g = True
+            if G.device.type == "mps":
+                self._g_mps = G
+            elif G.device.type == "cpu" and G.numel() <= 512 * 1024 * 1024:
+                try:
+                    self._g_mps = G.to(self.device)
+                except RuntimeError:
+                    self._g_mps = None
+
+        buf_rows = min(chunk_size, M)
+        if self._rec_buf is None or self._rec_buf.size(0) < buf_rows or self._rec_buf.size(1) != N:
+            self._rec_buf = torch.empty((buf_rows, N), dtype=self.dtype, device=self.device)
+            self._ab_buf = torch.empty((2 * buf_rows, N), dtype=self.dtype, device=self.device)
+        if self._b_sum_buf is None or self._b_sum_buf.numel() != N:
+            self._b_sum_buf = torch.zeros((N,), dtype=self.dtype, device=self.device)
+        else:
+            self._b_sum_buf.zero_()
+
+        self.T_accum.zero_()
+        Qt = Q.T.contiguous()
+        G_src = self._g_mps if self._g_mps is not None else G
+        is_full_mps = G_src.device.type == "mps"
+
+        for i in range(0, M, chunk_size):
+            end = min(i + chunk_size, M)
+            actual_chunk = end - i
+            p_batch = P[i:end]
+            rec = self._rec_buf[:actual_chunk]
+            torch.matmul(p_batch, Qt, out=rec)
+
+            ab = self._ab_buf[:2 * actual_chunk]
+            a_view = ab[:actual_chunk]
+            b_view = ab[actual_chunk:]
+
+            if is_full_mps:
+                G_chunk_packed = G_src
+                byte_offset = 0
+            else:
+                byte_start = i // 4
+                byte_end = (end + 3) // 4
+                G_chunk_packed = G_src[byte_start:byte_end, :].to(self.device, non_blocking=True)
+                byte_offset = byte_start
+
+            metal.em_ab_packed_mps(
+                a_view, b_view, G_chunk_packed, rec, i, actual_chunk, byte_offset, N
+            )
+
+            AB = torch.matmul(ab, Q)
+            self.A_accum[i:end] = AB[:actual_chunk]
+            self.B_accum[i:end] = AB[actual_chunk:]
+            self._b_sum_buf.add_(b_view.sum(dim=0))
+            a_view.sub_(b_view)
+            self.T_accum.addmm_(a_view.T, p_batch)
+
+        self.T_accum.add_(self._b_sum_buf.unsqueeze(1))
+        return _em_final_from_scale(
+            P, Q, self.A_accum, self.B_accum, self.T_accum, self.q_scale, self.P_EM, self.Q_EM
+        )
 
     def run_em_step(self, G: torch.Tensor, P: torch.Tensor, Q: torch.Tensor,
                    M: int, chunk_size: int, unpacker: Callable) -> tuple[torch.Tensor, torch.Tensor]:
@@ -179,24 +310,38 @@ class EMAdamOptimizer:
         Returns:
             EM target tensors ``(P_EM, Q_EM)``.
         """
+        if self._is_mps and utils.is_packed_genotype_tensor(G, M) and (
+            self.q_scale is not None or G.device.type == "cpu"
+        ):
+            return self._run_em_step_mps_packed(G, P, Q, M, chunk_size)
+
+        need_q_bat = self.q_scale is None
         self.A_accum.zero_()
         self.B_accum.zero_()
         self.T_accum.zero_()
-        self.q_bat.zero_()
+        if need_q_bat:
+            self.q_bat.zero_()
+
+        batch_fn = em_batch_compiled if self._use_compile else em_batch_math
+        final_fn = em_final_from_scale_compiled if self._use_compile else _em_final_from_scale
 
         for i in range(0, M, chunk_size):
             end = min(i + chunk_size, M)
             actual_chunk_size = end - i
             G_chunk = unpacker(G, i, actual_chunk_size, M)
             p_batch = P[i:end]
-            A_p, B_p, T_p, T_sum_p, q_p = em_batch_compiled(G_chunk, p_batch, Q, self.dtype)
+            A_p, B_p, T_p, T_sum_p, q_p = batch_fn(G_chunk, p_batch, Q, self.dtype, need_q_bat)
             self.A_accum[i:end] = A_p
             self.B_accum[i:end] = B_p
             self.T_accum.add_(T_p)
             self.T_accum.add_(T_sum_p)
-            self.q_bat.add_(q_p)
+            if need_q_bat and q_p is not None:
+                self.q_bat.add_(q_p)
 
-        return em_final_compiled(P, Q, self.A_accum, self.B_accum, self.T_accum, self.q_bat, self.P_EM, self.Q_EM)
+        if self.q_scale is None:
+            self.q_scale = torch.clamp(self.q_bat, min=1e-5).reciprocal_().unsqueeze(1)
+
+        return final_fn(P, Q, self.A_accum, self.B_accum, self.T_accum, self.q_scale, self.P_EM, self.Q_EM)
 
     def step(self, P: torch.Tensor, Q: torch.Tensor, P_target: torch.Tensor, Q_target: torch.Tensor) -> None:
         """
@@ -212,16 +357,18 @@ class EMAdamOptimizer:
             None.
         """
         self.t.add_(1.0)
+        upd_fn = adam_update_compiled if self._use_compile else adam_update
 
-        adam_update_compiled(P, P_target, self.m_P, self.v_P, self.t,
-                             self.lr, self.beta1, self.beta2, self.reg_adam)
+        upd_fn(P, P_target, self.m_P, self.v_P, self.t,
+               self.lr, self.beta1, self.beta2, self.reg_adam)
 
-        adam_update_compiled(Q, Q_target, self.m_Q, self.v_Q, self.t,
-                             self.lr, self.beta1, self.beta2, self.reg_adam)
+        upd_fn(Q, Q_target, self.m_Q, self.v_Q, self.t,
+               self.lr, self.beta1, self.beta2, self.reg_adam)
 
         torch.clamp_(P, 1e-5, 1.0 - 1e-5)
         torch.clamp_(Q, 1e-5, 1.0 - 1e-5)
         Q.div_(Q.sum(dim=1, keepdim=True))
+
 
 def logl_batch_math(g_chunk: torch.Tensor, p_batch: torch.Tensor, Q: torch.Tensor) -> torch.Tensor:
     """
@@ -245,7 +392,9 @@ def logl_batch_math(g_chunk: torch.Tensor, p_batch: torch.Tensor, Q: torch.Tenso
     ll_chunk = g_val * torch.log(rec_64) + (2.0 - g_val) * torch.log1p(-rec_64)
     return (ll_chunk * mask).sum()
 
+
 logl_batch_compiled = torch.compile(logl_batch_math, disable=not hasattr(torch, "compile"))
+
 
 def loglikelihood_gpu(G: torch.Tensor, P: torch.Tensor, Q: torch.Tensor, M: int, N: int, batch_size: int, device: torch.device, threads_per_block: int) -> float:
     """
@@ -277,6 +426,7 @@ def loglikelihood_gpu(G: torch.Tensor, P: torch.Tensor, Q: torch.Tensor, M: int,
         p_batch = P[i:end].to(torch.float64)
         ll_tensor.add_(logl_batch_compiled(G_chunk, p_batch, Q_64))
     return ll_tensor.item()
+
 
 def _optimize_parameters_gpu_once(G: torch.Tensor, P: torch.Tensor, Q: torch.Tensor, lr: float, beta1: float, beta2: float,
                   reg_adam: float, max_iter: int, check: int, K: int, M: int, N: int, lr_decay: float, min_lr: float,
@@ -319,7 +469,6 @@ def _optimize_parameters_gpu_once(G: torch.Tensor, P: torch.Tensor, Q: torch.Ten
     ts_priming = time.time()
     optimizer.run_em_step(G, P, Q, M, chunk_size, unpacker)
     optimizer.step(P, Q, optimizer.P_EM, optimizer.Q_EM)
-    optimizer.run_em_step(G, P, Q, M, chunk_size, unpacker)
     log.info(f"    Performed priming iteration... ({time.time() - ts_priming:.1f}s)\n")
 
     L_best = logl_calc(G, P, Q, M, N, chunk_size, threads_per_block)

@@ -483,4 +483,214 @@ static inline void adm_sqp_fill_1snp_mixed(
     }
 }
 
+static inline void adm_em_fill_4snps(
+    const uint8_t* __restrict g_row,
+    const double* __restrict r0,
+    const double* __restrict r1,
+    const double* __restrict r2,
+    const double* __restrict r3,
+    double* __restrict a0,
+    double* __restrict a1,
+    double* __restrict a2,
+    double* __restrict a3,
+    double* __restrict d0,
+    double* __restrict d1,
+    double* __restrict d2,
+    double* __restrict d3,
+    double* __restrict b_acc,
+    int n)
+{
+    for (int li = 0; li < n; ++li) {
+        uint8_t b = g_row[li];
+        uint8_t u0 = b & 0x03;
+        uint8_t u1 = (b >> 2) & 0x03;
+        uint8_t u2 = (b >> 4) & 0x03;
+        uint8_t u3 = (b >> 6) & 0x03;
+
+        double m0 = (double)(u0 != 3);
+        double m1 = (double)(u1 != 3);
+        double m2 = (double)(u2 != 3);
+        double m3 = (double)(u3 != 3);
+
+        double g0 = (double)u0;
+        double g1 = (double)u1;
+        double g2 = (double)u2;
+        double g3 = (double)u3;
+
+        double q0 = fmax(fmin(r0[li], 1.0 - 1e-15), 1e-15);
+        double q1 = fmax(fmin(r1[li], 1.0 - 1e-15), 1e-15);
+        double q2 = fmax(fmin(r2[li], 1.0 - 1e-15), 1e-15);
+        double q3 = fmax(fmin(r3[li], 1.0 - 1e-15), 1e-15);
+
+        double w0 = q0 * (1.0 - q0);
+        double w1 = q1 * (1.0 - q1);
+        double w2 = q2 * (1.0 - q2);
+        double w3 = q3 * (1.0 - q3);
+
+        double w01 = w0 * w1;
+        double w23 = w2 * w3;
+        double inv_all = 1.0 / (w01 * w23);
+        double inv01 = inv_all * w23;
+        double inv23 = inv_all * w01;
+        double inv0 = m0 * (inv01 * w1);
+        double inv1 = m1 * (inv01 * w0);
+        double inv2 = m2 * (inv23 * w3);
+        double inv3 = m3 * (inv23 * w2);
+
+        double av0 = g0 * (1.0 - q0) * inv0;
+        double bv0 = (2.0 - g0) * q0 * inv0;
+        a0[li] = av0;
+        d0[li] = av0 - bv0;
+
+        double av1 = g1 * (1.0 - q1) * inv1;
+        double bv1 = (2.0 - g1) * q1 * inv1;
+        a1[li] = av1;
+        d1[li] = av1 - bv1;
+
+        double av2 = g2 * (1.0 - q2) * inv2;
+        double bv2 = (2.0 - g2) * q2 * inv2;
+        a2[li] = av2;
+        d2[li] = av2 - bv2;
+
+        double av3 = g3 * (1.0 - q3) * inv3;
+        double bv3 = (2.0 - g3) * q3 * inv3;
+        a3[li] = av3;
+        d3[li] = av3 - bv3;
+
+        b_acc[li] += bv0 + bv1 + bv2 + bv3;
+    }
+}
+
+static inline void adm_em_fill_1snp(
+    const uint8_t* __restrict g_row,
+    uint8_t shift,
+    const double* __restrict r_in,
+    double* __restrict a_out,
+    double* __restrict d_out,
+    double* __restrict b_acc,
+    int n)
+{
+    for (int li = 0; li < n; ++li) {
+        uint8_t u = (g_row[li] >> shift) & 0x03;
+        double m = (double)(u != 3);
+        double g = (double)u;
+        double q = fmax(fmin(r_in[li], 1.0 - 1e-15), 1e-15);
+        double inv = m / (q * (1.0 - q));
+        double av = g * (1.0 - q) * inv;
+        double bv = (2.0 - g) * q * inv;
+        a_out[li] = av;
+        d_out[li] = av - bv;
+        b_acc[li] += bv;
+    }
+}
+
+static inline void adm_em_fill_4snps_ll(
+    const uint8_t* __restrict g_row,
+    const double* __restrict r0,
+    const double* __restrict r1,
+    const double* __restrict r2,
+    const double* __restrict r3,
+    double* __restrict a0,
+    double* __restrict a1,
+    double* __restrict a2,
+    double* __restrict a3,
+    double* __restrict d0,
+    double* __restrict d1,
+    double* __restrict d2,
+    double* __restrict d3,
+    double* __restrict b_acc,
+    double* __restrict p4_out,
+    int n)
+{
+    for (int li = 0; li < n; ++li) {
+        uint8_t b = g_row[li];
+        uint8_t u0 = b & 0x03;
+        uint8_t u1 = (b >> 2) & 0x03;
+        uint8_t u2 = (b >> 4) & 0x03;
+        uint8_t u3 = (b >> 6) & 0x03;
+
+        double m0 = (double)(u0 != 3);
+        double m1 = (double)(u1 != 3);
+        double m2 = (double)(u2 != 3);
+        double m3 = (double)(u3 != 3);
+
+        double g0 = (double)u0;
+        double g1 = (double)u1;
+        double g2 = (double)u2;
+        double g3 = (double)u3;
+
+        double q0 = fmax(fmin(r0[li], 1.0 - 1e-15), 1e-15);
+        double q1 = fmax(fmin(r1[li], 1.0 - 1e-15), 1e-15);
+        double q2 = fmax(fmin(r2[li], 1.0 - 1e-15), 1e-15);
+        double q3 = fmax(fmin(r3[li], 1.0 - 1e-15), 1e-15);
+
+        double w0 = q0 * (1.0 - q0);
+        double w1 = q1 * (1.0 - q1);
+        double w2 = q2 * (1.0 - q2);
+        double w3 = q3 * (1.0 - q3);
+
+        double w01 = w0 * w1;
+        double w23 = w2 * w3;
+        double inv_all = 1.0 / (w01 * w23);
+        double inv01 = inv_all * w23;
+        double inv23 = inv_all * w01;
+        double inv0 = m0 * (inv01 * w1);
+        double inv1 = m1 * (inv01 * w0);
+        double inv2 = m2 * (inv23 * w3);
+        double inv3 = m3 * (inv23 * w2);
+
+        double av0 = g0 * (1.0 - q0) * inv0;
+        double bv0 = (2.0 - g0) * q0 * inv0;
+        a0[li] = av0;
+        d0[li] = av0 - bv0;
+
+        double av1 = g1 * (1.0 - q1) * inv1;
+        double bv1 = (2.0 - g1) * q1 * inv1;
+        a1[li] = av1;
+        d1[li] = av1 - bv1;
+
+        double av2 = g2 * (1.0 - q2) * inv2;
+        double bv2 = (2.0 - g2) * q2 * inv2;
+        a2[li] = av2;
+        d2[li] = av2 - bv2;
+
+        double av3 = g3 * (1.0 - q3) * inv3;
+        double bv3 = (2.0 - g3) * q3 * inv3;
+        a3[li] = av3;
+        d3[li] = av3 - bv3;
+
+        b_acc[li] += bv0 + bv1 + bv2 + bv3;
+
+        p4_out[li] = _adm_ll_factor_branchless(q0, u0)
+                   * _adm_ll_factor_branchless(q1, u1)
+                   * _adm_ll_factor_branchless(q2, u2)
+                   * _adm_ll_factor_branchless(q3, u3);
+    }
+}
+
+static inline void adm_em_fill_1snp_ll(
+    const uint8_t* __restrict g_row,
+    uint8_t shift,
+    const double* __restrict r_in,
+    double* __restrict a_out,
+    double* __restrict d_out,
+    double* __restrict b_acc,
+    double* __restrict p1_out,
+    int n)
+{
+    for (int li = 0; li < n; ++li) {
+        uint8_t u = (g_row[li] >> shift) & 0x03;
+        double m = (double)(u != 3);
+        double g = (double)u;
+        double q = fmax(fmin(r_in[li], 1.0 - 1e-15), 1e-15);
+        double inv = m / (q * (1.0 - q));
+        double av = g * (1.0 - q) * inv;
+        double bv = (2.0 - g) * q * inv;
+        a_out[li] = av;
+        d_out[li] = av - bv;
+        b_acc[li] += bv;
+        p1_out[li] = _adm_ll_factor_branchless(q, u);
+    }
+}
+
 #endif /* ADAMIXTURE_BLAS_HELPER_H */
