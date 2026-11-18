@@ -324,7 +324,7 @@ cdef void _solve_box_qp_cholesky(const double* H, const double* r,
         int* state = i_ws
         int* F = state + K
         int k, l, a, b, it, m, ia, ib_, rc, block_k, block_st, best_k
-        double val, h_ab, alpha, lb, ub, denom, step, gk, best_viol
+        double val, h_ab, alpha, lb, ub, denom, step, gk, best_viol, tr_sub, reg
 
     for k in range(K):
         if H[k * K + k] <= 0.0:
@@ -370,7 +370,15 @@ cdef void _solve_box_qp_cholesky(const double* H, const double* r,
 
             rc = _cholesky_solve_dense(L, H_sub, m, rhs, sol, m, 1e-7)
             if rc < 0:
-                break
+                tr_sub = 0.0
+                for a in range(m):
+                    tr_sub += H_sub[a * m + a]
+                reg = 1e-6 * (tr_sub / m + 1.0)
+                for a in range(m):
+                    H_sub[a * m + a] += reg
+                rc = _cholesky_solve_dense(L, H_sub, m, rhs, sol, m, 1e-12)
+                if rc < 0:
+                    break
             for a in range(m):
                 d_star[F[a]] = sol[a]
 
