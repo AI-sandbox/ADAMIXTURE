@@ -21,13 +21,13 @@ mac_include = []
 
 if system == "Linux":
     compile_args = ['-O3', '-ffast-math', '-fno-wrapv']
-    link_args = ['-lm']
+    link_args = ['-lm', '-ldl']
     if "CC" not in os.environ:
         os.environ["CC"] = "gcc"
     if "CXX" not in os.environ:
         os.environ["CXX"] = "g++"
 elif system == "Darwin":  # macOS
-    compile_args = ['-O3', '-ffast-math', '-fno-wrapv']
+    compile_args = ['-O3', '-ffast-math', '-fno-wrapv', '-Wno-deprecated-declarations']
     omp_candidates = [
         os.environ.get("OPENMP_DIR", ""),
         "/tmp/openmp",
@@ -42,11 +42,12 @@ elif system == "Darwin":  # macOS
             break
 
     if omp_path:
-        link_args = ['-lm', f'-L{omp_path}/lib', f'-Wl,-rpath,{omp_path}/lib']
+        link_args = ['-lm', '-framework', 'Accelerate', f'-L{omp_path}/lib', f'-Wl,-rpath,{omp_path}/lib']
         common_macros.append(('HAVE_OPENMP', '1'))
         mac_include = [f'{omp_path}/include']
     else:
         log.warning("OpenMP (libomp) not found; will attempt fallback build.")
+        link_args = ['-framework', 'Accelerate']
 
     if "CC" not in os.environ:
         os.environ["CC"] = "clang"
@@ -168,7 +169,7 @@ def kernel_extension(package: str, name: str, source: str, extra_args: list[str]
         sources=[source],
         extra_compile_args=compile_args + list(extra_args),
         extra_link_args=link_args,
-        include_dirs=[numpy.get_include()] + mac_include,
+        include_dirs=[numpy.get_include(), CYTHON_DIR] + mac_include,
         define_macros=common_macros,
     )
 
@@ -190,6 +191,7 @@ setup(
         "adamixture": [
             "src/utils_c/cuda/*.cu",
             "src/utils_c/cython/*.pyx",
+            "src/utils_c/cython/*.h",
             "src/utils_c/metal/*.metal",
             "demo/README.md",
             "demo/run_demo.sh",

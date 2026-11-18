@@ -79,6 +79,7 @@ include = ["adamixture*"]
 adamixture = [
     "src/utils_c/cuda/*.cu",
     "src/utils_c/cython/*.pyx",
+    "src/utils_c/cython/*.h",
     "src/utils_c/metal/*.metal",
     "demo/README.md",
     "demo/run_demo.sh",

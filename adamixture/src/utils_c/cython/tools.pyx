@@ -6,6 +6,20 @@ from libc.stdint cimport uint8_t, uint32_t, uintptr_t, int32_t, uint64_t
 
 import numpy as np
 
+cdef extern from "blas_helper.h" nogil:
+    int adm_blas_begin_single_thread()
+    void adm_blas_end_single_thread(int prev)
+    void adm_dgemm_nn(int M, int N, int K, double alpha,
+                      const double* A, int lda,
+                      const double* B, int ldb,
+                      double beta, double* C, int ldc)
+    void adm_ll_fill_p4(const uint8_t* g_row,
+                        const double* r0, const double* r1,
+                        const double* r2, const double* r3,
+                        double* p4, size_t n)
+    void adm_ll_fill_p1(const uint8_t* g_row, uint8_t shift,
+                        const double* r_in, double* p1, size_t n)
+
 
 # Row-wise genotype reconstruction and log-likelihood (fused)
 cdef inline double _row_loglike(const uint8_t* g_row, const double* p, const double* Q, Py_ssize_t N, Py_ssize_t K) noexcept nogil:
@@ -157,6 +171,79 @@ cpdef double loglikelihood(uint8_t[:,::1] G, double[:,::1] P, double[:,::1] Q) n
     return ll
 
 
+cdef enum:
+    LL_SNP_TILE = 64
+    LL_IND_TILE = 256
+
+
+cdef double _ll_packed_tile(const uint8_t* G, const double* P, const double* Qt,
+                            size_t j0, size_t c, size_t N, size_t K, double* r_tile) noexcept nogil:
+    cdef:
+        size_t i0, n, n4, r4, r, li
+        uint8_t shift
+        const uint8_t* g_row
+        double* r0
+        double* r1
+        double* r2
+        double* r3
+        double p_buf[256]
+        double tile_ll = 0.0
+
+    i0 = 0
+    while i0 < N:
+        n = N - i0
+        if n > LL_IND_TILE:
+            n = LL_IND_TILE
+        adm_dgemm_nn(<int>c, <int>n, <int>K, 1.0,
+                     P + j0 * K, <int>K, Qt + i0, <int>N, 0.0, r_tile, <int>n)
+
+        n4 = c >> 2
+        for r4 in range(n4):
+            g_row = G + ((j0 >> 2) + r4) * N + i0
+            r0 = r_tile + (r4 << 2) * n
+            r1 = r0 + n
+            r2 = r1 + n
+            r3 = r2 + n
+            adm_ll_fill_p4(g_row, r0, r1, r2, r3, p_buf, n)
+            li = 0
+            while li + 8 <= n:
+                tile_ll += (
+                    log(p_buf[li] * p_buf[li + 1])
+                    + log(p_buf[li + 2] * p_buf[li + 3])
+                    + log(p_buf[li + 4] * p_buf[li + 5])
+                    + log(p_buf[li + 6] * p_buf[li + 7])
+                )
+                li += 8
+            while li + 2 <= n:
+                tile_ll += log(p_buf[li] * p_buf[li + 1])
+                li += 2
+            if li < n:
+                tile_ll += log(p_buf[li])
+
+        for r in range(n4 << 2, c):
+            g_row = G + ((j0 + r) >> 2) * N + i0
+            shift = <uint8_t>(((j0 + r) & 3) << 1)
+            r0 = r_tile + r * n
+            adm_ll_fill_p1(g_row, shift, r0, p_buf, n)
+            li = 0
+            while li + 8 <= n:
+                tile_ll += (
+                    log(p_buf[li] * p_buf[li + 1])
+                    + log(p_buf[li + 2] * p_buf[li + 3])
+                    + log(p_buf[li + 4] * p_buf[li + 5])
+                    + log(p_buf[li + 6] * p_buf[li + 7])
+                )
+                li += 8
+            while li + 2 <= n:
+                tile_ll += log(p_buf[li] * p_buf[li + 1])
+                li += 2
+            if li < n:
+                tile_ll += log(p_buf[li])
+
+        i0 += LL_IND_TILE
+    return tile_ll
+
+
 cpdef double loglikelihood_packed(uintptr_t G_ptr, size_t M, size_t N, double[:,::1] P, double[:,::1] Q) noexcept nogil:
     """
     Description:
@@ -165,22 +252,34 @@ cpdef double loglikelihood_packed(uintptr_t G_ptr, size_t M, size_t N, double[:,
     for each sample.
     """
     cdef:
-        uint8_t* G = <uint8_t*>G_ptr
+        const uint8_t* G = <const uint8_t*>G_ptr
         Py_ssize_t K = Q.shape[1]
-        Py_ssize_t j
+        Py_ssize_t n_tiles, tile, c_max, n_max
+        size_t j0, c
+        int prev_blas
         double ll = 0.0
-        double* Qt = _transpose_q(Q)
-        double* ws
-        uint8_t* gs
+        double* Qt
+        double* r_tile
 
+    if M == 0 or N == 0 or K == 0:
+        return 0.0
+
+    Qt = _transpose_q(Q)
+    n_tiles = <Py_ssize_t>((M + LL_SNP_TILE - 1) // LL_SNP_TILE)
+    c_max = <Py_ssize_t>M if M < LL_SNP_TILE else LL_SNP_TILE
+    n_max = <Py_ssize_t>N if N < LL_IND_TILE else LL_IND_TILE
+
+    prev_blas = adm_blas_begin_single_thread()
     with nogil, parallel():
-        ws = <double*>malloc(LL_CHUNK * sizeof(double))
-        gs = <uint8_t*>malloc(LL_CHUNK * sizeof(uint8_t))
-        for j in prange(<Py_ssize_t>M, schedule='guided'):
-            ll += _row_loglike_packed_t(&G[(j >> 2) * N], <uint8_t>((j & 3) << 1),
-                                        &P[j, 0], Qt, N, K, ws, gs)
-        free(gs)
-        free(ws)
+        r_tile = <double*>malloc(<size_t>c_max * n_max * sizeof(double))
+        for tile in prange(n_tiles, schedule='dynamic', chunksize=1):
+            j0 = <size_t>tile * LL_SNP_TILE
+            c = M - j0
+            if c > LL_SNP_TILE:
+                c = LL_SNP_TILE
+            ll += _ll_packed_tile(G, &P[0, 0], Qt, j0, c, N, <size_t>K, r_tile)
+        free(r_tile)
+    adm_blas_end_single_thread(prev_blas)
     free(Qt)
     return ll
 
