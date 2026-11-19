@@ -31,7 +31,13 @@ _THREAD_ENV_VARS = (
     "OPENBLAS_MAX_THREADS",
 )
 _THREAD_LIB_MARKERS = ("openblas", "libgomp", "libomp", "libiomp", "mkl_rt", "mkl_core", "vcomp")
-_THREAD_SYMBOLS = ("omp_set_num_threads", "openblas_set_num_threads", "mkl_set_num_threads")
+_THREAD_SYMBOLS = (
+    "omp_set_num_threads",
+    "openblas_set_num_threads",
+    "scipy_openblas_set_num_threads64_",
+    "mkl_set_num_threads",
+    "MKL_Set_Num_Threads",
+)
 
 
 def set_cpu_threads(n_threads: int) -> None:
@@ -96,7 +102,21 @@ def _loaded_thread_libraries() -> list[str]:
             kernel32.GetModuleHandleW.restype = ctypes.c_void_p
             kernel32.GetModuleFileNameW.argtypes = [ctypes.c_void_p, ctypes.c_wchar_p, ctypes.c_uint32]
             kernel32.GetModuleFileNameW.restype = ctypes.c_uint32
-            for cand in ["vcomp140.dll", "vcomp.dll", "libomp.dll", "libgomp-1.dll", "libiomp5md.dll", "openblas.dll", "mkl_rt.dll"]:
+            cands = [
+                "vcomp140.dll",
+                "vcomp.dll",
+                "libomp.dll",
+                "libgomp-1.dll",
+                "libiomp5md.dll",
+                "openblas.dll",
+                "libopenblas.dll",
+                "mkl_rt.dll",
+                "mkl_rt.2.dll",
+            ]
+            np_libs = Path(np.__file__).resolve().parent.parent / "numpy.libs"
+            if np_libs.is_dir():
+                cands.extend(p.name for p in np_libs.glob("*.dll"))
+            for cand in cands:
                 h = kernel32.GetModuleHandleW(cand)
                 if h:
                     buf = ctypes.create_unicode_buffer(1024)
