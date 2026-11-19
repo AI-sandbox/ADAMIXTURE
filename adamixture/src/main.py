@@ -52,7 +52,6 @@ def main(args: argparse.Namespace, t0: float) -> int:
             specific_chrom=getattr(args, "specific_chrom", None),
         )
 
-        log.info(f"    Genotype storage: {G.nbytes if isinstance(G, np.ndarray) else G.numel()} bytes.")
         trained: dict[int, tuple] = {}
         trained_plot: dict[int, tuple] = {}
         should_plot_combined = len(k_values) > 1 and getattr(args, 'plot', None) is not None
