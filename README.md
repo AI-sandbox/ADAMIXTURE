@@ -16,8 +16,8 @@
 
 ---
 
-**ADAMIXTURE** is a fast CPU/GPU implementation of ADMIXTURE for biobank-scale genetic clustering. `.P` and `.Q` outputs remain compatible with ADMIXTURE.
-[published in Bioinformatics](https://academic.oup.com/bioinformatics/article/42/Supplement_1/btag236/8726296)
+**ADAMIXTURE** is a fast CPU/GPU implementation of ADMIXTURE for biobank-scale genetic clustering. `.P` and `.Q` outputs remain compatible with ADMIXTURE,
+[published in Bioinformatics](https://academic.oup.com/bioinformatics/article/42/Supplement_1/btag236/8726296).
 
 ## System requirements
 
